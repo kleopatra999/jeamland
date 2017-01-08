@@ -12,7 +12,7 @@
 
 /****
  * The version number.. */
-#define VERSION		"1.0.0"
+#define VERSION		"1.0.1"
 #define ERQD_VERSION	"1.3"
 #define INETD_VERSION	"1.6"
 #define MAIL_VERSION	"2.3"

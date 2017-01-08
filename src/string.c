@@ -278,6 +278,11 @@ sadd_strbuf(struct strbuf *sbuf, char *fmt, ...)
 	static char buf[BUFFER_SIZE];
 	va_list argp;
 
+#ifdef DEBUG
+	if (strlen(fmt) > sizeof(buf))
+		fatal("sadd_strbuf: sbuf too long!");
+#endif
+
 	va_start(argp, fmt);
 	vsprintf(buf, fmt, argp);
 	va_end(argp);

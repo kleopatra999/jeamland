@@ -288,7 +288,10 @@ dump_lines(struct user *p, int start, int end)
 			continue;
 		if (end && i > end)
 			break;
-		sadd_strbuf(&buf, " %-3d%s%s\n", i, ED_PROMPT, l->text);
+		sadd_strbuf(&buf, " %-3d%s", i, ED_PROMPT);
+		add_strbuf(&buf, l->text);
+		cadd_strbuf(&buf, '\n');
+		/*sadd_strbuf(&buf, " %-3d%s%s\n", i, ED_PROMPT, l->text);*/
 	}
 	if (!buf.offset)
 	{

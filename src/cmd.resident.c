@@ -1814,20 +1814,24 @@ epost3(struct user *p, int i)
 {
 	struct message *m;
 	struct room *r;
+	int roomc;
 
-	if (!strcmp(p->super->fname, (p->stack.sp - 4)->u.string))
+	roomc = i == EDX_NORMAL ? 4 : 3;
+
+	/* We made it to here, so remove atexit function */
+	pop_n_elems(&p->atexit, 2);
+
+	if (!strcmp(p->super->fname, (p->stack.sp - roomc)->u.string))
 		r = p->super;
-	else if (!ROOM_POINTER(r, (p->stack.sp - 4)->u.string))
+	else if (!ROOM_POINTER(r, (p->stack.sp - roomc)->u.string))
 	{
 		write_socket(p, "The room you were in has disappeared!.\n");
-		pop_n_elems(&p->stack, 5);
+		pop_n_elems(&p->stack, roomc + 1);
 		return;
 	}
 
 	/* Remove memory-resident flag of room. */
 	r->inhibit_cleanup--;
-	/* Remove atexit function */
-	pop_n_elems(&p->atexit, 2);
 
 	if (i != EDX_NORMAL)
 	{
