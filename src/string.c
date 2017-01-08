@@ -1048,7 +1048,7 @@ valid_name(struct user *p, char *name, int room)
         {
                 if (*q == ' ')
                         *q = '_';
-                else if (!isprint(*q) || (!room && *q == '#'))
+                else if (!isprint(*q) || *q == '/' || (!room && *q == '#'))
                 {
                         write_socket(p, "Invalid character (%d).\n", q -
 			    name + 1);

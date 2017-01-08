@@ -1,0 +1,10 @@
+
+1.2.1
+ - Room and user names can no longer contain a / character - [Dreamer]
+ - 'reply .feeling argument' was causing a crash - [Dreamer]
+ - Fixed bug where a user could seem to be disconnected twice in succession.
+ - Closing user sockets are now disconnected before select() is called as
+   well as after.
+ - Previously, if ^C was pressed at the password prompt of a console mode
+   talker, echo would remain off in the running shell - [Neil.R]
+

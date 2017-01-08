@@ -1,4 +1,4 @@
 flags 2
 limit -1
 # poster, subject, time, flags, text
-message ({"root","Welcome to JeamLand 1.2.0",852161520,0,"\nWelcome to version 1.2 of the JeamLand talker.\n\nIf you have any problems or suggestions, you can either send email to:\n\n	JeamLand@twikki.demon.co.uk\n\nOr, use talker email to:\n\n	#support@orchard\n\nEnjoy!\n\nAndy Fiddaman\n",})
+message ({"root","Welcome to JeamLand 1.2.0",875228900,0,"\nWelcome to version 1.2 of the JeamLand talker.\n\nIf you have any problems or suggestions, you can either send email to:\n\n	JeamLand@twikki.demon.co.uk\n\nOr, use talker email to:\n\n	#support@orchard\n\nEnjoy!\n\nAndy Fiddaman\n",})

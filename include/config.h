@@ -13,9 +13,9 @@
 /****
  * The version number..
  */
-#define VERSION		"1.2.0"
-#define JL_REL_DATE	"Tue Sep 16 20:29:21 1997"
-#define SH_JL_REL_DATE	"16/09/1997"
+#define VERSION		"1.2.1"
+#define JL_REL_DATE	"Tue Sep 25 22:58:13 1997"
+#define SH_JL_REL_DATE	"25/09/1997"
 #define ERQD_VERSION	"2.0"
 #define INETD_VERSION	"2.0"
 #define MAIL_VERSION	"2.0"

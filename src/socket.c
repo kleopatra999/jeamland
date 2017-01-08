@@ -2179,25 +2179,25 @@ scan_socket(struct user *p)
 	switch (scan_tcpsock(&p->socket))
 	{
 	    case -1:
+		save_user(p, 1, 0);
+		disconnect_user(p, 1);
 		notify_levelabu_wrt_flags(p, SEE_LOGIN(p) ? L_CONSUL :
 		    L_OVERSEER, EAR_TCP,
 		    "[ *TCP* Read error: %s [%s] (%s) %s ]",
 		    p->capname, capfirst(level_name(p->level, 0)),
 		    lookup_ip_name(p), perror_text());
 		log_perror("socket read");
-		save_user(p, 1, 0);
-		disconnect_user(p, 1);
 		FUN_END;
 		return;
 
 	    case 0:
+		save_user(p, 1, 0);
+		disconnect_user(p, 1);
 		notify_levelabu_wrt_flags(p, SEE_LOGIN(p) ? L_CONSUL :
 		    L_OVERSEER, EAR_TCP,
 		    "[ *TCP* Read error: %s [%s] (%s) Remote Flush ]",
 		    p->capname, capfirst(level_name(p->level, 0)),
 		    lookup_ip_name(p));
-		save_user(p, 1, 0);
-		disconnect_user(p, 1);
 		FUN_END;
 		return;
 	}
@@ -2365,6 +2365,9 @@ process_input(struct user *p)
 void
 disconnect_user(struct user *p, int lost)
 {
+	if (p->flags & U_SOCK_CLOSING)
+		return;
+
 	if (p->name != (char *)NULL && IN_GAME(p))
 	{
 		if (lost)
@@ -2489,8 +2492,17 @@ process_sockets()
 		}
 
 	/* Finally get around to the users ;-) */
-	for (p = users->next; p != (struct user *)NULL; p = p->next)
+	for (p = users->next; p != (struct user *)NULL; p = next_p)
 	{
+		next_p = p->next;
+
+		/* Get rid of closing sockets before we start. */
+		if (p->flags & U_SOCK_CLOSING)
+		{
+			close_socket(p);
+			continue;
+		}
+
 		FD_SET(p->socket.fd, &readfds);
 		FD_SET(p->socket.fd, &exfds);
 		if (p->socket.flags & TCPSOCK_BLOCKED)

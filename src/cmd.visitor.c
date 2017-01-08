@@ -1152,11 +1152,18 @@ void f_tell(struct user *, int, char **);
 void
 reply2(struct user *p, char *c)
 {
-	char *argv[3];
+	char *argv[4];
+	int argc = 3;
+	char *q;
 
+	argv[0] = "reply";
 	argv[1] = p->stack.sp->u.string;
 	argv[2] = c;
-	f_tell(p, 3, argv);
+
+	if ((q = strchr(argv[2], ' ')) != (char *)NULL)
+		argv[3] = ++q, argc++;
+
+	f_tell(p, argc, argv);
 	pop_stack(&p->stack);
 	p->input_to = NULL_INPUT_TO;
 }
@@ -1180,6 +1187,10 @@ f_reply(struct user *p, int argc, char **argv)
 		write_prompt(p, ": ");
 		return;
 	}
+	/* Reply with a feeling uses the first two slots of the text argument
+	 * '.<feeling> <arguments>'
+	 */
+	argv[3] = argv[2];
 	argv[2] = argv[1];
 	argv[1] = q = string_copy(p->reply_to, "f_reply tmp");
 	f_tell(p, argc + 1, argv);

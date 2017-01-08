@@ -1339,6 +1339,10 @@ nextopt:
 		    p->capname);
 		save_user(p, 1, 0);
 
+		/* Turn console echo back on ! */
+		if ((p->flags & U_CONSOLE) && (p->flags & U_NO_ECHO))
+			echo(p);
+
 		if (p->level >= L_WARDEN && (p->saveflags & U_SHUTDOWN_NOKICK))
 		{
 			if (IN_GAME(p))
