@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	cmd.consul.c
  * Function:	Consul commands.
@@ -21,10 +21,33 @@
 #include "jeamland.h"
 
 extern time_t current_time;
+extern struct user *users;
 
 /*
  * CONSUL commands....
  */
+
+void
+f_as(struct user *p, int argc, char **argv)
+{
+	int newlev;
+	char *cmd;
+
+	if ((newlev = level_number(argv[1])) == -1 ||
+	    newlev < L_VISITOR || newlev >= p->level)
+	{
+		write_socket(p, "Invalid level %s\n", argv[1]);
+		return;
+	}
+
+	cmd = string_copy(argv[2], "f_as cmd");
+	write_socket(p, "Executing as %s: %s\n", level_name(newlev, 0), cmd);
+	p->level = newlev;
+	parse_command(p, &cmd);
+	p->level = (p->level = query_real_level(p->rlname)) == -1 ?
+	    L_VISITOR : p->level;
+	xfree(cmd);
+}
 
 void
 f_at(struct user *p, int argc, char **argv)
@@ -35,12 +58,8 @@ f_at(struct user *p, int argc, char **argv)
 
 	if (!strcmp(argv[0], "at"))
 	{
-		if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-		{
-			write_socket(p, "No such user, %s.\n",
-			    capitalise(argv[1]));
+		if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
 			return;
-		}
 		r = who->super;
 	}
 	else	/* in */
@@ -77,7 +96,7 @@ f_board(struct user *p, int argc, char **argv)
 		return;
 	}
 	deltrail(argv[1]);
-	if (!strcmp(argv[1], "add"))
+	if (!strcmp(argv[1], "-add"))
 	{
 		struct mbs *m;
 
@@ -90,7 +109,9 @@ f_board(struct user *p, int argc, char **argv)
 		p->super->board = restore_board("board", p->super->fname);
 		write_socket(p, "Ok.\n");
 		store_room(p->super);
-		/* Mbs stuff */
+
+		/* Mbs stuff
+		 * If this room is in mbs, set the last-note time */
 		if ((m = find_mbs_by_room(p->super->fname)) !=
 		    (struct mbs *)NULL)
 		{
@@ -104,10 +125,8 @@ f_board(struct user *p, int argc, char **argv)
 		write_socket(p, "No board in this room.\n");
 		return;
 	}
-	else if (!strcmp(argv[1], "remove"))
+	else if (!strcmp(argv[1], "-remove"))
 	{
-		/* Save it, removing a board doesn't remove the file. */
-		store_board(p->super->board);
 		p->super->flags &= ~R_BOARD;
 		free_board(p->super->board);
 		p->super->board = (struct board *)NULL;
@@ -115,15 +134,14 @@ f_board(struct user *p, int argc, char **argv)
 		write_socket(p, "Board removed.\n");
 		return;
 	}
-	else if (!strcmp(argv[1], "reload"))
+	else if (!strcmp(argv[1], "-reload"))
 	{
-		store_board(p->super->board);
 		free_board(p->super->board);
 		p->super->board = restore_board("board", p->super->fname);
 		write_socket(p, "Board reloaded.\n");
 		return;
 	}
-	else if (!strcmp(argv[1], "archive"))
+	else if (!strcmp(argv[1], "-archive"))
 	{
 		if (argc > 2)
 		{
@@ -146,7 +164,30 @@ f_board(struct user *p, int argc, char **argv)
 			}
 		}
 	}
-	else if (!strcmp(argv[1], "limit"))
+	else if (!strcmp(argv[1], "-followup"))
+	{
+		if (argc > 2)
+		{
+			COPY(p->super->board->followup, argv[2],
+			    "board followup");
+			write_socket(p, "Followup board set to: %s\n",
+			    argv[2]);
+		}
+		else
+		{
+			if (p->super->board->followup != (char *)NULL)
+			{	
+				FREE(p->super->board->followup);
+				write_socket(p, "Followup board removed.\n");
+			}
+			else
+			{
+				write_socket(p, "Followup board is not set.\n");
+				return;
+			}
+		}
+	}
+	else if (!strcmp(argv[1], "-limit"))
 	{
 		int lim;
 
@@ -163,10 +204,20 @@ f_board(struct user *p, int argc, char **argv)
 			write_socket(p, "Silly limit.\n");
 			return;
 		}
+
+		if (p->super->board->num > lim)
+		{
+			write_socket(p,
+			    "Board contains %d messages.\n"
+			    "Cannot change the limit to %d.\n",
+			    p->super->board->num, lim);
+			return;
+		}
+
 		write_socket(p, "Board limit set to: %d.\n", lim);
 		p->super->board->limit = lim;
 	}
-	else if (!strcmp(argv[1], "write"))
+	else if (!strcmp(argv[1], "-write"))
 	{
 		if (argc < 3)
 		{
@@ -191,7 +242,7 @@ f_board(struct user *p, int argc, char **argv)
 			    "Board write grupe set to #%s.\n", argv[2]);
 		}
 	}
-	else if (!strcmp(argv[1], "read"))
+	else if (!strcmp(argv[1], "-read"))
 	{
 		if (argc < 3)
 		{
@@ -216,7 +267,7 @@ f_board(struct user *p, int argc, char **argv)
 			    argv[2]);
 		}
 	}
-	else if (!strcmp(argv[1], "anon"))
+	else if (!strcmp(argv[1], "-anon"))
 	{
 		write_socket(p, "Board is %s marked anonymous.\n",
 		    (p->super->board->flags ^= B_ANON) & B_ANON ?
@@ -280,6 +331,9 @@ f_chgender(struct user *p, int argc, char **argv)
 		write_socket(who, "%s has changed your gender to %s.\n",
 		    p->name, query_gender(newgender, G_ABSOLUTE));
 	}
+
+	notify_level(p->level, "[ CHGENDER by %s: %s -> %s  ]",
+	    p->capname, who->capname, query_gender(newgender, G_ABSOLUTE));
 
 	who->gender = newgender;
 	doa_end(who, 1);
@@ -352,7 +406,7 @@ f_chlev(struct user *p, int argc, char **argv)
 	log_file("level", "%s, %s(%d) -> %s(%d) by %s", who->capname,
 	    q, oldlev, r, newlev, p->capname);
 	write_socket(p, "Ok.\n");
-	notify_level(p->level, "[ CHLEV by %s: %s (%s(%d) -> %s(%d)) ]\n",
+	notify_level(p->level, "[ CHLEV by %s: %s (%s(%d) -> %s(%d)) ]",
 	    p->capname, who->capname, q, oldlev, r, newlev);
 	doa_end(who, 0);
 }
@@ -387,7 +441,18 @@ f_chlim(struct user *p, int argc, char **argv)
 	}
 
 	if (!strcmp(argv[2], "alias"))
+	{
+		int i;
+
+		if ((i = count_aliases(who->alias)) > lim)
+		{
+			write_socket(p,
+			    "This user has %d aliases.\n"
+			    "Cannot change the limit to %d.\n", i, lim);
+			doa_end(who, 0);
+		}
 		who->alias_lim = lim;
+	}
 	else if (!strcmp(argv[2], "mail"))
 	{
 		struct board *b;
@@ -395,7 +460,7 @@ f_chlim(struct user *p, int argc, char **argv)
 
 		if (who->mailbox == (struct board *)NULL)
 		{
-			b = restore_board("mail", who->rlname);
+			b = restore_mailbox(who->rlname);
 			live = 0;
 		}
 		else
@@ -404,6 +469,16 @@ f_chlim(struct user *p, int argc, char **argv)
 			live = 1;
 		}
 
+		if (b->num > lim)
+		{
+			write_socket(p,
+			    "This user's mailbox contains %d messages.\n"
+			    "Cannot change the limit to %d.\n", b->num, lim);
+			if (!live)
+				free_board(b);
+			doa_end(who, 0);
+			return;
+		}
 		b->limit = lim;
 		store_board(b);
 		if (!live)
@@ -522,7 +597,7 @@ chpasswd3(struct user *p, char *c)
 		push_string(&p->stack, u->capname);
 		push_string(&p->stack, u->email);
 		p->input_to = chpasswd4;
-		write_socket(p, "\nEmail user? (y/n): ");
+		write_prompt(p, "\nEmail user? (y/n): ");
 	}
 	else
 		pop_n_elems(&p->stack, 2);
@@ -555,7 +630,7 @@ f_chpasswd(struct user *p, int argc, char **argv)
 		    capitalise(argv[1]));
 		return;
 	}
-	CHECK_INPUT_TO(p);
+	CHECK_INPUT_TO(p)
 	push_string(&p->stack, argv[1]);
 	noecho(p);
 	write_prompt(p, "Enter new password; press return for a system "
@@ -717,11 +792,8 @@ f_echoto(struct user *p, int argc, char **argv)
 {
 	struct user *who;
 
-	if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "No such user, %s.\n", capitalise(argv[1]));
+	if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	if (who->level >= p->level)
 		write_socket(who, "[ECHOTO:%s]", p->capname);
 	write_socket(who, "%s\n", argv[2]);
@@ -745,7 +817,7 @@ f_events(struct user *p, int argc, char **argv)
 		sadd_strbuf(&string, "%c%5d: %5d (%5ld) %10ld %s [%s]\n",
 		    ev == current_event ? '*' : ' ', ev->id,
 		    ev->delay, (long)(ev->time - current_time),
-		    (long)ev->time, nctime((time_t *)&ev->time), ev->fname);
+		    (long)ev->time, nctime(user_time(p, ev->time)), ev->fname);
 	pop_strbuf(&string);
 	more_start(p, string.str, NULL);
 }
@@ -754,13 +826,9 @@ void
 f_force(struct user *p, int argc, char **argv)
 {
 	struct user *u;
-	extern int insert_command(struct user *, char *);
 
-	if ((u = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capitalise(argv[1]));
+	if ((u = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	if (!access_check(p, u))
 		return;
 	write_socket(u, "You feel a strange presence in your mind.\n");
@@ -770,7 +838,7 @@ f_force(struct user *p, int argc, char **argv)
 
 	log_file("force", "%s forced %s to %s", p->capname, u->capname,
 	    argv[2]);
-	if (!insert_command(u, argv[2]))
+	if (!insert_command(&u->socket, argv[2]))
 		write_socket(p, "Input buffer overflow.\n");
 	else
 		write_socket(p, "You force %s to %s\n", u->capname,
@@ -785,7 +853,7 @@ f_invis(struct user *p, int argc, char **argv)
 		write_socket(p, "You are already invis.\n");
 		return;
 	}
-	notify_levelabu(p, p->level, "[ %s has gone invis. ]\n",
+	notify_levelabu(p, p->level, "[ %s has gone invis. ]",
 	    p->capname);
 	/*COPY(p->name, "Someone", "name");*/
 	p->saveflags |= U_INVIS;
@@ -821,40 +889,74 @@ void
 f_jlm(struct user *p, int argc, char **argv)
 {
 	extern struct jlm *jlms;
+	struct object *ob;
 	struct jlm *j;
 
-	if (argc < 2)
+	if (argc < 2 || (argc == 2 && !strcmp(argv[1], "-v")))
 	{
+		struct strbuf b;
+
 		if (jlms == (struct jlm *)NULL)
 		{
 			write_socket(p, "No modules loaded.\n");
 			return;
 		}
-		write_socket(p, "JeamLand Loadable Modules in memory:\n");
-		write_socket(p,
-		    "  pid  ifd  ofd  room        id         ident\n");
-		write_socket(p,
+		init_strbuf(&b, 0, "f_jlm sb");
+		add_strbuf(&b, "  pid    fd       Id         Environment"
+		    "     Description\n");
+		add_strbuf(&b, "---------------------------------"
 		    "---------------------------------------------\n");
 		for (j = jlms; j != (struct jlm *)NULL; j = j->next)
-			write_socket(p, "%5d  %3d  %3d  %-10s  %-10s %s\n",
-			    j->pid, j->infd, j->outfd,
-			    j->ob != (struct object *)NULL ?
-			    j->ob->super->m.room->fname : "", j->id,
-			    j->ident != (char *)NULL ? j->ident : "");
+		{
+			char buf[33], *bp;
+
+			if (argc != 2)
+			{
+				bp = buf;
+				if (j->ident == (char *)NULL)
+					*buf = '\0';
+				else
+					my_strncpy(buf, j->ident, 32);
+			}
+			else
+				bp = j->ident;
+
+			sadd_strbuf(&b, "%5d ", j->pid);
+
+			if (j->infd == j->outfd)
+				sadd_strbuf(&b, " %4d %4s  ", j->infd, "");
+			else
+				sadd_strbuf(&b, "[%4d,%4d] ", j->infd,
+				    j->outfd);
+
+			sadd_strbuf(&b, "%-10s %-15s %s\n", j->id,
+			    (j->ob != (struct object *)NULL &&
+			    j->ob->super != users->ob) ?
+			    obj_name(j->ob->super): "", bp);
+		}
+		pop_strbuf(&b);
+		more_start(p, b.str, NULL);
 		return;
 	}
 
-	if (!strcmp(argv[1], "reload"))
+	if (!strcmp(argv[1], "-reload"))
 	{
 		extern void preload_jlms(void);
+		extern void f_erqd(struct user *, int, char **);
+
 		preload_jlms();
+		/* Also attempt to restart erqd.. */
+		argv[1] = "restart";
+		f_erqd(p, argc, argv);
 		write_socket(p, "Reload complete.\n");
 		return;
 	}
 
 	if (argc < 3)
 	{
-		write_socket(p, "Syntax: jlm <remove|add> [room].\n");
+#define JLM_SYNTAX write_socket(p, "Syntax: jlm <-remove | -add> <module> " \
+		    "[<room> | @<user>].\n")
+		JLM_SYNTAX;
 		return;
 	}
 
@@ -865,51 +967,80 @@ f_jlm(struct user *p, int argc, char **argv)
 	}
 
 	deltrail(argv[1]);
-	if (!strcmp(argv[1], "remove"))
+	deltrail(argv[2]);
+
+	if (argc < 4)
+		ob = users->ob;
+	else if (argv[3][0] == '@')
 	{
-		if ((j = find_jlm(argv[2])) == (struct jlm *)NULL)
-		{
-			write_socket(p, "No such jlm, %s.\n", argv[2]);
+		struct user *w;
+
+		if ((w = find_user_msg(p, argv[3] + 1)) == (struct user *)NULL)
 			return;
-		}
-		notify_level(p->level, "[ JLM %s removed by %s. ]\n", j->id,
-		    p->capname);
-		write_socket(p, "Removing module %s.\n", j->id);
-		kill_jlm(j);
-		return;
+
+		ob = w->ob;
 	}
-	else if (!strcmp(argv[1], "add"))
+	else
 	{
 		struct room *r;
 
-		if (argc < 4)
-		{
-			write_socket(p, "Syntax: jlm add <module> <room>.\n");
-			return;
-		}
-		deltrail(argv[2]);
-                if (!ROOM_POINTER(r, argv[3]))
-                {
+		if (!ROOM_POINTER(r, argv[3]))
+		{	
 			write_socket(p, "No such room, %s.\n", argv[3]);
 			return;
-                }
-#if 0
-		if (find_jlm(argv[2]) != (struct jlm *)NULL)
+		}
+
+		ob = r->ob;
+	}
+
+	if (!strcmp(argv[1], "-remove"))
+	{
+		if ((j = find_jlm_in_env(ob, argv[2])) == (struct jlm *)NULL)
 		{
-			write_socket(p, "Module %s already loaded.\n",
-			    argv[2]);
+			write_socket(p, "No such jlm in list, %s.\n", argv[2]);
 			return;
 		}
-#endif
-                attach_jlm(r, argv[2]);
-		write_socket(p, "Attaching module %s.\n", argv[2]);
-		notify_level(p->level, "[ JLM %s added by %s. ]\n", argv[2],
-		    p->capname);
+		if (ob == users->ob)
+		{
+			notify_level((p->saveflags & U_INVIS) ? p->level :
+			    L_CONSUL, "[ JLM %s removed by %s. ]",
+			    j->id, p->capname);
+			write_socket(p, "Removing module %s.\n", j->id);
+		}
+		else
+		{
+			notify_level((p->saveflags & U_INVIS) ? p->level :
+			    L_CONSUL, "[ JLM %s removed from %s by %s. ]",
+			    j->id, obj_name(ob), p->capname);
+			write_socket(p, "Removing module %s from %s.\n", j->id,
+			    obj_name(ob));
+		}
+		kill_jlm(j);
+		return;
+	}
+	else if (!strcmp(argv[1], "-add"))
+	{
+                attach_jlm(ob, argv[2]);
+		if (ob == users->ob)
+		{
+			write_socket(p, "Attaching module %s.\n", argv[2]);
+			notify_level((p->saveflags & U_INVIS) ? p->level :
+			    L_CONSUL, "[ JLM %s added by %s. ]",
+			    argv[2], p->capname);
+		}
+		else
+		{
+			write_socket(p, "Attaching module %s to %s.\n", argv[2],
+			    obj_name(ob));
+			notify_level((p->saveflags & U_INVIS) ? p->level :
+			    L_CONSUL, "[ JLM %s added to %s by %s. ]",
+			    argv[2], obj_name(ob), p->capname);
+		}
 		return;
 	}
 	else
 	{
-		write_socket(p, "Syntax error.\n");
+		JLM_SYNTAX;
 		return;
 	}
 }
@@ -930,7 +1061,7 @@ f_mkroom(struct user *p, int argc, char **argv)
 	valid_room_name(p, argv[1]);
 	r = new_room(argv[1], p->rlname);
 	write_socket(p, "Room %s created.\n", argv[1]);
-	notify_levelabu(p, p->level, "[ New room, '%s', created by %s. ]\n",
+	notify_levelabu(p, p->level, "[ New room, '%s', created by %s. ]",
 	    argv[1], p->capname);
 }
 
@@ -952,118 +1083,175 @@ f_rmroom(struct user *p, int argc, char **argv)
 	destroy_room(r);
 	delete_room(argv[1]);
 	write_socket(p, "Room %s deleted.\n", argv[1]);
-	notify_levelabu(p, p->level, "[ Room %s deleted by %s. ]\n",
+	notify_levelabu(p, p->level, "[ Room %s deleted by %s. ]",
 	    argv[1], p->capname);
 }
 
+#ifdef REMOTE_NOTIFY
 void
+f_rntab(struct user *p, int argc, char **argv)
+{
+	if (p->level >= L_OVERSEER && argc > 1)
+	{
+		if (argc < 3)
+		{
+			write_socket(p,
+			    "Syntax: rntab [<client> <message>]\n");
+			return;
+		}
+
+		deltrail(argv[1]);
+		if (send_a_rnotify_msg(atoi(argv[1]), argv[2]))
+			write_socket(p, "Message sent.\n");
+		else
+			write_socket(p, "Send failed.\n");
+	}
+	else
+		dump_rnotify_table(p);
+}
+#endif
+
+void
+f_showtail(struct user *p, int argc, char **argv)
+{
+	struct user *who;
+	char *q;
+
+	if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
+		return;
+
+	while (argv[2][0] == '/')
+		argv[2]++;
+
+	if (!valid_path(p, argv[2], VALID_READ))
+	{
+		write_socket(p, "%s: Permission denied.\n", argv[2]);
+		return;
+	}
+	if ((q = strchr(argv[2], '/')) == (char *)NULL)
+	{
+		write_socket(p, "Can only %s files in subdirectories.\n",
+		    argv[0]);
+		return;
+	}
+	*q = '\0';
+	if (!dump_file(who, argv[2], q + 1, DUMP_TAIL))
+		write_socket(p, "No such file.\n");
+}
+
+static void
 siteban2(struct user *p, int i)
 {
-	extern struct banned_site *create_banned_site(void), *bannedsites;
-	extern void save_banned_hosts(void);
-	struct banned_site *h;
-
 	if (i != EDX_NORMAL)
 	{
-		pop_n_elems(&p->stack, 2);
+		dec_n_elems(&p->stack, 3);
 		return;
 	}
 
-	h = create_banned_site();
-	h->host = (p->stack.sp - 1)->u.string;
-	h->reason = p->stack.sp->u.string;
-	h->level = (p->stack.sp - 2)->u.number;
-	dec_n_elems(&p->stack, 3);
-	h->next = bannedsites;
-	bannedsites = h;
-	save_banned_hosts();
+	add_siteban(
+	    (p->stack.sp - 3)->u.unumber,
+	    (p->stack.sp - 2)->u.unumber,
+	    (p->stack.sp - 1)->u.number,
+	    p->stack.sp->u.string);
+
+	dec_n_elems(&p->stack, 4);
+
+	write_socket(p, "Rule added to siteban table.\n");
 }
 
 void
 f_siteban(struct user *p, int argc, char **argv)
 {
-	char *c;
-	extern struct banned_site *bannedsites;
-	extern void free_banned_site(struct banned_site *);
-	extern void save_banned_hosts(void);
-	extern int sitebanned(char *);
-	struct banned_site *h, *i, **j;
+	unsigned long addr, netmask;
+	enum siteban_level lev;
+	int remove = 0;
+	int i;
+	int inv = 0;
 
 	if (argc < 2)
 	{
-		if (bannedsites == (struct banned_site *)NULL)
-		{
-			write_socket(p, "No sites are currently banned.\n");
-			return;
-		}
-		for (h = bannedsites; h != (struct banned_site *)NULL;
-		    h = h->next)
-			write_socket(p, "%-20s %d\n", h->host, h->level);
+		dump_siteban_table(p, -1);
 		return;
 	}
 
-	if (!strcmp(argv[0], "siteban"))
+	deltrail(argv[1]);
+
+	if (!strcmp(argv[1], "-v"))
 	{
-		deltrail(argv[1]);
-		if (argc < 3)
+		if (argc != 3)
+			write_socket(p, "Syntax: siteban -v <number>\n");
+		else
+			dump_siteban_table(p, atoi(argv[2]));
+		return;
+	}
+
+	if (!strcmp(argv[1], "-r"))
+	{
+		/* Remove entry.. */
+		if (argc != 3)
 		{
-			write_socket(p, "Syntax: siteban <host> <level>\n"
-			    "Current levels are:\n"
-			    "\tBan all:           %d\n"
-			    "\tBan all but admin: %d\n"
-			    "\tBan all newbies:   %d\n",
-			    BANNED_ALL, BANNED_ABA, BANNED_NEW);
+			write_socket(p, "Syntax: siteban -r <host>[/mask]\n");
 			return;
 		}
+		remove = 1;
+		argv++, argc--;
 	}
-	for (c = argv[1]; *c != '\0'; c++)
+
+	if (argc < 3)
+		lev = BANNED_ALL;
+	else
 	{
-		if (!isdigit(*c) && *c != '.' && *c != '*')
+		lev = atoi(argv[2]);
+
+		if (lev < 1 || lev > BANNED_MAX)
 		{
-			write_socket(p,
-			    "Illegal character in host ip at position %d.\n"
-			    "Use the ip number and an optional *.\n"
-			    "Eg. 129.11.* to ban leeds.\n", c - argv[1]);
+			write_socket(p, "Bad ban level, %d.\n", lev);
 			return;
 		}
 	}
 
-	if (!strcmp(argv[0], "unsiteban"))
+	if (*argv[1] == '!')
 	{
-		for (j = &bannedsites; *j != (struct banned_site *)NULL;
-		    j = &((*j)->next))
-		{
-			if (!strcmp((*j)->host, argv[1]))
-			{
-				write_socket(p, "Removed host %s\n", argv[1]);
-				i = *j;
-				*j = i->next;
-				free_banned_site(i);
-				save_banned_hosts();
-				return;
-			}
-		}
-		write_socket(p, "Couldn't find host to remove.\n");
+		inv = 1, argv[1]++;
+		lev = BANNED_INV;
+	}
+
+	if ((i = parse_banned_site(argv[1], &addr, &netmask)) == -2)
+	{
+		write_socket(p, "Badly specified host ip.\n");
+		return;
+	}
+	else if (i == -1)
+	{
+		write_socket(p, "Badly specified netmask.\n");
 		return;
 	}
 
-	if (sitebanned(argv[1]))
+	addr &= netmask;
+
+	if (remove)
 	{
-		write_socket(p, "%s is already banned.\n", argv[1]);
+		if (remove_siteban(addr, netmask))
+			write_socket(p, "Rule removed from siteban table.\n");
+		else
+			write_socket(p, "Rule not found in siteban table.\n");
 		return;
 	}
-	
-	push_number(&p->stack, atoi(argv[2]));
-	if (p->stack.sp->u.number < BANNED_ALL ||
-	    p->stack.sp->u.number > BANNED_NEW)
+
+	if (inv)
 	{
-		write_socket(p, "Bad ban level.\n");
-		dec_stack(&p->stack);
-		return;
+		/* Inverse entry, no reason or level required. */
+		add_siteban(addr, netmask, BANNED_INV, (char *)NULL);
+		write_socket(p, "Rule added to siteban table.\n");
 	}
-	push_string(&p->stack, argv[1]);
-	write_socket(p, "Enter reason below:\n");
-	ed_start(p, siteban2, 20, 0);
+	else
+	{
+		push_unsigned(&p->stack, addr);
+		push_unsigned(&p->stack, netmask);
+		push_number(&p->stack, lev);
+		write_socket(p, "Enter message to be displayed below:\n");
+		ed_start(p, siteban2, 24, 0);
+	}
 }
 
 void
@@ -1078,11 +1266,8 @@ f_trans(struct user *p, int argc, char **argv)
 {
 	struct user *who;
 
-	if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capitalise(argv[1]));
+	if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	if (!access_check(p, who))
 		return;
 	if (who->super == p->super)
@@ -1105,7 +1290,7 @@ f_unbanish(struct user *p, int argc, char **argv)
 	else
 	{
 		notify_levelabu(p, p->level,
-		    "[ %s has been unbanished by %s. ]\n",
+		    "[ %s has been unbanished by %s. ]",
 	    	    capitalise(argv[1]), p->capname);
 		write_socket(p, "Unbanished %s:\n%s\n", capitalise(argv[1]),
 		    b);
@@ -1158,7 +1343,7 @@ f_valemail(struct user *p, int argc, char **argv)
 	    who->email, (who->saveflags & U_EMAIL_VALID) ? "" : "in",
 	    p->capname);
 	notify_levelabu(p, p->level,
-	    "[ %s has %svalidated %s%s email address ]\n", p->name,
+	    "[ %s has %svalidated %s%s email address ]", p->name,
 	    who->saveflags & U_EMAIL_VALID ? "" : "in", who->capname,
 	    who->capname[strlen(who->capname) - 1] == 's' ? "'" : "'s");
 
@@ -1169,10 +1354,11 @@ f_valemail(struct user *p, int argc, char **argv)
 
 	if (IN_GAME(who) && (who->saveflags & U_EMAIL_VALID))
 	{
-		yellow(who);
+		attr_colour(who, "notify");
 		write_socket(who,
-		    "Your email address has been validated by %s.\n", p->name);
+		    "Your email address has been validated by %s.", p->name);
 		reset(who);
+		write_socket(who, "\n");
 	}
 	doa_end(who, 1);
 }
@@ -1187,7 +1373,7 @@ f_vis(struct user *p, int argc, char **argv)
 	}
 	/*COPY(p->name, p->capname, "name");*/
 	p->saveflags ^= U_INVIS;
-	notify_levelabu(p, p->level, "[ %s has become visible. ]\n",
+	notify_levelabu(p, p->level, "[ %s has become visible. ]",
 	    p->capname);
 	write_socket(p, "You are now visible\n");
 }

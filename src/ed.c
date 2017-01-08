@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	ed.c
  * Function:	The line editor.
@@ -83,8 +83,9 @@ ed_prompt(struct user *p)
 #ifdef DEBUG_EDITOR
 	check_ed_integrity(p);
 #endif
-	fwrite_prompt(p, "%c%-3d%s", p->ed->insert ? '*' : ' ', p->ed->curr,
-	    ED_PROMPT);
+	if (p->medopts & U_EDOPT_PROMPT)
+		fwrite_prompt(p, "%c%-3d%s", p->ed->insert ? '*' : ' ',
+		    p->ed->curr, ED_PROMPT);
 }
 
 static struct line *
@@ -274,9 +275,20 @@ dump_lines(struct user *p, int start, int end)
 			return;
 		}
 		start = p->ed->curr - p->morelen - 1;
+		end = p->ed->curr;
+	}
+	else
+	{
+		if (!start)
+			start++;
+		if (!end)
+			end = p->ed->curr;
 	}
 
-	init_strbuf(&buf, 0, "editor: dump_lines");
+	/* Assume the number of chars / line and work on number of lines..
+	 * stops lots of reallocing..
+	 * 30 characters / line seems to give a good approximation */
+	init_strbuf(&buf, (end - start) * 30, "editor: dump_lines");
 
 	if (p->medopts & U_EDOPT_RULER)
 		add_strbuf(&buf, ruler_line(p));
@@ -284,14 +296,13 @@ dump_lines(struct user *p, int start, int end)
 	for (i = 1, l = p->ed->start; l != (struct line *)NULL;
 	    l = l->next, i++)
 	{
-		if (start && i < start)
+		if (i < start)
 			continue;
-		if (end && i > end)
+		if (i > end)
 			break;
 		sadd_strbuf(&buf, " %-3d%s", i, ED_PROMPT);
 		add_strbuf(&buf, l->text);
 		cadd_strbuf(&buf, '\n');
-		/*sadd_strbuf(&buf, " %-3d%s%s\n", i, ED_PROMPT, l->text);*/
 	}
 	if (!buf.offset)
 	{
@@ -331,7 +342,7 @@ append_text(struct user *p, char *c, char *tok)
 				break;
 			lend++;
 		}
-	} while((d = strtok((char *)NULL, tok)) != (char *)NULL);
+	} while ((d = strtok((char *)NULL, tok)) != (char *)NULL);
 }
 
 static int
@@ -545,7 +556,7 @@ move_lines(struct user *p, char *c)
 	if (!VALID_LINE(p, start) || ((i = 1) && !VALID_LINE(p, to)) ||
 	    ((i = 2) && !VALID_LINE(p, end)))
 	{
-		switch(i)
+		switch (i)
 		{
 		    case 0:
 			fwrite_socket(p,
@@ -629,10 +640,14 @@ ed_options(struct user *p, char *c)
 		char *opt;
 		int flag;
 	} opts[] = {
+	/* Keep these alphabetical please. */
 	{ "autolist",	U_EDOPT_AUTOLIST },
-	{ "ruler",	U_EDOPT_RULER },
-	{ "ruler_left",	U_EDOPT_LEFT_RULER},
+	{ "autowrap",	U_EDOPT_WRAP },
 	{ "info",	U_EDOPT_INFO },
+	{ "reecho",	U_EDOPT_REECHO },
+	{ "ruler",	U_EDOPT_RULER },
+	{ "ruler_left",	U_EDOPT_LEFT_RULER },
+	{ "prompt",     U_EDOPT_PROMPT },
 	{ (char *)NULL,	0 },
 	};
 	int i, no = 0;
@@ -646,7 +661,7 @@ ed_options(struct user *p, char *c)
 		fwrite_socket(p, "-- Current settings:\n");
 		for (i = 0; opts[i].opt != (char *)NULL; i++)
 			if (p->medopts & opts[i].flag)
-				fwrite_socket(p, "--\t%s\n", opts[i].opt);
+				fwrite_socket(p, "--\t  %s\n", opts[i].opt);
 			else
 				fwrite_socket(p, "--\tno%s\n", opts[i].opt);
 		ed_prompt(p);
@@ -677,7 +692,7 @@ ed_options(struct user *p, char *c)
 		fwrite_socket(p, "-- Unknown option, %s.\n", c);
 
 	/* Some option specific stuff.. */
-	else switch(opts[i].flag)
+	else switch (opts[i].flag)
 	{
 	    case U_EDOPT_RULER:
 		/* If we're unsetting this one, we need to also unset
@@ -724,7 +739,7 @@ ed_search_replace(struct user *p, char *c)
 
 	/* You guessed it, this shouldn't happen. */
 	if ((lp = find_line(p, l)) == (struct line *)NULL)
-		fatal("Null find_line in ed search & replace, l = %d.\n", l);
+		fatal("Null find_line in ed search & replace, l = %d.", l);
 
 	/* Skip the line number, */
 	while (isdigit(*c))
@@ -833,8 +848,24 @@ ed_ret(struct user *p, int op)
 		}
 		else
 		{
+			char fname[MAXPATHLEN + 1];
+
+			if ((p->ed->flags & ED_APPEND_SIG) &&
+			    p->sig != (char *)NULL)
+			{
+				fwrite_socket(p, "-- Appending signature.\n");
+				add_strbuf(&str, "\n-- \n");
+				add_strbuf(&str, p->sig);
+			}
+
 			pop_strbuf(&str);
 			push_malloced_string(&p->stack, str.str);
+
+			/* Store this message */
+			sprintf(fname, "dead_ed/%s#last", p->rlname);
+			if (!write_file(fname, str.str))
+				write_socket(p,
+				    "-- Could not make backup of message.\n");
 		}
 	}
 
@@ -861,12 +892,14 @@ ed_ret(struct user *p, int op)
 }
 
 static void
-ed_recover(struct user *p)
+ed_recover(struct user *p, int dead)
 {
 	char buff[MAXPATHLEN + 1];
 	char *t;
 
 	sprintf(buff, "dead_ed/%s", p->rlname);
+	if (!dead)
+		strcat(buff, "#last");
 
 	if ((t = read_file(buff)) == (char *)NULL)
 	{
@@ -880,17 +913,21 @@ ed_recover(struct user *p)
 	fwrite_socket(p, "-- Buffer recovered.\n");
 	dump_lines(p, 0, 0);
 	xfree(t);
-	unlink(buff);
+
+	if (dead)
+		unlink(buff);
 }
 
 static void
 ed_next(struct user *p, char *c)
 {
+	int flag;
+
 #ifdef REALLY_DEBUG_EDITOR
 	check_ed_integrity(p);
 #endif
 
-	if (!strcmp(c, "."))
+	if (!strcmp(c, ".") || !strcmp(c, "**"))
 	{
 		if (p->ed->insert)
 		{
@@ -908,11 +945,11 @@ ed_next(struct user *p, char *c)
 	{
 
 #define EXIST_LINES_CHECK       if (p->ed->start == (struct line *)NULL) \
-				do { \
+				{ \
 					fwrite_socket(p, "-- No lines!\n"); \
 					ed_prompt(p); \
 					return; \
-				} while (0)
+				}
 
 #define ARG_CHECK		do { \
 					do \
@@ -929,10 +966,10 @@ ed_next(struct user *p, char *c)
 				} while (0)
 
 
-		switch(*(++c))
+		switch (*(++c))
 		{
 		    case 'c':	/* Change a line */
-			EXIST_LINES_CHECK;
+			EXIST_LINES_CHECK
 			change_line(p, ++c);
 			return;
 						     
@@ -943,19 +980,19 @@ ed_next(struct user *p, char *c)
 #endif
 
 		    case 'd':	/* Delete lines */
-			EXIST_LINES_CHECK;
+			EXIST_LINES_CHECK
 			delete_lines(p, ++c);
 			return;
 
 		    case 'h':	/* Show help */
 			/* Bypass the buffering system.. */
 			p->flags |= U_UNBUFFERED_TEXT;
-			dump_file(p, "msg", "edit", DUMP_CAT);
+			dump_file(p, "help", "_edit", DUMP_CAT);
 			p->flags &= ~U_UNBUFFERED_TEXT;
 			break;
 
 		    case 'i':	/* Go to insert mode. */
-			EXIST_LINES_CHECK;
+			EXIST_LINES_CHECK
 			if (p->ed->insert)
 			{
 				fwrite_socket(p,
@@ -967,16 +1004,16 @@ ed_next(struct user *p, char *c)
 			return;
 
 		    case 'j':	/* Join lines */
-			EXIST_LINES_CHECK;
+			EXIST_LINES_CHECK
 			join_lines(p, ++c);
 			return;
-			
 
 		    case 'l':	/* List lines */
+		    case 'p':	/* List lines */
 		    {
 			int start, end, i;
 
-			if (*++c == '\0' || !(i = sscanf(c, "%d*[ ,\t]%d",
+			if (*++c == '\0' || !(i = sscanf(c, "%d,%d",
 			    &start, &end)))
 			{
 				start = p->ed->curr - p->morelen + 1;
@@ -988,8 +1025,12 @@ ed_next(struct user *p, char *c)
 			return;
 		    }
 
+		    case 'L':	/* List all lines */
+			dump_lines(p, 1, p->ed->curr);
+			return;
+
 		    case 'm':	/* Move lines */
-			EXIST_LINES_CHECK;
+			EXIST_LINES_CHECK
 			move_lines(p, ++c);
 			return;
 
@@ -1002,12 +1043,13 @@ ed_next(struct user *p, char *c)
 			ed_ret(p, EDX_ABORT);
 			return;
 
-		    case 'r':	/* Recover */
-			ed_recover(p);
+		    case 'r':	/* Recover dead */
+		    case 'R':	/* Recover last */
+			ed_recover(p, *c == 'r');
 			return;
 
 		    case 's':	/* Search & Replace */
-			EXIST_LINES_CHECK;
+			EXIST_LINES_CHECK
 			ed_search_replace(p, ++c);
 			return;
 
@@ -1025,6 +1067,34 @@ ed_next(struct user *p, char *c)
 	if (strlen(c) >= 2 && c[0] == '\\' && c[1] == '~')
 		c++;
 
+	/* Just for Mr. Gosnell..  */
+	if (p->medopts & U_EDOPT_REECHO)
+		fwrite_socket(p, "%s\n", c);
+
+	/* Wrap the line if it is too long..
+	 * Fairly crude algorithm, but fast */
+	flag = 0;
+	if ((p->medopts & U_EDOPT_WRAP) || (p->ed->flags & ED_FORCE_WRAP))
+		while (strlen(c) >= p->screenwidth)
+		{
+			char *d;
+
+			for (d = c + 70; d > c; d--)
+				if (isspace(*d))
+				{
+					*d++ = '\0';
+					insert_line(p, c);
+					break;
+				}
+			if (d <= c)
+				break;
+			if (!flag)
+				fwrite_socket(p,
+				    "-- Inserting automatic line breaks.\n");
+			flag = 1;
+			c = d;
+		}
+
 	insert_line(p, c);
 	ed_prompt(p);
 }
@@ -1033,8 +1103,21 @@ int
 ed_start(struct user *p, void (*exit_func)(struct user *, int), int max,
     int flags)
 {
+	int sl = 0;
+
+	if (flags & ED_STACKED_TEXT)
+	{
+		sl = strlen(p->stack.sp->u.string);
+
+		if (sl > MAX_EDIT)
+		{
+			fwrite_socket(p, "-- File too large!\n");
+			sl = -1;
+		}
+	}
+
 	/* Multiple input_to protection.. */
-	if (p->input_to != NULL_INPUT_TO)
+	if (sl == -1 || p->input_to != NULL_INPUT_TO)
 	{
 		if (flags & ED_STACKED_TEXT)
 			pop_stack(&p->stack);
@@ -1044,6 +1127,7 @@ ed_start(struct user *p, void (*exit_func)(struct user *, int), int max,
 			exit_func(p, EDX_ABORT);
 		return 0;
 	}
+
 #ifdef DEBUG
 	if (p->ed != (struct ed_buffer *)NULL)
 		fatal("ed_start called with current ed buffer.");
@@ -1068,8 +1152,6 @@ ed_start(struct user *p, void (*exit_func)(struct user *, int), int max,
 	fwrite_socket(p, "-- Jeamland editor, type '~h' for help.\n");
 	if (flags & ED_STACKED_TEXT)
 	{
-		int sl = strlen(p->stack.sp->u.string);
-
 		append_text(p, p->stack.sp->u.string,
 		    (flags & ED_STACKED_TOK) ? (p->stack.sp - 1)->u.string :
 		    "\n");
@@ -1083,6 +1165,15 @@ ed_start(struct user *p, void (*exit_func)(struct user *, int), int max,
 			    sl, sl == 1 ? "" : "s");
 	}
 	dump_lines(p, 0, 0);
+	if (p->ed->curr > 1000)
+	{
+		fwrite_socket(p, "\n"
+		    "-- WARNING: The JeamLand editor is not designed for\n"
+		    "--          use on large files (>1000 lines).\n"
+		    "--          Whilst it will work, it will be slow if you\n"
+		    "--          list a large number of lines at once.\n");
+		ed_prompt(p);
+	}
 	return 1;
 }
 

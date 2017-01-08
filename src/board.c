@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	board.c
  * Function:	Bulletin board & mail systems
@@ -26,11 +26,12 @@ create_board()
 {
 	struct board *b = (struct board *)xalloc(sizeof(struct board),
 	    "board struct");
-	b->fname = b->archive = (char *)NULL;
+	b->fname = b->archive = b->followup = (char *)NULL;
 	b->flags = b->lastread = 0;
 	b->read_grupe = b->write_grupe = (char *)NULL;
 	b->limit = BOARD_LIMIT;
-	b->messages = (struct message *)NULL;
+	b->messages = b->last_msg = (struct message *)NULL;
+	b->num = 0;
 	return b;
 }
 
@@ -70,6 +71,7 @@ free_board(struct board *b)
 	}
 	FREE(b->fname);
 	FREE(b->archive);
+	FREE(b->followup);
 	FREE(b->read_grupe);
 	FREE(b->write_grupe);
 	xfree(b);
@@ -87,17 +89,6 @@ find_message(struct board *b, int num)
 	if (num)
 		return (struct message *)NULL;
 	return m;
-}
-
-int
-count_messages(struct board *b)
-{
-	int num = 0;
-	struct message *m;
-
-	for (m = b->messages; m != (struct message *)NULL; m = m->next)
-		num++;
-	return num;
 }
 
 /* *sigh*, you've got to check for everything these days... */
@@ -123,20 +114,29 @@ archive_recurse_check(char *next, char *start)
 void
 add_message(struct board *b, struct message *m)
 {
-	struct message **n;
+	/* The last message is now cached. */
+	if (b->last_msg == (struct message *)NULL)
+		b->messages = m;
+	else
+		b->last_msg->next = m;
+	b->last_msg = m;
 
-	/* To the end of the list. */
-	for (n = &b->messages; *n != (struct message *)NULL; n = &((*n)->next))
-		;
-	*n = m;
+	b->num++;
 
 	if (b->flags & B_ANON)
 	{
 		/* Simple, but effective! */
-		COPY(m->poster, "someone", "message poster");
+		COPY(m->poster, "<Anonymous>", "message poster");
 	}
 
-	while (b->limit != -1 && count_messages(b) > b->limit)
+	if (((b->flags & B_CRYPTED) && !(m->flags & M_CRYPTED)) ||
+	    (!(b->flags & B_CRYPTED) && (m->flags & M_CRYPTED)))
+	{
+		xcrypt(m->text);
+		m->flags ^= M_CRYPTED;
+	}
+
+	while (b->limit != -1 && b->num > b->limit)
 	{
 		/* Archive them if required. */
 		if (b->archive != (char *)NULL)
@@ -163,10 +163,24 @@ add_message(struct board *b, struct message *m)
 				struct message *mt;
 
 				mt = b->messages;
+
+				if (b->last_msg == mt)
+				{
+#ifdef DEBUG
+					if (mt->next != (struct message *)NULL)
+						fatal("mt->next not null in "
+						    "add_message");
+#endif
+					b->last_msg = mt->next;
+				}
+
+
 				b->messages = b->messages->next;
 				mt->next = (struct message *)NULL;
 				add_message(r->board, mt);
 				store_board(r->board);
+				b->num--;
+				/* b is stored by the caller... */
 			}
 		}
 		else
@@ -184,6 +198,23 @@ remove_message(struct board *b, struct message *m)
 		if (*n == m)
 		{
 			*n = m->next;
+			b->num--;
+
+			if (m == b->last_msg)
+			{	/* Need to recalculate.. */
+				struct message *t;
+
+				if (b->num < 2)
+					b->last_msg = b->messages;
+				else
+				{
+					for (t = b->messages;
+					    t->next != (struct message *)NULL;
+					    t = t->next)
+						;
+					b->last_msg = t;
+				}
+			}
 			free_message(m);
 			return;
 		}
@@ -191,7 +222,7 @@ remove_message(struct board *b, struct message *m)
 }
 
 static void
-set_subj_tim(struct message *m, char **subjp, char **timp)
+set_subj_tim(struct user *p, struct message *m, char **subjp, char **timp)
 {
 	static char subj[35];
 	static char tim[35];
@@ -201,7 +232,7 @@ set_subj_tim(struct message *m, char **subjp, char **timp)
 		/* If over a year old, show the year instead of the time
 		 * Ok, so not _exactly_ a year..
 		 * Fri Jan 26 02:37:18 1996 */
-		strcpy(tim, nctime(&m->date));
+		strcpy(tim, nctime(user_time(p, m->date)));
 		if (current_time - m->date < 365 * 24 * 3600)
 			tim[16] = '\0';
 		else
@@ -223,18 +254,18 @@ set_subj_tim(struct message *m, char **subjp, char **timp)
 
 /* Used by mbs.. */
 void
-add_header(struct strbuf *buf, struct message *m, int i)
+add_header(struct user *p, struct strbuf *buf, struct message *m, int i)
 {
 	char *subj, *tim;
 
-	set_subj_tim(m, &subj, &tim);
+	set_subj_tim(p, m, &subj, &tim);
 
 	sadd_strbuf(buf, "%3d: %-35s (%-11s %s)\n", i, subj,
 	    capitalise(m->poster), tim);
 }
 
 char *
-get_headers(struct board *b, int mailer, int new_only)
+get_headers(struct user *p, struct board *b, int mailer, int new_only)
 {
 	int i;
 	struct message *m;
@@ -248,9 +279,11 @@ get_headers(struct board *b, int mailer, int new_only)
 
 	if (b->flags & B_ANON)
 		add_strbuf(&msg, "-- This is an anonymous board. --\n");
+	if (b->followup != (char *)NULL)
+		sadd_strbuf(&msg, "-- Followups set to: %s --\n", b->followup);
 	for (i = 0, m = b->messages; m != (struct message *)NULL; m = m->next)
 	{
-		set_subj_tim(m, &subj, &tim);
+		set_subj_tim(p, m, &subj, &tim);
 
 		if (mailer)
 		{
@@ -275,7 +308,7 @@ get_headers(struct board *b, int mailer, int new_only)
 }
 
 void
-show_message(struct user *p, struct message *m,
+show_message(struct user *p, struct board *b, struct message *m, int num,
     void (*exit_func)(struct user *))
 {
 	char *tim;
@@ -283,16 +316,25 @@ show_message(struct user *p, struct message *m,
 
 	init_strbuf(&msg, 0, "show_message msg");
 
-	set_subj_tim(m, (char **)NULL, &tim);
+	set_subj_tim(p, m, (char **)NULL, &tim);
 
-	add_strbuf(&msg, "Note is entitled:\n");
+	if (num)
+		sadd_strbuf(&msg, "Note %d is entitled:\n", num);
+	else
+		add_strbuf(&msg, "Note is entitled:\n");
 	sadd_strbuf(&msg, "'%s (%s, %s)'\n", m->subject,
 	    capitalise(m->poster), tim);
 	if (m->cc != (char *)NULL)
 		sadd_strbuf(&msg, "Cc: %s\n", m->cc);
 	cadd_strbuf(&msg, '\n');
 		
-	add_strbuf(&msg, m->text);
+	if (m->flags & M_CRYPTED)
+	{
+		add_strbuf(&msg, (tim = xcrypted(m->text)));
+		xfree(tim);
+	}
+	else
+		add_strbuf(&msg, m->text);
 	pop_strbuf(&msg);
 	more_start(p, msg.str, exit_func);
 }
@@ -376,6 +418,11 @@ restore_board(char *dir, char *name)
 			DECODE(b->archive, "board archive");
 			continue;
 		}
+		if (!strncmp(buf, "followup \"", 10))
+		{
+			DECODE(b->followup, "board followup");
+			continue;
+		}
 		if (!strncmp(buf, "write_grupe \"", 13))
 		{
 			DECODE(b->write_grupe, "write grupe");
@@ -427,8 +474,13 @@ store_board(struct board *b)
 		ENCODE(b->archive);
 		fprintf(fp, "archive \"%s\"\n", ptr);
 	}
+	if (b->followup != (char *)NULL)
+	{
+		ENCODE(b->followup);
+		fprintf(fp, "followup \"%s\"\n", ptr);
+	}
 	fprintf(fp, "limit %d\n", b->limit);
-	fprintf(fp, "# poster, subject, time, flags, text\n");
+	fprintf(fp, "# poster, subject, time, flags, text, [cc]\n");
 	for (m = b->messages; m != (struct message *)NULL; m = m->next)
 	{
 		char *subject   = code_string(m->subject);
@@ -472,6 +524,13 @@ quote_message(char *msg, char q)
 	cadd_strbuf(&buf, ' ');
 	for (ptr = msg; *ptr != '\0'; ptr++)
 	{
+		/* Strip off any .sig */
+		if (!strncmp(ptr, "\n-- \n", 5))
+		{
+			cadd_strbuf(&buf, '\n');
+			break;
+		}
+
 		cadd_strbuf(&buf, *ptr);
 		if (*ptr == '\n')
 		{
@@ -483,18 +542,42 @@ quote_message(char *msg, char q)
 	return buf.str;
 }
 
+/* Prepend a 'Re: ' if there isn't already one there
+ * If there is one, change it to a 'Re[num]: '
+ */
+char *
+prepend_re(char *s)
+{
+	char *ptr;
+	int num = 0;
+
+	ptr = (char *)xalloc(strlen(s) + 15, "prepend_re");
+
+	if (!strncmp(s, "Re: ", 4))
+		sprintf(ptr, "Re[2]: %s", s +  4);
+	else if (sscanf(s, "Re[%d]: *[^\n]", &num) == 1)
+	{
+		char *q;
+
+		if (!num || (q = strchr(s, ':')) == (char *)NULL || num >= 999)
+			/* Something funny here. */
+			sprintf(ptr, "Re: %s", s);
+		else
+			sprintf(ptr, "Re[%d]: %s", num + 1, q + 2);
+	}
+	else
+		sprintf(ptr, "Re: %s", s);
+
+	return ptr;
+}
+
 void
 reply_message(struct user *p, struct message *m, int all)
 {
 	extern void mail2(struct user *, int);
 	char *ptr;
 
-	ptr = (char *)xalloc(strlen(m->subject) + 5, "pushed subject");
-	/* Prepend a 'Re: ' if there isn't already one there */
-	if (!strncmp(m->subject, "Re: ", 4))
-		strcpy(ptr, m->subject);
-	else
-		sprintf(ptr, "Re: %s", m->subject);
+	ptr = prepend_re(m->subject);
 
 	if (all && m->cc != (char *)NULL)
 	{
@@ -506,10 +589,20 @@ reply_message(struct user *p, struct message *m, int all)
 	else
 		push_string(&p->stack, m->poster);
 	push_malloced_string(&p->stack, ptr);
-	push_malloced_string(&p->stack, quote_message(m->text, p->quote_char));
+	if (m->flags & M_CRYPTED)
+	{
+		ptr = xcrypted(m->text);
+		push_malloced_string(&p->stack,
+		    quote_message(ptr, p->quote_char));
+		xfree(ptr);
+	}
+	else
+		push_malloced_string(&p->stack,
+		    quote_message(m->text, p->quote_char));
 
 	p->input_to = NULL_INPUT_TO;
-	ed_start(p, mail2, 50, ED_STACKED_TEXT);
+	ed_start(p, mail2, MAX_MAIL_LINES, ED_STACKED_TEXT |
+	    ((p->medopts & U_MAILOPT_SIG) ? ED_APPEND_SIG : 0));
 }
 
 static void
@@ -528,13 +621,22 @@ forward_message(struct user *p, struct message *m, char *to)
 
 	/* Hopefully big enough! */
 	ptr = (char *)xalloc(strlen(m->text) + 0x100, "pushed forward text");
-	sprintf(ptr, "\n\n(Original from %s.)\n\n%s\n", m->poster, m->text);
+	if (m->flags & M_CRYPTED)
+	{
+		char *c;
+		sprintf(ptr, "\n\n(Original from %s.)\n\n%s\n", m->poster,
+		    (c = xcrypted(m->text)));
+		xfree(c);
+	}
+	else
+		sprintf(ptr, "\n\n(Original from %s.)\n\n%s\n", m->poster,
+		    m->text);
 	push_malloced_string(&p->stack, ptr);
 
 
 	p->input_to = NULL_INPUT_TO;
 	write_socket(p, "Forwarding mail: Edit if desired.\n");
-	ed_start(p, mail2, 50, ED_STACKED_TEXT);
+	ed_start(p, mail2, MAX_MAIL_LINES, ED_STACKED_TEXT);
 }
 
 static void
@@ -545,7 +647,7 @@ email_mbox(struct user *p, char *c)
 	struct vector *v;
 	int i, flag;
 
-	v = parse_range(p, c, count_messages(p->mailbox));
+	v = parse_range(p, c, p->mailbox->num);
 	if (!v->size)
 		flag = -1;
 	else
@@ -575,15 +677,22 @@ email_mbox(struct user *p, char *c)
 			continue;
 		sadd_strbuf(&buf, "Message: %d\n", ++i);
 		sadd_strbuf(&buf, "From:    %s\n", m->poster);
-		sadd_strbuf(&buf, "Date:    %s", ctime(&m->date));
+		sadd_strbuf(&buf, "Date:    %s", ctime(user_time(p, m->date)));
 		sadd_strbuf(&buf, "Subject: %s\n\n", m->subject);
-		add_strbuf(&buf, m->text);
+		if (m->flags & M_CRYPTED)
+		{
+			add_strbuf(&buf, (c = xcrypted(m->text)));
+			xfree(c);
+		}
+		else
+			add_strbuf(&buf, m->text);
 		add_strbuf(&buf, "\n\n");
 		m->flags &= ~M_TOMAIL;
 	}
 
-	send_email(p->rlname, p->email, (char *)NULL, LOCAL_NAME " mailbox..",
-	    1, buf.str);
+	if (send_email(p->rlname, p->email, (char *)NULL,
+	    LOCAL_NAME " mailbox..", 1, "%s", buf.str) == -1)
+		write_socket(p, "Email request failed, try again later.\n");
 	free_strbuf(&buf);
 }
 
@@ -631,7 +740,7 @@ mail_next(struct user *p, char *c)
 		{
 			p->mailbox->lastread = num;
 			p->input_to = NULL;
-			show_message(p, m, mail_more_ret);
+			show_message(p, p->mailbox, m, num, mail_more_ret);
 			m->flags |= M_MSG_READ;
 			return;
 		}
@@ -640,8 +749,7 @@ mail_next(struct user *p, char *c)
 	{
 	    case 'd':	/* Delete */
 	    {
-		struct vector *v = parse_range(p, c + 1,
-		    count_messages(p->mailbox));
+		struct vector *v = parse_range(p, c + 1, p->mailbox->num);
 		int flagged = 0;
 
 		if (!v->size)
@@ -767,7 +875,7 @@ mail_next(struct user *p, char *c)
 		new_only++;
 		/* Fall through */
 	    case 'H':	/* All headers */
-		if ((tmp = get_headers(p->mailbox, 1, new_only)) ==
+		if ((tmp = get_headers(p, p->mailbox, 1, new_only)) ==
 		    (char *)NULL)
 			write_socket(p, new_only ? "No unread messages.\n" :
 			    "No messages.\n");
@@ -800,8 +908,7 @@ mail_next(struct user *p, char *c)
 
 	    case 'n':	/* Mark as new */
 	    {
-		struct vector *v = parse_range(p, c + 1,
-		    count_messages(p->mailbox));
+		struct vector *v = parse_range(p, c + 1, p->mailbox->num);
 		int flagged = 0;
 
 		if (!v->size)
@@ -852,15 +959,13 @@ mail_next(struct user *p, char *c)
 		else
 		{
 			reply_message(p, m, *c == 'r');
-			/*p->mailbox->lastread = 0;*/
 			return;
 		}
 		break;
 
 	    case 'u':	/* Undelete */
 	    {
-		struct vector *v = parse_range(p, c + 1,
-		    count_messages(p->mailbox));
+		struct vector *v = parse_range(p, c + 1, p->mailbox->num);
 		int flagged = 0;
 
 		if (!v->size)
@@ -907,10 +1012,10 @@ mail_next(struct user *p, char *c)
 		switch (*++c)
 		{
 		    case 'F':
-			dump_file(p, "msg", "mail_forward", DUMP_CAT);
+			dump_file(p, "help", "_mail_forward", DUMP_CAT);
 			break;
 		    default:
-			dump_file(p, "msg", "mail", DUMP_CAT);
+			dump_file(p, "help", "_mail", DUMP_CAT);
 			break;
 		}
 		break;
@@ -935,54 +1040,109 @@ mail_time(char *user)
 	return file_time(buf);
 }
 
+static void
+convert_mailbox(struct user *p)
+{
+	struct message *m;
+
+	/* Temporary code.. convert plaintext mailboxes */
+	if (!(p->mailbox->flags & B_CRYPTED))
+	{
+		write_socket(p, "<< Converting old style mailbox.");
+		log_file("syslog", "Converting mailbox for %s.", p->name);
+		for (m = p->mailbox->messages; m != (struct message *)NULL;
+		    m = m->next)
+		{
+			if (!(m->flags & M_CRYPTED))
+			{
+				xcrypt(m->text);
+				write_socket(p, ".");
+				m->flags |= M_CRYPTED;
+			}
+		}
+		write_socket(p, " >>\n");
+		
+		p->mailbox->flags |= B_CRYPTED;
+		store_board(p->mailbox);
+	}
+}
+
+char *
+mail_from(struct user *p, int header)
+{
+	char *tmp;
+
+#ifdef DEBUG
+	if (p->mailbox == (struct board *)NULL)
+		fatal("mail_from on null mailbox.");
+#endif
+
+	convert_mailbox(p);
+
+	if ((tmp = get_headers(p, p->mailbox, 1,
+	    (p->medopts & U_MAILOPT_NEW_ONLY) ? 1 : 0)) == (char *)NULL)
+	{
+		write_socket(p, "No mail for %s.\n", p->name);
+		return (char *)NULL;
+	}
+
+	if (header)
+	{
+		int unread;
+		struct message *m;
+
+		write_socket(p, "Mail [%s JeamLand] Type ? for help.\n",
+		    MAIL_VERSION);
+		write_socket(p, "Maximum mailbox size: ");
+		if (p->mailbox->limit == -1)
+			write_socket(p, "unlimited.\t");
+		else
+			write_socket(p, "%d.\t", p->mailbox->limit);
+		for (unread = 0, m = p->mailbox->messages;
+		    m != (struct message *)NULL; m = m->next)
+			if (!(m->flags & M_MSG_READ))
+				unread++;
+		write_socket(p, "(%d message%s, %d unread)\n", p->mailbox->num,
+		    p->mailbox->num == 1 ? "" : "s", unread);
+		if (p->mailbox->num == p->mailbox->limit)
+			write_socket(p, "WARNING: Your mailbox is full.\n");
+	}
+
+	if (!strlen(tmp))
+	{
+		xfree(tmp);
+		write_socket(p, (p->medopts & U_MAILOPT_NEW_ONLY) ?
+		    "No unread messages.\n" : "No messages.\n");
+		return (char *)NULL;
+	}
+	else
+		return tmp;
+}
+
+struct board *
+restore_mailbox(char *user)
+{
+	struct board *b = restore_board("mail", user);
+	b->flags |= B_CRYPTED;
+	return b;
+}
+
 void
 mail_start(struct user *p)
 {
 	char *tmp;
-	struct message *m;
-	int num, unread;
 
 	if (p->mailbox != (struct board *)NULL)
 		fatal("Double mail start.");
 	if (p->input_to != NULL_INPUT_TO)
 		fatal("Input_to set in mail_start.");
 
-	if (mail_time(p->rlname) == -1)
-	{
-		write_socket(p, "No mail for %s\n", p->capname);
-		return;
-	}
-	p->mailbox = restore_board("mail", p->rlname);
-	if ((tmp = get_headers(p->mailbox, 1,
-	    (p->medopts & U_MAILOPT_NEW_ONLY) ? 1 : 0)) == (char *)NULL)
-	{
-		free_board(p->mailbox);
-		p->mailbox = (struct board *)NULL;
-		write_socket(p, "No mail for %s\n", p->capname);
-		return;
-	}
+	p->mailbox = restore_mailbox(p->rlname);
+
 	p->flags |= U_IN_MAILER;
-	write_socket(p, "Mail [%s JeamLand] Type ? for help.\n",
-	    MAIL_VERSION);
-	write_socket(p, "Maximum mailbox size: ");
-	if (p->mailbox->limit == -1)
-		write_socket(p, "unlimited.\t");
-	else
-		write_socket(p, "%d.\t", p->mailbox->limit);
-	for (num = unread = 0, m = p->mailbox->messages;
-	    m != (struct message *)NULL; m = m->next, num++)
-		if (!(m->flags & M_MSG_READ))
-			unread++;
-	write_socket(p, "(%d message%s, %d unread)\n", num,
-	    num == 1 ? "" : "s", unread);
-	if (!strlen(tmp))
-	{
-		xfree(tmp);
-		write_socket(p, (p->medopts & U_MAILOPT_NEW_ONLY) ?
-		    "No unread messages.\n" : "No messages.\n");
-		mail_more_ret(p);
-	}
-	else
+	if ((tmp = mail_from(p, 1)) != (char *)NULL)
 		more_start(p, tmp, mail_more_ret);
+	else
+		mail_more_ret(p);
 }
 

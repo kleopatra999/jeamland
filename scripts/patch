@@ -28,7 +28,7 @@ cat << FOE
 FOE
 
 # Use jlmlib's existance as a test.. not brilliant but..
-if [ ! -d jlmlib ]
+if [ ! -d jlmlib ] || [ ! -d lib ] || [ ! -d src ]
 then
 	echo 'Run this script from inside your JeamLand directory.'
 	exit 1
@@ -60,6 +60,11 @@ then
 	exit 1
 fi
 
+# Remove any install.sh file...
+if [ -e install.sh ]; then
+	rm -f install.sh
+fi
+
 # Do the patch!
 patch -p1 -E < "$diffs"
 
@@ -87,9 +92,7 @@ if [ -e install.sh ]
 then
 	echo ''
 	echo 'Post-installation script found... Running..'
-	chmod 700 install.sh
-	./install.sh
-	echo 'Removing post-installation script...'
+	sh install.sh
 	rm -f install.sh
 fi
 echo ''

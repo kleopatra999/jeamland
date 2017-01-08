@@ -1,10 +1,13 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	macro.h
  * Function:	Global macros
  **********************************************************************/
+
+/* System macros.. */
+#define JL_VERSION_CODE(x, y, z) ((x << 0x10) | (y << 0x8) | z)
 
 /* String macros.. */
 
@@ -17,8 +20,6 @@
 #define FREE(xx) if (xx != (char *)NULL) do \
 			{ xfree(xx); xx = (char *)NULL; } while(0)
 
-#define IN_GAME(p) 	(p->last_command && !(p->flags & U_LOGGING_IN) && \
-			p->rlname != (char *)NULL)
 
 #define DECODE(xx, zz)	ptr = decode_string(buf, zz); \
 			if (ptr == (char *)NULL) continue; \
@@ -34,17 +35,24 @@
 			(roomp = restore_room(fname)) != (struct room *)NULL)
 
 #define CHECK_INPUT_TO(user) \
-		if (user->input_to != NULL_INPUT_TO) do \
+		if (user->input_to != NULL_INPUT_TO) \
 		{ \
 			write_socket(user, \
 			    "Recursive input_to's are not permitted.\n"); \
 			return; \
-		} while(0)
+		}
 
 /* Boolean macros */
 
-#define ISCOMMENT(xx)	(xx[0] == '#' || xx[0] == '\0' || xx[0] == '\n')
-#define ISROOT(xx)	(!strcmp(xx->rlname, ROOT_USER) || xx->sudo)
+#define IN_GAME(p) 	(p->last_command && !(p->flags & U_LOGGING_IN) && \
+			p->rlname != (char *)NULL)
+
+#define ISCOMMENT(xx)	(xx[0] == '#' || xx[0] == ';' || \
+			    xx[0] == '\0' || xx[0] == '\n')
+
+#define ISROOT(xx)	(!strcmp(xx->rlname, ROOT_USER) || \
+			    (xx->flags & U_SUDO))
+
 #define SYSROOM(xx)	(xx->fname[0] == '_' && strcmp(xx->owner, ROOT_USER))
 
 #define CAN_CHANGE_ROOM(user, room) \
@@ -53,22 +61,24 @@
 		    	iaccess_check(user, query_real_level(room->owner)))))
 
 #define CAN_SEE(user, target) \
-			(!(target->saveflags & U_INVIS) || user->level >= \
+			(target->super == user->super || \
+			!(target->saveflags & U_INVIS) || user->level >= \
 			target->level)
 
 #define SEE_LOGIN(user) (!(user->saveflags & (U_SLY_LOGIN | U_INVIS)))
 
 #define CAN_READ_BOARD(user, board) \
 			(board->read_grupe == (char *)NULL || \
-			member_sysgrupe(board->read_grupe, user->rlname, 0))
+			member_sysgrupe(board->read_grupe, user->rlname))
 
 #define CAN_WRITE_BOARD(user, board) \
 			(board->write_grupe == (char *)NULL || \
-			member_sysgrupe(board->write_grupe, user->rlname, 0))
+			member_sysgrupe(board->write_grupe, user->rlname))
 
 /* Svalue macros */
 
 #define TO_NUMBER(xx) xx.type = T_NUMBER; xx.u.number = 0
+#define TO_UNUMBER(xx) xx.type = T_UNUMBER; xx.u.unumber = 0
 #define TO_STRING(xx) xx.type = T_STRING; xx.u.string = (char *)NULL
 #define TO_POINTER(xx) xx.type = T_POINTER; xx.u.pointer = (void *)NULL
 #define TO_EMPTY(xx) xx.type = T_EMPTY;

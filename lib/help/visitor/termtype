@@ -1,0 +1,7 @@
+NAME		termtype
+SYNTAX		termtype
+		termtype <termtype>
+		termtype off
+DESCRIPTION	Sets your terminal type in order to receive ansi control
+		codes to turn bold on for tells etc. Without arguments, lists
+		available termtypes. With an argument of 'off', turns ansi off.

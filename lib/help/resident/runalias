@@ -1,3 +1,0 @@
-NAME		runalias
-SYNTAX		runalias <-a> | <key>
-DESCRIPTION	Remove a room alias or all room aliases (-a)

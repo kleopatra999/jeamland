@@ -1,0 +1,9 @@
+NAME		galias
+SYNTAX		galias [<key> [fob]]
+		galias debug
+DESCRIPTION	Set, remove, edit or view global aliases.
+		A tutorial on aliases is available by typing:
+			help alias.tutorial
+		If you have insufficient privileges, you will only be able
+		to view the current aliases.
+SEE ALSO	See the help page on 'alias' for more information.

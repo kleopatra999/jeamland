@@ -1,10 +1,17 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	lint.h
  * Function:	All global function prototypes
  **********************************************************************/
+
+/* Access.c */
+int parse_banned_site(char *, unsigned long *, unsigned long *);
+void dump_siteban_table(struct user *, int);
+void add_siteban(unsigned long, unsigned long, int, char *);
+int remove_siteban(unsigned long, unsigned long);
+struct banned_site *sitebanned(unsigned long addr);
 
 /* Alias.c */
 void reset_eval_depth(void);
@@ -16,50 +23,61 @@ void add_alias(struct alias **, struct alias *);
 void remove_alias(struct alias **, struct alias *);
 int count_aliases(struct alias *);
 void free_aliases(struct alias **);
-void restore_alias(struct alias **, char *);
+void restore_alias(struct alias **, char *, char *, char *);
 void alias_hash_stats(struct user *, int);
 int valid_ralias(char *);
+void store_galiases(void);
+void alias_profile(struct user *, char *);
 
 /* Access.c */
 int offensive(char *);
+int check_ip(char *, char *);
 
 /* Backend.c */
 void fatal(char *, ...);
 void free_svalue(struct svalue *);
 void log_file(char *, char *, ...);
 void log_perror(char *, ...);
-char *perror_text(void);
+const char *perror_text(void);
 char *type_name(struct svalue *);
 void print_svalue(struct user *, struct svalue *);
 int equal_svalue(struct svalue *, struct svalue *);
 void update_current_time(void);
+time_t calc_time_until(int, int);
 
 /* Board.c */
+struct board *restore_mailbox(char *);
 struct board *restore_board(char *, char *);
 int store_board(struct board *);
 void free_board(struct board *);
 struct message *create_message(void);
 struct board *create_board(void);
-int count_messages(struct board *);
+void show_message(struct user *, struct board *, struct message *, int, void (*)(struct user *));
 void add_message(struct board *, struct message *);
 void remove_message(struct board *, struct message *);
-char *get_headers(struct board *, int, int);
+char *get_headers(struct user *, struct board *, int, int);
 struct message *find_message(struct board *, int);
+char *prepend_re(char *);
 char *quote_message(char *, char);
+void reply_message(struct user *, struct message *, int);
 
 /* Comm.c */
+void show_terminals(struct user *);
 void write_socket(struct user *, char *, ...);
 void write_prompt(struct user *, char *, ...);
 void fwrite_prompt(struct user *, char *, ...);
 void fwrite_socket(struct user *, char *, ...);
 void write_room(struct user *, char *, ...);
+void write_room_wrt_uattr(struct user *, char *, ...);
 void write_roomabu(struct user *, char *, ...);
+void write_roomabu_wrt_uattr(struct user *, char *, ...);
 void write_roomabu2(struct user *, struct user *, char *, ...);
 void write_room_level(struct user *, int, char *, ...);
 void write_room_levelabu(struct user *, int, char *, ...);
 void tell_room(struct room *, char *, ...);
 void tell_object_njlm(struct object *, char *, ...);
 void write_all(char *, ...);
+void write_level_wrt_attr(int, char *, char *, ...);
 void write_level(int, char *, ...);
 void write_levelabu(struct user *, int, char *, ...);
 void write_allabu(struct user *, char *, ...);
@@ -68,23 +86,24 @@ void notify_level_wrt_flags(int, unsigned long, char *, ...);
 void notify_levelabu(struct user *, int, char *, ...);
 void notify_levelabu_wrt_flags(struct user *, int, unsigned long, char *, ...);
 void print_prompt(struct user *);
+int parse_colour(struct user *, char *, struct strbuf *);
+void attr_colour(struct user *, char *);
+void uattr_colour(struct user *, char *);
 void reset(struct user *);
-void bold(struct user *);
-void yellow(struct user *);
-void red(struct user *);
 void linewrap(struct user *);
 int dump_file(struct user *, char *, char *, enum dump_mode);
 void write_a_jlm(struct jlm *, int, char *, ...);
 
 /* Crash.c */
 #ifdef CRASH_TRACE
-void backtrace(int);
+void backtrace(char *, int);
 void init_crash(void);
 void add_function(char *, char *, int);
 void end_function(void);
 void add_function_line(int);
 void add_function_arg(char *);
 void add_function_addr(void (*)());
+void check_fundepth(int);
 #endif
 
 /* Ed.c */
@@ -94,17 +113,14 @@ int ed_start(struct user *, void (*)(struct user *, int), int, int);
 struct event *create_event();
 int add_event(struct event *, void (*)(struct event *), int, char *);
 void remove_event(int);
+void remove_events_by_name(char *);
 struct event *find_event(int);
 void handle_event(void);
-
-/* Inetd.c */
-struct host *lookup_host_by_name(struct host *, char *, int);
-struct host *lookup_host_by_ip(struct host *, char *, int);
-void inetd_mail(char *, char *, char *, char *, int);
 
 /* File.c */
 char *read_file(char *);
 int write_file(char *, char *);
+int append_file(char *, char *);
 int send_email(char *, char *, char *, char *, int, char *, ...);
 int send_email_file(struct user *, char *);
 int count_files(char *);
@@ -114,6 +130,7 @@ int file_size(char *);
 int exist_line(char *, char *);
 void add_line(char *, char *, ...);
 void remove_line(char *, char *);
+int grep_file(char *, char *, struct strbuf *, int);
 
 /* Grupe.c */
 struct grupe_el *create_grupe_el();
@@ -132,31 +149,89 @@ void free_grupes(struct grupe **);
 int expand_grupe(struct user *, struct vecbuf *, char *);
 void store_grupes(FILE *, struct grupe *);
 void restore_grupes(struct grupe **, char *);
-int member_sysgrupe(char *, char *, int);
+int member_grupe(struct grupe *, char *, char *, int, int);
+int member_sysgrupe(char *, char *);
 
 /* Hash.c */
-struct hash *create_hash(int, char *);
+struct hash *create_hash(int, char *, int (*)(char *, int), int);
 void free_hash(struct hash *);
-void insert_hash(struct hash **, void *);
+int insert_hash(struct hash **, void *);
 void *lookup_hash(struct hash *, char *);
+void remove_hash(struct hash *, char *);
 void hash_stats(struct user *, struct hash *, int);
+
+/* Imud.c */
+void imud_tell(struct user *, char *, char *);
+void imud_who(struct user *, char *);
+void imud_finger(struct user *, char *);
+
+/* Imud3.c */
+void i3_send_string(char *);
+int i3_shutdown(void);
+int i3_startup(void);
+void i3_event_connect(struct event *ev);
+void i3_init(void);
+void i3_load(void);
+void i3_save(void);
+struct i3_channel *i3_find_channel(char *);
+void i3_tune_channel(struct i3_channel *, int);
+char *i3chan_stat(enum i3stats);
+int i3_del_channels(void);
+int i3_del_hosts(void);
+void i3_hash_stats(struct user *, int);
+void i3_cmd_who(struct user *, struct i3_host *);
+void i3_cmd_finger(struct user *, struct i3_host *, char *);
+void i3_cmd_locate(struct user *, char *);
+void i3_cmd_tell(struct user *, struct i3_host *, char *, char *);
+int i3_cmd_channel(struct user *, char *, char *);
+struct i3_host *lookup_i3_host(char *, char *);
+void i3_lostconn(struct tcpsock *);
+
+/* Inetd.c */
+struct host *lookup_inetd_host(char *);
+struct host *lookup_cdudp_host(char *);
+void inetd_mail(char *, char *, char *, char *, int);
+void save_hosts(struct host *, char *);
+void inetd_who(struct user *, struct host *);
+void cdudp_who(struct user *, struct host *);
+void inetd_finger(struct user *, struct host *, char *);
+void cdudp_finger(struct user *, struct host *, char *);
+void inetd_locate(struct user *, char *, int);
+void inetd_tell(struct user *, struct host *, char *, char *);
+void cdudp_tell(struct user *, struct host *, char *, char *);
+int inter_channel(char *, int);
+void inetd_import(struct user *, char *, char *);
 
 /* Jlm.c */
 struct jlm *create_jlm(void);
 void free_jlm(struct jlm *);
 struct jlm *find_jlm(char *);
+struct jlm *find_jlm_in_env(struct object *, char *);
 struct jlm *jlm_pipe(char *);
-void attach_jlm(struct room *, char *);
+void attach_jlm(struct object *, char *);
 void jlm_reply(struct jlm *);
 void kill_jlm(struct jlm *);
 void jlm_start_service(struct jlm *, char *);
 void jlm_service_param(struct jlm *, char *, char *);
 void jlm_end_service(struct jlm *);
 void jlm_hash_stats(struct user *, int);
+void closedown_jlms(void);
+void cleanup_jlms(void);
 
 /* Login.c */
 int login_allowed(struct user *, struct user *);
 void logon_name(struct user *);
+
+/* Mapping.c */
+struct mapping *allocate_mapping(int, int, int, char *);
+void free_mapping(struct mapping *);
+void expand_mapping(struct mapping **, int);
+struct svalue *map_value(struct mapping *, struct svalue *);
+int mapping_space(struct mapping **);
+int remove_mapping(struct mapping *, struct svalue *);
+int remove_mapping_string(struct mapping *, char *);
+struct svalue *map_string(struct mapping *, char *);
+void check_dead_map(struct mapping **);
 
 /* Master.c */
 void change_user_level(char *, int, char *);
@@ -173,9 +248,11 @@ char *random_password(int);
 char *crypted(char *);
 void delete_user(char *);
 void register_valemail_id(struct user *, char *);
-int valemail_service(char *);
+int valemail_service(char *, char *);
 void pending_valemails(struct user *);
 int remove_any_valemail(char *);
+int check_sudo(char *, char *, char *);
+void list_sudos(struct user *, char *);
 
 /* Mbs.c */
 struct mbs *create_mbs(void);
@@ -246,21 +323,46 @@ void enter_env(struct object *, struct object *);
 void leave_env(struct object *);
 void free_sentences(struct object *);
 struct sent *find_sent(struct object *, char *);
+struct sent *find_sent_cmd(struct user *, char *);
 int sent_cmd(struct user *, char *, char *);
+void dump_sent_list(struct user *p, struct strbuf *t);
 
 /* Socket.c */
+void remove_ipc(void);
 void eor(struct user *);
 void noecho(struct user *);
 void echo(struct user *);
 void replace_interactive(struct user *, struct user *);
-int insert_command(struct user *, char *);
+int insert_command(struct tcpsock *, char *);
 char *lookup_ip_name(struct user *);
 char *lookup_ip_number(struct user *);
+char *ip_name(struct tcpsock *);
+char *ip_number(struct tcpsock *);
+char *ip_numtoname(char *);
+char *ip_addrtonum(unsigned long);
+void send_rnotify(struct user *, char *);
+int send_a_rnotify_msg(int, char *);
+void closedown_rnotify(void);
+void dump_rnotify_table(struct user *);
 void send_udp_packet(char *, int, char *);
-void send_erq(int, char *, ...);
-void send_user_erq(char *, int, char *, ...);
+int send_erq(int, char *, ...);
+int send_user_erq(char *, int, char *, ...);
 void my_sleep(unsigned int);
 void close_socket(struct user *);
+void init_tcpsock(struct tcpsock *, int);
+struct tcpsock *create_tcpsock(char *);
+void free_tcpsock(struct tcpsock *);
+void tfree_tcpsock(struct tcpsock *);
+int write_tcpsock(struct tcpsock *, char *, int);
+int scan_tcpsock(struct tcpsock *);
+char *process_tcpsock(struct tcpsock *);
+int connect_tcpsock(struct tcpsock *, char *, int);
+void close_tcpsock(struct tcpsock *);
+int close_fd(int);
+char * scan_udpsock(struct udpsock *);
+void disconnect_user(struct user *, int);
+int start_supersnoop(char *);
+void nonblock(int);
 
 /* Soul.c */
 char *pluralise_verb(char *);
@@ -274,19 +376,23 @@ void dec_stack(struct stack *);
 void pop_n_elems(struct stack *, int);
 void pop_stack(struct stack *);
 void push_malloced_string(struct stack *, char *);
-void push_number(struct stack *, int);
+void push_number(struct stack *, long);
+void push_unsigned(struct stack *, unsigned long);
 void push_pointer(struct stack *, void *);
 void push_fpointer(struct stack *, void (*)());
 void push_string(struct stack *, char *);
 void clean_stack(struct stack *);
 void init_stack(struct stack *);
 struct svalue *stack_svalue(struct stack *, int);
+void dump_stack(struct user *, struct stack *);
 
 /* String.c */
 void my_strncpy(char *, char *, int);
 void deltrail(char *);
 void delheadtrail(char **);
 char *nctime(time_t *);
+char *shnctime(time_t *);
+char *vshnctime(time_t *);
 char *string_copy(char *, char *);
 char *capitalise(char *);
 char *lower_case(char *);
@@ -297,6 +403,7 @@ void init_strbuf(struct strbuf *, int, char *);
 void reinit_strbuf(struct strbuf *);
 void cadd_strbuf(struct strbuf *, char);
 void add_strbuf(struct strbuf *, char *);
+void binary_add_strbuf(struct strbuf *, char *, int);
 void sadd_strbuf(struct strbuf *, char *, ...);
 void free_strbuf(struct strbuf *);
 #ifdef STRBUF_STATS
@@ -310,7 +417,7 @@ struct svalue *decode_one(char *, char *);
 char *code_string(char *);
 char *decode_string(char *, char *);
 struct vector *parse_range(struct user *, char *, int);
-void expand_user_list(struct user *, char *, struct vecbuf *, int);
+void expand_user_list(struct user *, char *, struct vecbuf *, int, int, int);
 char *parse_chevron(char *);
 int exist_cookie(char *, char);
 char *parse_cookie(struct user *, char *);
@@ -324,13 +431,25 @@ void remove_strlist(struct strlist **, struct strlist *);
 void write_strlist(FILE *, char *, struct strlist *);
 struct strlist *decode_strlist(char *, enum sl_mode);
 struct strlist *member_strlist(struct strlist *, char *);
+int strlist_size(struct strlist *);
+void xcrypt(char *);
+char *xcrypted(char *);
+void init_composite_words(struct strbuf *);
+void add_composite_word(struct strbuf *, char *);
+void end_composite_words(struct strbuf *);
 
 /* User.c */
+char *who_text(int);
 int count_users(struct user *);
 struct user *create_user(void);
 struct user *dead_copy(char *);
+struct user *with_user_common(struct user *, char *, struct strbuf *);
 struct user *with_user(struct user *, char *);
+struct user *with_user_msg(struct user *, char *);
+struct user *find_user_common(struct user *, char *, struct strbuf *);
 struct user *find_user(struct user *, char *);
+struct user *find_user_msg(struct user *, char *);
+struct user *find_user_absolute(struct user *, char *);
 void move_user(struct user *, struct room *);
 void free_user(struct user *);
 void tfree_user(struct user *);
@@ -353,6 +472,8 @@ void newmail_check(struct user *);
 char *flags(struct user *);
 struct user *doa_start(struct user *, char *);
 void doa_end(struct user *, int);
+time_t *user_time(struct user *, time_t);
+void lastlog(struct user *);
 
 /* Vector.c */
 void free_vector(struct vector *);
@@ -375,7 +496,7 @@ void *xrealloc(void *, size_t);
 /****************************************************************************/ 
 
 #ifndef HPUX
-#if defined(__linux__) || defined(_AIX4)
+#if defined(__linux__) || defined(_AIX4) || defined(FREEBSD)
 extern char *crypt(const char *, const char *);
 #else
 char *crypt(char *, char *);

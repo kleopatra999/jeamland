@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	soul.c
  * Function:	The feelings database
@@ -54,8 +54,6 @@ struct feeling *
 exist_feeling(char *name)
 {
 #ifdef HASH_FEELINGS
-	if (fhash == (struct hash *)NULL)
-		return (struct feeling *)NULL;
 	return (struct feeling *)lookup_hash(fhash, name);
 #else
 	struct feeling *f;
@@ -89,7 +87,7 @@ load_feelings()
 #ifdef HASH_FEELINGS
 	if (fhash != (struct hash *)NULL)
 		free_hash(fhash);
-	fhash = create_hash(0, "feelings");
+	fhash = create_hash(0, "feelings", NULL, 0);
 #endif
 	if ((fp = fopen(F_FEELINGS, "r")) == (FILE *)NULL)
 	{
@@ -108,7 +106,7 @@ load_feelings()
 			int c;
 			log_file("syslog",
 			    "Line %d too long in feelings database.", line);
-			while((c = getc(fp)) != '\n' && c != EOF)
+			while ((c = getc(fp)) != '\n' && c != EOF)
 				;
 			continue;
 		}
@@ -161,7 +159,7 @@ load_feelings()
 			    "Error in feeling database, line %d", line);
 			continue;
 		}
-		else switch(section)
+		else switch (section)
 		{
 		    case S_STD:
 		    case S_STD2:
@@ -212,9 +210,9 @@ load_feelings()
 				if (isspace(*q))
 				{
 					log_file("syslog",
-					    "Illegal character in feeling "
-					    "name, truncating. (line %d)",
-					    line);
+					    "Illegal space character in "
+					    "feeling name, truncating. "
+					    "(line %d)", line);
 					*q = '\0';
 					break;
 				}
@@ -331,7 +329,7 @@ parse_adverb(char *str, char *insert, int end)
 	{
 		if (*p == '#')
 		{
-			switch(*++p)
+			switch (*++p)
 			{
 			    case '#':
 				strcat(adv, "#");
@@ -413,44 +411,40 @@ static char *
 feeling_user_list(struct user *p, char *id, int lcl)
 {
 	struct user *who;
-	static char buf[BUFFER_SIZE];
+	struct vecbuf vb;
+	struct vector *vec;
+	struct strbuf buff;
+	static char *str = (char *)NULL;
+	char *tmp;
+	int i;
+
+	FREE(str);
+
+	init_strbuf(&buff, 0, "feeling_user_list");
+
+	target = users;
+	users->gender = G_PLURAL;
 
 	/* Special case.. */
 	if (!strcmp(id, "all"))
 	{
 		struct object *ob;
-		char sbuf[50];
 
-		*sbuf = *buf = '\0';
+		init_composite_words(&buff);
 
 		if (lcl)
-		{
 			for (ob = p->super->ob->contains;
 			    ob != (struct object *)NULL;
 			    ob = ob->next_contains)
 			{
-				if (ob->type != T_USER || !IN_GAME(ob->m.user))
+				if (ob->type != OT_USER ||
+				    !IN_GAME(ob->m.user))
 					continue;
 				if (ob->m.user == p)
 					continue;
-				if (*sbuf != '\0')
-				{
-					if (*buf != '\0')
-						strcat(buf, ", ");
-					strcat(buf, sbuf);
-					*sbuf = '\0';
-				}
-				strcpy(sbuf, ob->m.user->name);
+				add_composite_word(&buff, ob->m.user->name);
 			}
-			if (*sbuf != '\0')
-			{
-				if (*buf != '\0')
-					strcat(buf, " and ");
-				strcat(buf, sbuf);
-			}
-		}
 		else
-		{
 			for (who = users->next; who != (struct user *)NULL;
 			    who = who->next)
 			{
@@ -460,43 +454,76 @@ feeling_user_list(struct user *p, char *id, int lcl)
 					continue;
 				if (who->super != p->super && !CAN_SEE(p, who))
 					continue;
-				if (*sbuf != '\0')
-				{
-					if (*buf != '\0')
-						strcat(buf, ", ");
-					strcat(buf, sbuf);
-					*sbuf = '\0';
-				}
-				strcpy(sbuf, who->name);
+				add_composite_word(&buff, who->name);
 			}
-			if (*sbuf != '\0')
-			{
-				if (*buf != '\0')
-					strcat(buf, " and ");
-				strcat(buf, sbuf);
-			}
-		}
 
-		if (*buf == '\0')
+		end_composite_words(&buff);
+
+		if (!buff.offset)
+		{
+			free_strbuf(&buff);
 			return (char *)NULL;
-		target = users;
-		return buf;
+		}
+		pop_strbuf(&buff);
+		return str = buff.str;
 	}
 
-	if (lcl)
-		who = with_user(p, id);
-	else
-		who = find_user(p, id);
+	/* Not /All/ */
 
-	if (who != (struct user *)NULL)
+	tmp = string_copy(id, "feeling_user_list idcp");
+	init_vecbuf(&vb, 0, "feeling_user_list vb");
+	/* NB: Not verbose.. */
+	expand_user_list(p, tmp, &vb, 1, lcl, 0);
+	vec = vecbuf_vector(&vb);
+	xfree(tmp);
+
+	if (!vec->size)
 	{
-		target = who;
+		free_vector(vec);
+		/* Do some checks of our own. */
+		if (lcl)
+			who = find_user_common(p, id, &buff);
+		else
+			who = with_user_common(p, id, &buff);
 
-		if (who == p)
-			return query_gender(p->gender, G_SELF);
-		return who->name;
+		if (who == (struct user *)1)
+		{
+			write_socket(p, "Ambiguous username, %s [%s]\n",
+			    id, buff.str);
+			free_strbuf(&buff);
+			return (char *)1;
+		}
+		free_strbuf(&buff);
+		return (char *)NULL;
 	}
-	return (char *)NULL;
+
+	init_composite_words(&buff);
+
+	for (i = 0; i < vec->size; i++)
+	{
+		if (vec->items[i].type != T_POINTER)
+			continue;
+
+		if ((struct user *)vec->items[i].u.pointer == p)
+			add_composite_word(&buff,
+			    query_gender(p->gender, G_SELF));
+		else
+			add_composite_word(&buff,
+			    ((struct user *)(vec->items[i].u.pointer))->name);
+		/* Doesn't mean much for multiple targets but... */
+		target = (struct user *)vec->items[i].u.pointer;
+	}
+	end_composite_words(&buff);
+
+	free_vector(vec);
+
+	if (!buff.offset)
+	{
+		free_strbuf(&buff);
+		return (char *)NULL;
+	}
+	pop_strbuf(&buff);
+	return str = buff.str;
 }
 
 /*
@@ -535,6 +562,8 @@ std_feeling(struct user *p, int argc, char **argv, struct feeling *f,
 		lword = argv[1];
 	if ((nm = feeling_user_list(p, lword, lcl)) != (char *)NULL)
 	{
+		if (nm == (char *)1)
+			return 0;
 		if (rest != (char *)NULL)
 			if (f->no_verb)
 				sadd_strbuf(str, "%s %s %s",
@@ -592,6 +621,8 @@ std2_feeling(struct user *p, int argc, char **argv, struct feeling *f,
 		write_socket(p, "%s who ?\n", argv[0]);
 		return 0;
 	}
+	if (nm == (char *)1)
+		return 0;
 	if (rest != (char *)NULL)
 		sadd_strbuf(str, "%s %s %s %s.", p->name,
 		    pluralise_verb(argv[0]), nm, rest);
@@ -681,6 +712,8 @@ targ_feeling(struct user *p, int argc, char **argv, struct feeling *f,
 		write_socket(p, "%s is not here.\n", capitalise(argv[1]));
 		return 0;
 	}
+	if (nm == (char *)1)
+		return 0;
 	if (f->prep != (char *)NULL)
 		if (f->no_verb)
 			sadd_strbuf(str, "%s %s", p->name,
@@ -723,6 +756,8 @@ opt_targ_feeling(struct user *p, int argc, char **argv, struct feeling *f,
 		write_socket(p, "%s is not here.\n", capitalise(argv[1]));
 		return 0;
 	}
+	if (nm == (char *)1)
+		return 0;
 	if (f->no_verb)
 		sadd_strbuf(str, "%s %s", p->name, f->prep ==
 		    (char *)NULL ? parse_adverb("at", nm, 1) :
@@ -748,8 +783,7 @@ expand_feeling(struct user *p, int argc, char **argv, int lcl)
 	target = (struct user *)NULL;
 
 #ifdef HASH_FEELINGS
-	if (fhash == (struct hash *)NULL ||
-	    (f = (struct feeling *)lookup_hash(fhash, argv[0])) ==
+	if ((f = (struct feeling *)lookup_hash(fhash, argv[0])) ==
 	    (struct feeling *)NULL)
 	{
 		FUN_END;
@@ -770,7 +804,7 @@ expand_feeling(struct user *p, int argc, char **argv, int lcl)
 	f->calls++;
 #endif
 	init_strbuf(&str, 0, "feeling strbuf");
-	switch(f->type)
+	switch (f->type)
 	{
 	    case S_STD:
 		ret = std_feeling(p, argc, argv, f, &str, lcl);
@@ -818,7 +852,7 @@ parse_feeling(struct user *p, int argc, char **argv)
 	{
 		if (str != (char *)1)
 		{
-			write_room(p, "%s\n", str);
+			write_room_wrt_uattr(p, "%s\n", str);
 			xfree(str);
 		}
 		FUN_END;

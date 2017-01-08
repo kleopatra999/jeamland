@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	object.c
  * Function:	Generic object support.
@@ -27,7 +27,8 @@ create_object()
 	num_objects++;
 #endif
 	ob->id = ++id;
-	ob->type = T_EMPTY;
+	ob->type = OT_EMPTY;
+	ob->num_contains = 0;
 	ob->contains = ob->next_contains = (struct object *)NULL;
 	ob->super = (struct object *)NULL;
 	ob->export = ob->inv = (struct sent *)NULL;
@@ -44,6 +45,7 @@ add_to_env(struct object *ob, struct object *env)
 {
 	ob->next_contains = env->contains;
 	env->contains = ob;
+	env->num_contains++;
 	ob->super = env;
 	enter_env(ob, env);
 }
@@ -63,6 +65,7 @@ remove_from_env(struct object *ob)
 		if (*s == ob)
 		{
 			*s = ob->next_contains;
+			ob->super->num_contains--;
 			return;
 		}
 #ifdef DEBUG
@@ -83,17 +86,17 @@ free_object(struct object *ob)
 		{
 			*o = ob->next;
 
-        		switch(ob->type)
+        		switch (ob->type)
         		{
-			    case T_EMPTY:
+			    case OT_EMPTY:
 				break;
-			    case T_USER:
+			    case OT_USER:
 				tfree_user(ob->m.user);
 				break;
-			    case T_ROOM:
+			    case OT_ROOM:
 				tfree_room(ob->m.room);
 				break;
-			    case T_JLM:
+			    case OT_JLM:
 				free_jlm(ob->m.jlm);
 				break;
 			    default:
@@ -115,17 +118,20 @@ free_object(struct object *ob)
 int
 move_object(struct object *ob, struct object *to)
 {
-	if (ob->type == T_EMPTY)
+	if (ob->type == OT_EMPTY)
 		fatal("Moving empty object.");
-	if (ob->type == T_ROOM)
+	if (ob->type == OT_ROOM)
 		return 0;
-	if (ob->type == T_USER && to->type != T_ROOM)
+	if (ob->type == OT_USER && to->type != OT_ROOM)
 		return 0;
 
 	remove_from_env(ob);
 	add_to_env(ob, to);
-	if (ob->type == T_USER)
+
+	/* Update the user environment shortcut */
+	if (ob->type == OT_USER)
 		ob->m.user->super = to->m.room;
+
 	return 1;
 }
 
@@ -134,16 +140,18 @@ obj_name(struct object *ob)
 {
 	static char buf[0x100];
 
-	switch(ob->type)
+	switch (ob->type)
 	{
-	    case T_USER:
-		sprintf(buf, "%s (User)", ob->m.user->capname);
+	    case OT_EMPTY:
+		return "!!EMPTY!!";
+	    case OT_USER:
+		sprintf(buf, "User:%s", ob->m.user->capname);
 		break;
-	    case T_ROOM:
-		sprintf(buf, "%s (Room)", ob->m.room->fname);
+	    case OT_ROOM:
+		sprintf(buf, "Room:%s", ob->m.room->fname);
 		break;
-	    case T_JLM:
-		sprintf(buf, "%s (JLM)", ob->m.jlm->id);
+	    case OT_JLM:
+		sprintf(buf, "JLM:%s", ob->m.jlm->id);
 		break;
 	    default:
 		return "!!UNKNOWN!!";
@@ -158,18 +166,18 @@ object_inv(struct user *p, struct object *o, struct strbuf *b, int indent)
 	int i;
 
 	/* *sigh*.. */
-	if (o->type == T_USER && !CAN_SEE(p, o->m.user))
+	if (o->type == OT_USER && !CAN_SEE(p, o->m.user))
 		return;
 
 	for (i = indent; i--; )
 		cadd_strbuf(b, ' ');
 
-	sadd_strbuf(b, "[%d] %s\n", o->id, obj_name(o));
-	indent += 4;
+	sadd_strbuf(b, "%s     [%d/%s]\n", obj_name(o), o->id,
+	    shnctime(&o->create_time));
+
 	for (ob = o->contains; ob != (struct object *)NULL;
 	    ob = ob->next_contains)
-		object_inv(p, ob, b, indent);
-	indent -= 4;
+		object_inv(p, ob, b, indent + 4);
 }
 
 void

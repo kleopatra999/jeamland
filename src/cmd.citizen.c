@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	cmd.citizen.c
  * Function:	Citizen commands
@@ -16,6 +16,7 @@
  * CITIZEN commands....
  */
 
+#ifndef REQUIRE_REGISTRATION
 void
 validate2(struct user *p, char *c)
 {
@@ -23,14 +24,14 @@ validate2(struct user *p, char *c)
 
         if ((g = gender_number(c, 1)) == -1)
         {
-                write_socket(p, "Invalid choice, please select again: ");
+                write_prompt(p, "Invalid choice, please select again: ");
                 return;
         }
         p->gender = g;
 	p->input_to =
 	    (void (*)(struct user *, char *))p->stack.sp->u.fpointer;
 	dec_stack(&p->stack);
-	dump_file(p, "msg", "validate", DUMP_CAT);
+	dump_file(p, "etc", "validate", DUMP_CAT);
 	return;
 }
 
@@ -39,11 +40,8 @@ f_validate(struct user *p, int argc, char **argv)
 {
 	struct user *who;
 
-	if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capitalise(argv[1]));
+	if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	if (who->level != L_VISITOR)
 	{
 		write_socket(p, "%s is not a guest!\n", who->name);
@@ -56,7 +54,7 @@ f_validate(struct user *p, int argc, char **argv)
 	reposition(who);
 	COPY(who->validator, p->rlname, "validator");
 	write_socket(p, "Ok.\n");
-	notify_levelabu(p, p->level, "[ %s has been validated by %s. ]\n",
+	notify_levelabu(p, p->level, "[ %s has been validated by %s. ]",
 	    who->capname, p->capname);
 
 	push_fpointer(&who->stack, (void (*)())who->input_to);
@@ -66,24 +64,23 @@ f_validate(struct user *p, int argc, char **argv)
 	write_prompt(who, "Please choose a gender from the following list:\n"
 	    "  (m)ale, (f)emale, (n)euter, (p)lural: ");
 }
+#endif /* REQUIRE_REGISTRATION */
 
 void
 f_warn(struct user *p, int argc, char **argv)
 {
 	struct user *who;
 
-	if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", argv[1]);
+	if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	log_file("warn", "%s: %s -\n%s", p->capname, who->capname, argv[2]);
-	red(who);
-	write_socket(who, "%s warns you: -=> %s <=-\n", p->name,
+	parse_colour(who, "!r", (struct strbuf *)NULL);
+	write_socket(who, "%s warns you: -=> %s <=-", p->name,
 	    argv[2]);
-	notify_levelabu(p, p->level, "[ %s warns %s: %s ]\n", p->capname,
-	    who->capname, argv[2]);
 	reset(who);
+	write_socket(who, "\n");
+	notify_levelabu(p, p->level, "[ %s warns %s: %s ]", p->capname,
+	    who->capname, argv[2]);
 	write_socket(p, "You warn %s: %s\n", who->capname, argv[2]);
 }
 

@@ -7,7 +7,7 @@ aliases, I wrote this tutorial. Please feel free to mail me with comments /
 suggestions and additions. I would also like to receive any 'nice' examples
 to add to the bottom section. If you have any questions at all, or if
 anything is unclear and would benefit from a rewrite(!), please feel
-free to send me email at: A.Fiddaman@twikki.demon.co.uk
+free to send me email at: JeamLand@twikki.demon.co.uk
 
 
 ::: NOTATION :::
@@ -57,7 +57,7 @@ free to send me email at: A.Fiddaman@twikki.demon.co.uk
 		g happily wibble	-> grin happily wibble
 
 	It is also possible to just use specific words in your expansion using
-	$-expressions of the form $n where n is an integer between 1 and 9
+	$-expressions of the form $n where n is an integer between 0 and 9
 	inclusive. This leads to aliases like:
 
 		alias g grin $1
@@ -208,7 +208,7 @@ free to send me email at: A.Fiddaman@twikki.demon.co.uk
 ::: FUNCTIONS AND THE STACK :::
 
 	To complicate matters, an alias is also able to call certain functions.
-	A full list of functions is on the help page 'alias.funcs'
+	A full list of functions can be seen by typing 'man'
 
 	If you have any suggestions for others, please tell me!
 
@@ -524,4 +524,22 @@ alias _arrive
 	write You are kicked out of the pub by the landlord!
 	quiet emote is kicked out of the pub by the landlord!
 	\\out
+
+A set of aliases which simulate the 'next' command:
+
+	alias last_note &%push(1)
+	alias next last_note;read $%
+	alias read \\read $1;quiet alias last_note \&\%push(@+($1,1))
+
+Aliases which simulate the 'tell' command with multiple targets
+(demonstrates the 'map' alias)
+
+alias gtell
+	$$#1-:write Syntax: gtell <user[,user]...> <message>$!
+	&%push($2*)
+	&map($1,\,,_gtell)
+	&@pop(1)
+
+alias _gtell
+	tell $1 @copy(1)
 

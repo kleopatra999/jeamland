@@ -1,0 +1,11 @@
+NAME		3channel
+SYNTAX		3channel <channel> <message>
+		3channel <channel> :<message>
+		3channel <channel> @<host>
+DESCRIPTION	Broadcast a message on an intermud-III channel.
+		With the leading : character, the message will be an emote.
+		This command is not often used directly but rather via a
+		global alias. (See list of global aliases as distributed).
+
+		The third form of the command sends a request for the
+		listeners to the remote host.

@@ -12,6 +12,7 @@ F_		File names.
 FINGER_		Arguments to finger_text()
 G_		Gender tables.
 HASH_		Hash table defines.
+IMUD3_, I3	Intermud 3 system.
 JLM_		Jlm flags.
 L_		User levels.
 M_		Message flags.

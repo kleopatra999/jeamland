@@ -1,12 +1,13 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	file.c
  * Function:	Functions associated with file / directory structure access
  **********************************************************************/
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -60,17 +61,18 @@ read_file(char *fname)
 	return buf;
 }
 
-int
-write_file(char *fname, char *buf)
+static int
+write_to_file(char *fname, char *buf, int trunc)
 {
 	int fd, err;
 
-	if ((fd = open(fname, O_WRONLY | O_TRUNC | O_CREAT, 0600)) == -1)
+	if ((fd = open(fname, O_WRONLY | (trunc ? O_TRUNC : O_APPEND) |
+	    O_CREAT, 0600)) == -1)
 	{
 		log_perror("write_file open");
 		return 0;
 	}
-	if ((err = write(fd, buf, strlen(buf))) != strlen(buf))
+	if ((err = write(fd, buf, strlen(buf))) != (int)strlen(buf))
 	{
 		if (err == -1)
 			log_perror("write_file write");
@@ -79,6 +81,18 @@ write_file(char *fname, char *buf)
 	}
 	close(fd);
 	return 1;
+}
+
+int
+write_file(char *fname, char *buf)
+{
+	return write_to_file(fname, buf, 1);
+}
+
+int
+append_file(char *fname, char *buf)
+{
+	return write_to_file(fname, buf, 0);
 }
 
 int
@@ -92,7 +106,7 @@ send_email(char *rlname, char *to, char *cc, char *subj, int del,
 
 #ifdef DEBUG
 	if (to == (char *)NULL || subj == (char *)NULL)
-		fatal("emaild_file with NULL arguments.");
+		fatal("send_email with NULL arguments.");
 #endif
 
 	sprintf(buf,F_EMAILD "%d", ++id);
@@ -114,7 +128,8 @@ send_email(char *rlname, char *to, char *cc, char *subj, int del,
         va_end(argp);
 	fclose(fp);
 
-	send_erq(ERQ_EMAIL, "%s;%d;%d;\n", rlname, id, del);
+	if (send_erq(ERQ_EMAIL, "%s;%d;%d;\n", rlname, id, del) == -1)
+		return -1;
 
 	return id;
 }
@@ -310,7 +325,7 @@ log_file(char *file, char *fmt, ...)
 #ifdef CYCLIC_LOGS
                 if (fstat(fileno(stream), &st) == -1)
                         fatal("Could not stat an open file");
-                if (st.st_size > CYCLIC_LOGS)
+                if (st.st_size >= CYCLIC_LOGS)
                 {
                         fclose(stream);
                         strcpy(buf, path);
@@ -320,6 +335,19 @@ log_file(char *file, char *fmt, ...)
                                 return;
                 }
 #endif
+#ifdef CONSOLE_SYSLOG
+		if ((sysflags & SYS_CONSOLE) &&
+		    (!strcmp(file, "syslog") || !strcmp(file, "error") ||
+		    !strcmp(file, "perror")))
+		{
+			fprintf(stdout, "** ");
+			va_start(argp, fmt);
+			vfprintf(stdout, fmt, argp);
+			va_end(argp);
+			fprintf(stdout, "\n");
+			fflush(stdout);
+		}
+#endif /* CONSOLE_SYSLOG */
         }
         else
                 fprintf(stream, "%s: ", file);
@@ -331,7 +359,7 @@ log_file(char *file, char *fmt, ...)
         fflush(stream);
         if (stream != stdout)
                 fclose(stream);
-	if (!strcmp(file, "error"))
+	if (!strcmp(file, "error") || !strcmp(file, "perror"))
 	{
 		/* Let the Administrators know. */
 		char buf[BUFFER_SIZE];
@@ -340,7 +368,7 @@ log_file(char *file, char *fmt, ...)
 		vsprintf(buf, fmt, argp);
 		va_end(argp);
 
-		notify_level(L_CONSUL, "[ !ERROR! %s ]\n", buf);
+		notify_level(L_WARDEN, "[ !ERROR! %s ]", buf);
 	}
 }
 
@@ -436,5 +464,47 @@ remove_line(char *fname, char *line)
 		log_perror("rename");
 		log_file("error", "Rename failed in remove_line().");
 	}
+}
+
+int
+grep_file(char *file, char *s, struct strbuf *str, int casex)
+{
+	char buf[BUFFER_SIZE], buf2[BUFFER_SIZE];
+	FILE *fp;
+	char *q, *r;
+	int i, line;
+
+	if ((fp = fopen(file, "r")) == (FILE *)NULL)
+		return -1;
+
+	if (casex)
+		s = lower_case(s);
+
+	i = line = 0;
+
+	while (fgets(buf, sizeof(buf), fp) != (char *)NULL)
+	{
+		line++;
+
+		if (casex)
+		{
+			for (q = buf, r = buf2; *q != '\0'; q++, r++)
+				*r = tolower(*q);
+
+			q = strstr(buf2, s);
+		}
+		else
+			q = strstr(buf, s);
+
+		if (q != (char *)NULL)
+		{
+			sadd_strbuf(str, "[%4d] ", line);
+			add_strbuf(str, buf);
+			i++;
+		}
+	}
+	fclose(fp);
+
+	return i;
 }
 

@@ -3,9 +3,56 @@
 
 FILE=.mailall
 
-echo "Edit message text ($FILE) ? (y/n)"
+myecho()
+{
+	if [ $echotype -eq 1 ]; then
+		echo -n "$1"
+	else
+		if [ $echotype -eq 2 ]; then
+			echo "$1\c"
+		else
+			# *Sigh*
+			echo "$1"'
+        '
+		fi
+	fi
+}
+
+echo_check()
+{
+	if (echo "wibble\c"; echo fubar) | grep c > /dev/null
+	then
+		# Appending \c doesn't work... does a prefix of -n ?
+		if (echo -n wibble; echo fubar) | sed 's/-n/xn/' |\
+		    grep xn > /dev/null
+		then
+			# Prefixing -n doesn't work, do the best we can.
+			echotype=3
+		else
+			# Prefixing -n works.
+			echotype=1
+		fi
+	else
+		# Suffix of \c works.
+		echotype=2
+	fi
+}
+
+echo_check
+
+clear
+cat << EOM
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   JEAMLAND MAILALL
+			   ----------------
+	This program will send an email message to all talker users
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+EOM
+
+myecho "Edit message text ($FILE) ? (y/n) : "
 read a
-if [ $a = 'y' ]; then
+if [ "x$a" = 'xy' ] || [ "x$a" = 'xY' ]; then
 	if [ $EDITOR'x' != 'x' ]; then
 		$EDITOR $FILE
 	else
@@ -18,7 +65,8 @@ if [ ! -r $FILE ]; then
 	exit
 fi
 
-echo "Please enter a subject on the following line:"
+echo "Please enter a subject on the following line"
+myecho ': '
 read subj
 
 if [ "x$subj" = 'x' ]; then
@@ -27,16 +75,40 @@ if [ "x$subj" = 'x' ]; then
 else
 	echo "Subject: $subj"
 fi
+myecho 'Continue? (y/n) : '
+read a
+if [ "x$a" != 'xy' ] && [ "x$a" != 'xY' ]; then
+	echo 'Aborted.'
+	exit 1
+fi
 
+cnt=0
+snt=0
+flt=0
 for user in `find lib/users -type f -name \*.o -print`
 do
+	cnt=`expr $cnt + 1`
+	username=`basename $user .o`
 	email=`grep '^email' $user | cut -d\" -f2`
+	myecho "$user      	($email) : "
 	if [ $email'x' = 'x' ]; then
-		echo "$user has no email, skipped"
+		echo 'Skipped.'
+		flt=`expr $flt + 1`
 	else
 		mail -s "$subj" $email < $FILE
-		echo "Sent to $email"
+		echo 'Sent.'
+		snt=`expr $snt + 1`
 	fi
-	sleep 5
+	sleep 1
 done
+
+cat << EOM
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+				FINISHED
+				--------
+		Total users:			$cnt
+		Email messages sent:		$snt
+		Email messages skipped:		$flt
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+EOM
 

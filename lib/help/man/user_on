@@ -1,0 +1,5 @@
+NAME		user_on
+SYNTAX		user_on(user)
+DESCRIPTION	Like find_user() except it returns 0 or 1 depending on
+		whether the user is logged on or not.
+RETURN VALUE	0 or 1

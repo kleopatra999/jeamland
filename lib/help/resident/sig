@@ -1,0 +1,15 @@
+NAME		sig
+SYNTAX		sig
+		sig -edit
+		sig -remove
+		sig -mail
+		sig -board
+DESRIPTION	This command handles your signature file. Your signature is
+		a small portion of text which is appended to either a mail
+		or board message which you post. 'sig' by itself shows your
+		current signature and your current signature use settings.
+		'sig -mail' and 'sig -board' are both toggles and turn on/off
+		whether signatures are appended to mail/board messages.
+		Signatures are limited to four lines of 70 characters on
+		each. In order to enforce this, automatic linewrap will be
+		used in the editor regardless of your current option setting.

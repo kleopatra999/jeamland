@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	alias.c
  * Function:	User alias parsing and support
@@ -24,6 +24,7 @@ extern struct command commands[], partial_commands[];
 extern struct feeling *feelings;
 extern time_t current_time;
 
+struct alias *galiases = (struct alias *)NULL;
 int eval_depth;
 
 #ifdef HASH_ALIAS_FUNCS
@@ -45,6 +46,8 @@ reset_eval_depth()
 #define AL_SKFUNC	0x20
 #define AL_COND		0x40
 #define AL_FBB		0x80
+
+#define AL_SKIPPING (flags & AL_SKIP)
 
 static void
 alias_indent(struct user *p)
@@ -294,6 +297,32 @@ a_plus(struct user *p, char *arg)
 }
 
 static int
+a_multiply(struct user *p, char *arg)
+{
+	if (STACK_EMPTY(&p->alias_stack))
+	{
+		write_socket(p, "*(): Nothing on stack to multiply to.\n");
+		return 0;
+	}
+	sprintf(arg, "%d", atoi(arg) * atoi(p->alias_stack.sp->u.string));
+	pop_stack(&p->alias_stack);
+	return 1;
+}
+
+static int
+a_divide(struct user *p, char *arg)
+{
+	if (STACK_EMPTY(&p->alias_stack))
+	{
+		write_socket(p, "/(): Nothing on stack to divide.\n");
+		return 0;
+	}
+	sprintf(arg, "%d", atoi(p->alias_stack.sp->u.string) / atoi(arg));
+	pop_stack(&p->alias_stack);
+	return 1;
+}
+
+static int
 a_lt(struct user *p, char *arg)
 {
 	struct svalue sv;
@@ -350,6 +379,65 @@ a_gt(struct user *p, char *arg)
 }
 
 static int
+a_strlen(struct user *p, char *arg)
+{
+	sprintf(arg, "%d", strlen(arg));
+	return 1;
+}
+
+static int
+a_substr(struct user *p, char *arg)
+{
+	/* Stack contains, String, Start index.
+	 * Arg contains - number of elements.
+	 */
+	int s, e, len;
+	char *str;
+
+	if (STACK_SIZE(&p->alias_stack) < 2)
+	{
+		write_socket(p, "substr(): Insufficient stacked elements.\n");
+		return 0;
+	}
+
+	str = (p->alias_stack.sp - 1)->u.string;
+	len = strlen(str);
+	s = atoi(p->alias_stack.sp->u.string);
+	e = atoi(arg);
+
+	/* Decisions, decisions.. what to do if s is out of range
+	 * How about return a null string ?
+	 * Sounds fair enough.. */
+	if (s < 0 || s >= len)
+	{
+		if (p->flags & U_DEBUG_ALIAS)
+		{
+			alias_indent(p);
+			write_socket(p, "  * Start out of range, "
+			    "returning null [%d]\n", s);
+		}
+		*arg = '\0';
+		pop_n_elems(&p->alias_stack, 2);
+		return 1;
+	}
+
+	if (e < 0)
+	{
+		write_socket(p, "substr(): Bad number of characters, %d.\n",
+		    e);
+		pop_n_elems(&p->alias_stack, 2);
+		return 0;
+	}
+	
+	if (e == 0)
+		e = len;
+
+	my_strncpy(arg, str + s, e);
+	pop_n_elems(&p->alias_stack, 2);
+	return 1;
+}
+
+static int
 a_time(struct user *p, char *arg)
 {
 	struct tm *now;
@@ -373,11 +461,8 @@ a_present(struct user *p, char *arg)
 {
 	struct user *u;
 
-	if ((u = with_user(p, arg)) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s is not here.\n", capfirst(arg));
+	if ((u = with_user_msg(p, arg)) == (struct user *)NULL)
 		return 0;
-	}
 	strcpy(arg, u->name);
 	return 1;
 }
@@ -387,12 +472,44 @@ a_find_user(struct user *p, char *arg)
 {
 	struct user *u;
 
-	if ((u = find_user(p, arg)) == (struct user *)NULL)
+	if ((u = find_user_msg(p, arg)) == (struct user *)NULL)
+		return 0;
+	strcpy(arg, u->name);
+	return 1;
+}
+
+static int
+a_user_on(struct user *p, char *arg)
+{
+	if (find_user_absolute(p, arg) == (struct user *)NULL)
+		strcpy(arg, "0");
+	else
+		strcpy(arg, "1");
+	return 1;
+}
+
+static int
+a_environment(struct user *p, char *arg)
+{
+	struct user *u;
+
+	if ((u = find_user_msg(p, arg)) == (struct user *)NULL)
+		return 0;
+	strcpy(arg, u->super->fname);
+	return 1;
+}
+
+static int
+a_room_name(struct user *p, char *arg)
+{
+	struct room *r;
+
+	if (!ROOM_POINTER(r, arg))
 	{
-		write_socket(p, "User %s not found.\n", capfirst(arg));
+		write_socket(p, "Room %s not found.\n", arg);
 		return 0;
 	}
-	strcpy(arg, u->name);
+	strcpy(arg, r->name);
 	return 1;
 }
 
@@ -401,11 +518,8 @@ a_possessive(struct user *p, char *arg)
 {
 	struct user *u;
 
-	if ((u = find_user(p, arg)) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capfirst(arg));
+	if ((u = find_user_msg(p, arg)) == (struct user *)NULL)
 		return 0;
-	}
 	strcpy(arg, query_gender(u->gender, G_POSSESSIVE));
 	return 1;
 }
@@ -415,11 +529,8 @@ a_objective(struct user *p, char *arg)
 {
 	struct user *u;
 
-	if ((u = find_user(p, arg)) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capfirst(arg));
+	if ((u = find_user_msg(p, arg)) == (struct user *)NULL)
 		return 0;
-	}
 	strcpy(arg, query_gender(u->gender, G_OBJECTIVE));
 	return 1;
 }
@@ -429,11 +540,8 @@ a_pronoun(struct user *p, char *arg)
 {
 	struct user *u;
 
-	if ((u = find_user(p, arg)) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capfirst(arg));
+	if ((u = find_user_msg(p, arg)) == (struct user *)NULL)
 		return 0;
-	}
 	strcpy(arg, query_gender(u->gender, G_PRONOUN));
 	return 1;
 }
@@ -443,11 +551,8 @@ a_query_level(struct user *p, char *arg)
 {
 	struct user *u;
 
-	if ((u = find_user(p, arg)) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capfirst(arg));
+	if ((u = find_user_msg(p, arg)) == (struct user *)NULL)
 		return 0;
-	}
 	sprintf(arg, "%d", u->level);
 	return 1;
 }
@@ -461,7 +566,7 @@ a_member_grupe(struct user *p, char *arg)
 		write_socket(p, "member_grupe(): No Grupe on stack.\n");
 		return 0;
 	}
-	if (member_sysgrupe(p->alias_stack.sp->u.string, arg, 0))
+	if (member_sysgrupe(p->alias_stack.sp->u.string, arg))
 		strcpy(arg, "1");
 	else
 		strcpy(arg, "0");
@@ -489,13 +594,21 @@ static struct afunc {
 	{ "=",			L_VISITOR,	a_equal },
 	{ "~",			L_VISITOR,	a_tilde },
 	{ "+",			L_VISITOR,	a_plus },
+	{ "*",			L_VISITOR,	a_multiply },
+	{ "/",			L_VISITOR,	a_divide },
 	{ "<",			L_VISITOR,	a_lt },
 	{ ">",			L_VISITOR,	a_gt },
+
+	{ "strlen",		L_VISITOR,	a_strlen },
+	{ "substr",		L_VISITOR,	a_substr },
 
 	{ "time",		L_VISITOR,	a_time },
 
 	{ "present",		L_VISITOR,	a_present },
 	{ "find_user",		L_VISITOR,	a_find_user },
+	{ "user_on",		L_VISITOR,	a_user_on },
+	{ "environment",	L_VISITOR,	a_environment },
+	{ "room_name",		L_VISITOR,	a_room_name },
 
 	{ "possessive",		L_VISITOR,	a_possessive },
 	{ "objective",		L_VISITOR,	a_objective },
@@ -518,7 +631,7 @@ hash_alias_funcs()
 {
 	int i;
 
-	ahash = create_hash(0, "alias_funcs");
+	ahash = create_hash(1, "alias_funcs", NULL, 0);
 
 	for (i = 0; afuncs[i].name != (char *)NULL; i++)
 		insert_hash(&ahash, (void *)&afuncs[i]);
@@ -570,7 +683,6 @@ int
 expand_alias(struct user *p, struct alias *list, int argc, char **argv,
     char **buff, char **buffer)
 {
-	extern struct alias *find_global_alias(char *);
 	struct alias *a;
 	char *fob, *execbuf, *cd;
 	char *q, *r, *tmp;
@@ -607,8 +719,7 @@ expand_alias(struct user *p, struct alias *list, int argc, char **argv,
 
 	FUN_LINE;
 
-	if ((a = find_alias(list, argv[0])) == (struct alias *)NULL &&
-	    (a = find_global_alias(argv[0])) == (struct alias *)NULL)
+	if ((a = find_alias(list, argv[0])) == (struct alias *)NULL)
 	{
 		FUN_END;
 		return 0;
@@ -620,6 +731,8 @@ expand_alias(struct user *p, struct alias *list, int argc, char **argv,
 		if (eval_depth == EVAL_DEPTH)
 			write_socket(p,
 			    "\n*** Evaluation too long, execution aborted.\n");
+		log_file("syslog", "Evaluation too long: %s (%s)",
+		    p->capname, argv[0]);
 		FUN_END;
 		return -1;
 	}
@@ -664,7 +777,7 @@ expand_alias(struct user *p, struct alias *list, int argc, char **argv,
 			break;
 
 		    case ';':	/* execute compound alias */
-			if (!(flags & AL_SKIP))
+			if (!AL_SKIPPING)
 			{
 				flags |= AL_ALO;
 				*r = '\0';
@@ -695,7 +808,24 @@ expand_alias(struct user *p, struct alias *list, int argc, char **argv,
 			break;
 
 		    case '#':	/* Comment */
-			flags |= AL_SKIP;
+			if (p->flags & U_DEBUG_ALIAS)
+			{
+				alias_indent(p);
+				write_socket(p, "* Found comment, skipping.\n");
+			}
+			/* Bit nasty...
+			 * If we are a # just past a ; then skip this line.
+			 * If not, replace # with a ;# and continue.. 
+			 * remainder of line will be skipped on next run
+			 * through.. */
+			if (q != fob && q[-1] != ';')
+			{
+				*q = ';';
+				if (q[1] != '\0' && q[1] != ';')
+					q[1] = '#';
+			}
+			else
+				flags |= AL_SKIP;
 			break;
 
 		    case ',':	/* Possible implicit push */
@@ -712,6 +842,12 @@ expand_alias(struct user *p, struct alias *list, int argc, char **argv,
 				AL_ERROR;
 			}
 
+			if (p->flags & U_DEBUG_ALIAS)
+			{
+				alias_indent(p);
+				write_socket(p, "  * Pushing [%s].\n",
+				    func_start);
+			}
 			push_string(&p->alias_stack, func_start);
 			r = func_start;
 			break;
@@ -804,7 +940,7 @@ func_hook:
 			push = *q;
 
 			/* Don't waste time if skipping */
-			if (flags & AL_SKIP)
+			if (AL_SKIPPING)
 				break;
 
 			if (flags & AL_FUNC)
@@ -849,7 +985,7 @@ func_hook:
 		    case '$':	/* variable substitution */
 			FUN_LINE;
 			/* Don't waste time if skipping */
-			if (flags & AL_SKIP)
+			if (AL_SKIPPING)
 				break;
 			q++;
 			if (*q == '!')	/* Forced breakout */
@@ -1059,9 +1195,9 @@ cond_ret:
 				break;
 			}
 			num = *q - '0';
-			if (num < 1 || num >= argc)
+			if (num < 0 || num >= argc)
 			{
-				switch(*q)
+				switch (*q)
 				{
 				    case 'N':	/* Name */
 					for (tmp = p->name; *tmp != '\0';
@@ -1114,18 +1250,6 @@ cond_ret:
 		return 0;
 	}
 
-#ifdef ALIAS_AUTO_ADD_ARGS
-	/* Some people want this.. although it can mess up compound aliases
-	 * This internal alias provides a reasonable approximation.
-	 *	alias alias $#2+:\\alias $* \$*
-	 */
-	if (argc > 1)
-	{
-		*r++ = ' ';
-		for (tmp = argv[1]; *tmp != '\0'; tmp++)
-			*r++ = *tmp;
-	}
-#endif
 	*r = '\0';
 
 	xfree(*buffer);
@@ -1134,7 +1258,7 @@ cond_ret:
 
 	for (q = *buff + strlen(*buff) - 1; isspace(*q); q--)
 		*q = '\0';
-	while(isspace(**buff))
+	while (isspace(**buff))
 		(*buff)++;
 	if (strlen(*buff) && debug_alias)
 	{
@@ -1237,21 +1361,43 @@ free_aliases(struct alias **list)
 }
 
 void
-restore_alias(struct alias **list, char *c)
+restore_alias(struct alias **list, char *c, char *id, char *id2)
 {
 	struct svalue *sv;
 	struct alias *a;
 
 	if ((sv = decode_one(c, "restore_alias")) == (struct svalue *)NULL)
+	{
+		log_file("error", "Error in alias in %s[%s], line: %s",
+		    id, id2, c);
 		return;
+	}
 	if (sv->type == T_VECTOR && sv->u.vec->size == 2 &&
 	    sv->u.vec->items[0].type == T_STRING &&
-	    sv->u.vec->items[1].type == T_STRING &&
-	    (a = create_alias(sv->u.vec->items[0].u.string,
-	    sv->u.vec->items[1].u.string)) != (struct alias *)NULL)
-		add_alias(list, a);
+	    sv->u.vec->items[1].type == T_STRING)
+	{
+		if (find_alias(*list, sv->u.vec->items[0].u.string) !=
+		    (struct alias *)NULL)
+			log_file("error", "Duplicate alias in %s[%s]: %s (%s)",
+			    id, id2, sv->u.vec->items[0].u.string,
+			    sv->u.vec->items[1].u.string);
+		else
+		{
+			if ((a = create_alias(sv->u.vec->items[0].u.string,
+			    sv->u.vec->items[1].u.string)) !=
+			    (struct alias *)NULL)
+				add_alias(list, a);
+			else
+				log_file("error",
+				    "Error in alias in %s[%s], line: %s (%s)",
+				    id, id2, sv->u.vec->items[0].u.string,
+				    sv->u.vec->items[1].u.string);
+		}
+	}
 	else
-		log_file("error", "Error in alias line: %s", c);
+		log_file("error", "Error in alias in %s[%s], line: %s",
+		    id, id2, c);
+		
 	free_svalue(sv);
 }
 
@@ -1259,7 +1405,7 @@ int
 valid_ralias(char *alias)
 {
 	if (*alias != '\\')
-		/* Simple case - alias is not partial, is is a system
+		/* Simple case - alias is not partial, is it a system
 		 * command ? If these are hashed, this is very fast! */
 		return find_command((struct user *)NULL, alias) ==
 		    (struct command *)NULL &&
@@ -1292,5 +1438,125 @@ valid_ralias(char *alias)
 
 		return 1;
 	}
+}
+
+void
+store_galiases()
+{
+	FILE *fp;
+	struct alias *a;
+
+	if (galiases == (struct alias *)NULL)
+	{
+		unlink(F_GALIASES);
+		return;
+	}
+
+	if ((fp = fopen(F_GALIASES, "w")) == (FILE *)NULL)
+	{
+		log_perror("fopen galiases");
+		return;
+	}
+
+	for (a = galiases; a != (struct alias *)NULL; a = a->next)
+	{
+		char *key, *fob;
+
+		key = code_string(a->key);
+		fob = code_string(a->fob);
+		fprintf(fp, "alias ({\"%s\",\"%s\",})\n", key, fob);
+		xfree(key);
+		xfree(fob);
+	}
+	fclose(fp);
+}
+
+void
+restore_galiases()
+{
+	FILE *fp;
+	char *buf;
+	struct stat st;
+
+	free_aliases(&galiases);
+
+	if ((fp = fopen(F_GALIASES, "r")) == (FILE *)NULL)
+		return;
+
+	if (fstat(fileno(fp), &st) == -1)
+	{
+		log_perror("fstat");
+		fatal("Couldn't stat open file.");
+	}
+
+	if (!st.st_size)
+	{
+		unlink(F_GALIASES);
+		return;
+	}
+
+	buf = (char *)xalloc((size_t)st.st_size, "restore galiases");
+
+	while (fgets(buf, (int)st.st_size, fp) != (char *)NULL)
+	{
+		if (!strncmp(buf, "alias ", 6))
+		{
+			restore_alias(&galiases, buf, "global", "aliases");
+			continue;
+		}
+	}
+
+	xfree(buf);
+	fclose(fp);
+}
+
+void
+alias_profile(struct user *p, char *fname)
+{
+	extern void f_alias(struct user *, int, char **);
+	FILE *fp;
+	struct stat st;
+	char *buf;
+
+	if ((fp = fopen(fname, "r")) == (FILE *)NULL)
+		return;
+
+	if (fstat(fileno(fp), &st) == -1)
+	{
+		log_perror("fstat");
+		fatal("Couldn't stat open file.");
+	}
+
+	if (!st.st_size)
+	{
+		unlink(fname);
+		return;
+	}
+
+	buf = (char *)xalloc((size_t)st.st_size, "alias profile");
+
+	while (fgets(buf, (int)st.st_size, fp) != (char *)NULL)
+	{
+		char *q, *argv[3];
+
+		if (ISCOMMENT(buf))
+			continue;
+
+		if ((q = strchr(buf, '\n')) != (char *)NULL)
+			*q = '\0';
+
+		if ((q = strchr(buf, ' ')) == (char *)NULL)
+		{
+			log_file("error", "Bad alias in %s: %s", fname, buf);
+			continue;
+		}
+		*q++ = '\0';
+		argv[0] = "alias";
+		argv[1] = buf;
+		argv[2] = q;
+		f_alias(p, 3, argv);
+	}
+	fclose(fp);
+	xfree(buf);
 }
 

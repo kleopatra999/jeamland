@@ -1,0 +1,9 @@
+NAME		cron
+SYNTAX		cron
+		cron -reload
+DESCRIPTION	Cron handling. 'cron' alone lists your crontab file.
+		'cron -reload' causes JeamLand to kill off all current cron
+		events and then reread the crontab file.
+		'cron -kill' causes JeamLand to kill off all current cron
+		events. To kill off individual events, use the 'kill #<event>'
+		command.

@@ -1,0 +1,4 @@
+NAME		import
+SYNTAX		import <user>@<JeamLand Talker>
+DESCRIPTION	Import aliases and colour attributes from another user on
+		another JeamLand talker.

@@ -1,3 +1,9 @@
 NAME		chemail
 SYNTAX		chemail <user> <address>
+		chemail -r <user>
 DESCRIPTION	Change <user>'s email address to <address>.
+		The second form (remove) allows you to have a user who
+		has no email address. If you don't set it like this, then
+		the user will not be able to save to disk, and if he/she sets
+		a dummy email address, then the validation will fail and the
+		user will be deleted.

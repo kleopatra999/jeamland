@@ -1,4 +1,5 @@
 NAME		boot
-SYNTAX		boot <user> <reason>
+SYNTAX		boot [-t <banish time>] <user> <reason>
 DESCRIPTION	Kicks a user off the talker totally. A reason must be supplied.
-		The booted user will be unable to log in for 5 minutes.
+		The booted user will be unable to log in for [banish time]
+		minutes or for 5 minutes if not specified.

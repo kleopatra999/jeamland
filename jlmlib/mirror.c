@@ -6,7 +6,7 @@ main()
 {
 	struct line *l;
 
-	register_ident("Mirror module, for testing.");
+	register_ident("Mirror jlm (c) A. Fiddaman");
 	claim_command("mirror");
 	claim_command("mirror2");
 

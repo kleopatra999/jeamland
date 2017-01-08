@@ -7,3 +7,5 @@ password to secure service port communications.
 Now, all you need to do is to arrange for all incoming email to be passed
 through a filter such as the example in scripts/valemail.
 
+/* XXX - this file needs to be expanded! */
+

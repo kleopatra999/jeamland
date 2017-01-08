@@ -1,18 +1,22 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	access.h
  * Function:
  **********************************************************************/
-#define BANNED_ALL	1
-#define BANNED_ABA	2
-#define BANNED_NEW	3
+
+enum siteban_level { BANNED_INV = -1, BANNED_ALL = 1, BANNED_ABA, BANNED_NEW,
+		     BANNED_MAX };
 
 struct banned_site {
-	char *host;
+
+	unsigned long	addr;
+	unsigned long	netmask;
+
 	char *reason;
-	int level;
+	enum siteban_level level;
+
 	struct banned_site *next;
 	};
 

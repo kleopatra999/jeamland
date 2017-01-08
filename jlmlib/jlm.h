@@ -1,6 +1,6 @@
 /**********************************************************************
  * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	jlm.h
  * Function:
@@ -18,6 +18,7 @@ void free_line(struct line *);
 int register_ident(char *);
 int claim_command(char *);
 void write_user(char *, char *, ...);
+void write_user_nonl(char *, char *, ...);
 void write_level(char *, char *, ...);
 void notify_level(char *, char *, ...);
 void force(char *, char *);

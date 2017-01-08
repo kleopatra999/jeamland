@@ -1,6 +1,6 @@
 /**********************************************************************
  * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	jlm.c
  * Function:	The jlm function library.
@@ -12,6 +12,8 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include "jlm.h"
+
+#define FREE(xx) if (xx != (char *)NULL) free(xx)
 
 static void
 deltrail(char *c)
@@ -40,8 +42,7 @@ string_copy(char *c)
 static char *
 expand_valist(char *fmt, va_list argp)
 {
-	/* Ugh... but it shouldn't overflow */
-	static char buff[0x1000];
+	static char buff[0x400];
 
 	vsprintf(buff, fmt, argp);
 	return buff;
@@ -60,12 +61,9 @@ free_line(struct line *l)
 {
 	if (l == (struct line *)NULL)
 		return;
-	if (l->user != (char *)NULL)
-		free(l->user);
-	if (l->text != (char *)NULL)
-		free(l->text);
-	if (l->cmd != (char *)NULL)
-		free(l->cmd);
+	FREE(l->user);
+	FREE(l->text);
+	FREE(l->cmd);
 	free(l);
 }
 
@@ -131,6 +129,7 @@ write_cmd(char *func, char *user, char *fmt, va_list argp)
 	service_param(func);
 	service_param(user);
 	printf("%s", p);
+	printf("\n");
 	end_service();
 }
 
@@ -140,6 +139,15 @@ write_user(char *user, char *fmt, ...)
 	va_list argp;
 	va_start(argp, fmt);
 	write_cmd("write_user", user, fmt, argp);
+	va_end(argp);
+}
+
+void
+write_user_nonl(char *user, char *fmt, ...)
+{
+	va_list argp;
+	va_start(argp, fmt);
+	write_cmd("write_user_nonl", user, fmt, argp);
 	va_end(argp);
 }
 
@@ -161,30 +169,41 @@ notify_level(char *level, char *fmt, ...)
 	va_end(argp);
 }
 
+static void
+service_func2(char *name, char *arg1, char *arg2)
+{
+	CHECK_NONL(arg1,);
+	CHECK_NONL(arg2,);
+
+	begin_service("func");
+	service_param(name);
+	service_param(arg1);
+	service_param(arg2);
+	end_service();
+}
+
 void
 force(char *user, char *cmd)
 {
-	CHECK_NONL(user,);
-	CHECK_NONL(cmd,);
+	service_func2("force", user, cmd);
+}
 
-	begin_service("func");
-	service_param("force");
-	service_param(user);
-	service_param(cmd);
-	end_service();
+void
+move(char *user, char *room)
+{
+	service_func2("move", user, room);
+}
+
+void
+join(char *user, char *user2)
+{
+	service_func2("join", user, user2);
 }
 
 void
 chattr(char *user, char *attr)
 {
-	CHECK_NONL(user,);
-	CHECK_NONL(attr,);
-
-	begin_service("func");
-	service_param("chattr");
-	service_param(user);
-	service_param(attr);
-	end_service();
+	service_func2("chattr", user, attr);
 }
 
 static void
@@ -212,12 +231,15 @@ struct line *
 read_line()
 {
 	/* Static for speed */
-	static char tbuf[0x1000];
+	static char tbuf[0x400];
 	char *buf;
 	struct line *j = (struct line *)NULL;
 	char *p;
 	/* We start idle, awaiting a service. */
 	enum { S_NONE, S_DUMP, S_CMD } service = S_NONE;
+
+	/* Just in case it ever drops into a loop, we won't hog the CPU. */
+	sleep(1);
 
 	for(;;)
 	{
@@ -225,7 +247,9 @@ read_line()
 		if (getppid() == 1)
 			exit(0);
 
-		/* Use fgets to prevent buffer overflow */
+		/* Use fgets to prevent buffer overflow
+		 * No need to buffer separately as fgets will block until
+		 * a newline is received */
 		if (fgets(tbuf, sizeof(tbuf), stdin) == (char *)NULL)
 			exit(0);
 
@@ -261,14 +285,12 @@ read_line()
 			    case T_CMD:
 				if (!strcmp(buf, "user"))
 				{
-					if (j->user != (char *)NULL)
-						free(j->user);
+					FREE(j->user);
 					j->user = string_copy(p);
 				}
 				else if (!strcmp(buf, "cmd"))
 				{
-					if (j->cmd != (char *)NULL)
-						free(j->cmd);
+					FREE(j->cmd);
 					j->cmd = string_copy(p);
 				}
 				break;
@@ -334,7 +356,10 @@ read_line()
 			}
 			*p++ = '\0';
 			if (*p == '\0')
+			{
+				free_line(j);
 				return (struct line *)NULL;
+			}
 
 			j->user = string_copy(buf);
 			lower_case(j->user);

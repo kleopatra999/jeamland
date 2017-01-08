@@ -1,0 +1,5 @@
+NAME		as
+SYNTAX		as <level> <command>
+DESCRIPTION	Execute a command as a particular level.
+EXAMPLES	Try: 'as visitor dfg' to test the different failed command
+		message.

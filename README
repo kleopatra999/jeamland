@@ -1,0 +1,35 @@
+
+Please read the INSTALL file for installation and testing instructions.
+You should also read the COPYRIGHT file to ensure that you are not breaking
+any of the conditions of use.
+
+Please also read doc/crash for details of how to submit a crash report to
+me.
+
+JeamLand has been successfully test compiled on the following:
+
+Make Option	System Information
+---------------------------------------------------------------------------
+linux		Linux 1.2.13 i586
+linux		Linux 2.0.30 i586
+linux		Linux 2.1.44 i586
+sunb		SunOS 4.1.3C 1 sun4m
+solaris		SunOS 5.5.1 Generic sun4m sparc SUNW,SPARCstation-5
+hpuxb		HP-UX A.09.01 A 9000/710
+irix		IRIX 5.3 IP7 mips
+irix		IRIX 4.0.4 IP12
+irix		IRIX 5.2 IP12 mips
+irix		IRIX 4.0.5H IP22
+freebsd		FreeBSD 2.....
+aix3		AIX 3.2
+aix4		AIX 4.........
+
+If JeamLand compiles successfully on a system not listed above, please report
+this, together with the output of your 'uname -a' command, to:
+	jeamland@twikki.demon.co.uk
+If you can't get it to compile on a system, feel free to contact the same
+address.
+
+Help can often be found on the alt.talkers newgroups, particularly
+alt.talkers.programming and alt.talkers.jeamland
+

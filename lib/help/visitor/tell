@@ -6,5 +6,11 @@ DESCRIPTION	Send a message to a user or list of users.
 			A user at another host on intermud (ie. user@host)
 			A grupe id (ie. #grupe)
 		Any members not currently logged on are ignored.
+
+		If <message> begins with a : character, then the message
+		is sent as a 'remote'
+		If <message> begins with a . character, then the message
+		is sent as a 'feeling'
+
 AKA		>
-SEE ALSO	grupe
+SEE ALSO	grupe, remote, reply

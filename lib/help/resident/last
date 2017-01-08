@@ -3,4 +3,4 @@ SYNTAX		last <user|grupe>[,<user|grupe>]...
 DESCRIPTION	Last shows the last login times of a user or list of users.
 		The argument is a comma-delimited list of users and grupes
 		(cf. the mailer).
-SEE ALSO	grupe
+SEE ALSO	grupe,gwho

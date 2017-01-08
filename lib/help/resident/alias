@@ -1,7 +1,14 @@
 NAME		alias
 SYNTAX		alias [<key> [fob]]
-		alias debug
-DESCRIPTION	Set an alias or view current aliases.
+		alias -wipe
+		alias -debug
+DESCRIPTION	Set, view, edit or remove an alias.
+
+		To set a new alias:	alias <key> <fob>
+		To remove an alias:	alias <key>
+		To remove all aliases:	alias -wipe
+		To edit an alias:	alias edit:<key>
+
 		The following is intended only as a summary of the alias
 		system.
 
@@ -9,12 +16,12 @@ DESCRIPTION	Set an alias or view current aliases.
 			help alias.tutorial
 
 		A list of alias functions is available by typing:
-			help alias.funcs
+			man
 
 		Please don't be daunted by the rest of this page, most aliases
 		will be very simple (eg. alias g grin $*)
 
-		Adding the 'debug' argument toggles alias debug mode.
+		Adding the '-debug' argument toggles alias debug mode.
 
 		Any occurences of the characters $, \, ;, %, @, & and #
 		within the fob string are treated specially as follows; to

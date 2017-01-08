@@ -5,5 +5,7 @@
 *                                                                           *
 *           The local administrator has yet to complete these...            *
 *                                                                           *
+*   If this message is not required, then turn off REQUIRE_CONDITIONS in    *
+*                               config.h                                    *
 *****************************************************************************
 

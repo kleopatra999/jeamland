@@ -1,6 +1,7 @@
-	<< Available man pages >>
+		<< Available man pages >>
 
-=           copy        objective   present     ~
-capfirst    find_user   pluralise   pronoun
-capitalise  lower_case  possessive  push
-
+<             copy          member_grupe  present       substr
+=             environment   objective     pronoun       time
+>             find_user     pluralise     push          user_on
+capfirst      lower_case    pop           room_name     ~
+capitalise    map           possessive    strlen

@@ -1,0 +1,22 @@
+
+JeamLand can run certain system commands at specific times. This is designed
+to be used on sites where access to cron proper is not permitted.
+
+To set this up, you will need to define JL_CRON in config.h and then
+ simply add the commands you would like to run to the
+lib/etc/crontab file in the format:
+
+	hour:min:day of month:day of week,command
+
+Either day of month, day of week or both can be -1 to mean 'all'.
+
+In order to maintain security, the only commands which may be executed
+are those which reside in the bin/cron/ directory and the command listed in
+lib/etc/crontab will be ignored if it contains any / or . characters.
+
+For more information and help, please feel free to contact:
+
+		JeamLand@twikki.demon.co.uk
+
+Or post to alt.talkers.jeamland or alt.talkers.programming.
+

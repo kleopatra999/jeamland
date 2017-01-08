@@ -4,12 +4,26 @@
 # No pathname expansion
 set -f
 
+echo '#!func'
+echo '#!(ident)'
+echo '#!(Banner module - (c) Andy Fiddaman 1995)'
+echo '#!'
+
 while [ 1 ]; do
 	read a
+	if [ "$a" = "#!die" ]; then
+		exit 0
+	fi
+
 	text=`echo $a | grep 'says' | cut -d\' -f2`
 	if [ "${text}"'x' != 'x' ]; then
 		sysvbanner $text
 		#banner $text
+	fi
+	# Slow it down in case it drops into a loop
+	sleep 1
+	if [ $PPID -eq 1 ]; then
+		exit 0
 	fi
 done
 

@@ -13,10 +13,13 @@ jlm \- JeamLand Loadable Module Library
 \fBint register_ident(char *\fIid\fB);\fR
 \fBint claim_command(char *\fIcmd\fB);\fR
 \fBvoid write_user(char *\fIuser\fB, char *\fIformat\fB, ...);\fR
+\fBvoid write_user_nonl(char *\fIuser\fB, char *\fIformat\fB, ...);\fR
 \fBvoid write_level(char *\fIlevel\fB, char *\fIformat\fB, ...);\fR
 \fBvoid notify_level(char *\fIlevel\fB, char *\fIformat\fB, ...);\fR
 \fBvoid chattr(char *\fIuser\fB, char *\fIattr\fB);\fR
 \fBvoid force(char *\fIuser\fB, char *\fIcommand\fB);\fR
+\fBvoid move(char *\fIuser\fB, char *\fIroom\fB);\fR
+\fBvoid join(char *\fIuser\fB, char *\fIuser2\fB);\fR
 
 .SH DESCRIPTION
 
@@ -47,6 +50,10 @@ from \fIread_line\fR as type T_CMD. The function returns 1 for success and
 \fBwrite_user\fR sends a message directly to a user. The user does not
 even have to be in contact with the module for this to work.
 
+\fBwrite_user_nonl\fR sends a message directly to a user but with no
+terminating newline. The user does not even have to be in contact with the
+module for this to work.
+
 \fBwrite_level\fR sends a message to all users of a certain level and above.
 The first argument should be a string which identifies the level such as
 "consul".
@@ -63,6 +70,10 @@ can make the user do \fBanything\fR which they could normally do and so jlm's
 should be vetted by talker administrators! NB: If you want to ensure a user
 does something and has not overidden the default behaviour with an alias,
 then prefix the command with a backslash (\\) character.
+
+\fBmove\fR moves a user to a particular room.
+
+\fBjoin\fR moves a user to the room containing user2.
 
 .SH 'LINE STRUCT'
 .nf

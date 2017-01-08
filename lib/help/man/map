@@ -7,4 +7,5 @@ DESCRIPTION	map() breaks a string into elements around a token and then
 		break and, secondly, the breaking token.
 RETURN VALUE	map() returns the number of times it called command.
 
-EXAMPLE		%push(user1,user2);%push(",");&map(bop)
+EXAMPLE		&%push(user1\,user2);&%push(\,);&@map(bop)
+	    or: &@map(user1\,user2,\,,bop)

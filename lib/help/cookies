@@ -1,3 +1,6 @@
+
+** This is not a command, just information **
+
 A cookie is a token in a string which is expanded before it is printed to
 your screen. Cookies are used in such things as your prompt, startup alias
 and the write command.
@@ -8,6 +11,7 @@ Currently available cookies are:-
 	------			----------
 	%!			Command number
 	%b			Newline
+	%c<colour string>.	A colour string. See 'help attr'
 	%i			* if you are invisible, a space otherwise
 	%n			The name of the talker
 	%N			Your user's name

@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	backend.c
  * Function:	The main function and everything that doesn't belong
@@ -14,15 +14,20 @@
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <ctype.h>
+#include <sys/time.h>
 #include <time.h>
 #include <netinet/in.h>
 #include <grp.h>
 #include <pwd.h>
 #include <errno.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 #include "jeamland.h"
+
+#ifdef SETFDLIMIT
+#include <sys/resource.h>
+#endif
 
 int 		port;
 int 		sysflags;
@@ -42,16 +47,21 @@ float		utime_av[3] = { 0.0, 0.0, 0.0 },
 		stime_av[3] = { 0.0, 0.0, 0.0 };
 
 struct utsname system_uname;
+unsigned long version_code = 0;
 
-char ident[] = "@(#) Jeamland (c) Andy Fiddaman 1994-96.";
+char ident[] = "@(#) Jeamland (c) Andy Fiddaman 1993-97.";
 
 extern struct user *users;
 extern struct room *rooms;
+extern struct jlm *jlms;
+
+#ifndef FREEBSD
 extern int sys_nerr;
 extern char *sys_errlist[];
 extern int errno;
-extern char *currently_executing;
+#endif
 
+extern void stop_erqd(void);
 void save_all_users(void);
 void sig_shutdown(struct event *);
 
@@ -92,7 +102,7 @@ update_statistics(struct event *ev)
 		int warn;
 
 		notify_level(L_VISITOR, "The memory is almost used up!\n"
-		    "Automatic shutdown initiated.\n");
+		    "Automatic shutdown initiated.");
 		log_file("shutdown", "Automatic server shutdown started [%d].",
             	    MAX_RSS_DELAY);
         	write_all("Server will shut down in %s.\n",
@@ -118,6 +128,7 @@ update_averages(struct event *ev)
 	static time_t last_time = 0;
 	time_t tmd = current_time - last_time;
 	extern int bytes_out, bytes_in, bytes_outt, bytes_int;
+	extern int ubytes_out, ubytes_in, ubytes_outt, ubytes_int;
 	extern int event_count, command_count;
 
 	/* 'Load' Averages.. */
@@ -128,15 +139,17 @@ update_averages(struct event *ev)
 	/* Netstatistics */
 	bytes_in += bytes_int;
 	bytes_out += bytes_outt;
-	out_bps = (float)bytes_outt / (float)tmd;
-	in_bps = (float)bytes_int / (float)tmd;
-	bytes_outt = bytes_int = 0;
+	ubytes_in += ubytes_int;
+	ubytes_out += ubytes_outt;
+	out_bps = (float)(bytes_outt + ubytes_outt) / (float)tmd;
+	in_bps = (float)(bytes_int + ubytes_int) / (float)tmd;
+	bytes_outt = bytes_int = ubytes_outt = ubytes_int = 0;
 
 	last_time = current_time;
 	add_event(create_event(), update_averages, LOADAV_INTERVAL, "loadav");
 }
 
-char *
+const char *
 perror_text()
 {
 	if (errno < sys_nerr)
@@ -154,37 +167,43 @@ log_perror(char *fmt, ...)
 	vsprintf(buf, fmt, argp);
 	va_end(argp);
 
-	log_file("syslog", "%s: %s", buf, perror_text());
+	log_file("perror", "%s: %s", buf, perror_text());
 }
 
 void
 fatal(char *fmt, ...)
 {
 	char buf[BUFFER_SIZE];
+	int i;
 	va_list argp;
+
+	FUN_START("fatal");
 
 	va_start(argp, fmt);
 	vsprintf(buf, fmt, argp);
 	va_end(argp);
 
+	FUN_ARG(buf);
+
 	log_file("syslog", "Fatal error!");
 	log_file("fatal", "%s", buf);
 	fprintf(stderr, "%s\n", buf);
-	if (currently_executing != (char *)NULL)
-	{
-		notify_level(L_CONSUL, "[ FATAL: Whilst executing: %s ]\n",
-		    currently_executing);
-		log_file("fatal", "Whilst executing %s", currently_executing);
-	}
-	else
-	{
-		log_file("fatal", "No current execution!\n");
-		notify_level(L_CONSUL, "[ FATAL: No current execution! ]\n");
-	}
-	notify_level(L_CONSUL, "[ FATAL: %s ]\n", buf);
+	notify_level(L_CONSUL, "[ FATAL: %s ]", buf);
+
 #ifdef CRASH_TRACE
-	backtrace(0);
+	backtrace("fatal", 0);
 #endif
+
+	/* First, closedown the jlms.. 
+	 * No hurry, we're deciding to crash. */
+	stop_erqd();
+	closedown_jlms();
+	for (i = 0; i < 30 && jlms != (struct jlm *)NULL; i++)
+	{
+		cleanup_jlms();
+		my_sleep(1);
+	}
+
 	abort();	/* Create core dump */
 }
 
@@ -192,7 +211,7 @@ fatal(char *fmt, ...)
  * Overseer level gets unlimited idle time.
  * Other levels get (IDLE_LIMIT * level) seconds.
  */
-void
+static void
 handle_idlers(struct event *ev)
 {
 	struct user *p;
@@ -203,7 +222,7 @@ handle_idlers(struct event *ev)
 	{
 		int level, idle, n;
 
-		if (p->level >= L_OVERSEER || !IN_GAME(p) ||
+		if (!IN_GAME(p) || p->level >= L_OVERSEER ||
 		    (p->saveflags & U_NO_IDLEOUT))
 			continue;
 
@@ -212,16 +231,16 @@ handle_idlers(struct event *ev)
 
 		if (idle >= IDLE_LIMIT * level)
 		{
+			save_user(p, 1, 0);
+			disconnect_user(p, 1);
 			write_socket(p, "You have been idle too long.\n");
 			notify_levelabu(p, p->level,
-			    "[ %s is disconnected for being idle too long. ]\n",
+			    "[ %s is disconnected for being idle too long. ]",
 			    p->capname);
 			if (!(p->saveflags & U_INVIS))
 				write_roomabu(p,
 			    	    "%s is disconnected for being idle "
 				    "too long.\n", p->name);
-			save_user(p, 1, 0);
-			p->flags |= U_SOCK_QUITTING;
 		}
 		else if ((n = IDLE_LIMIT * level - idle) < next)
 			next = n;
@@ -231,7 +250,41 @@ handle_idlers(struct event *ev)
 	add_event(create_event(), handle_idlers, next, "idle");
 }
 
-void
+#ifdef IDLE_AUTO_AFK
+static void
+handle_autoafk(struct event *ev)
+{
+	struct user *p;
+	int next;
+
+	next = IDLE_AUTO_AFK;
+	for (p = users->next; p != (struct user *)NULL; p = p->next)
+	{
+		int idle, n;
+
+		if (!IN_GAME(p) || p->input_to != NULL_INPUT_TO)
+			continue;
+
+		idle = (int)(current_time - p->last_command);
+
+		if (idle > IDLE_AUTO_AFK)
+		{
+			extern void f_afk(struct user *, int, char **);
+			char *argv[2];
+
+			argv[1] = "Automatic idle protect";
+			f_afk(p, 2, argv);
+		}
+		else if ((n = IDLE_AUTO_AFK - idle) < next)
+			next = n;
+	}
+	/* Set up the next event for the next time a user will be at their
+	 * idle limit. */
+	add_event(create_event(), handle_autoafk, next, "autoafk");
+}
+#endif
+
+static void
 autosave(struct event *e)
 {
 	extern void save_all_users(void);
@@ -240,24 +293,26 @@ autosave(struct event *e)
 	add_event(create_event(), autosave, AUTOSAVE_FREQUENCY, "autosave");
 }
 
-void
+static void
 clean_up(struct event *e)
 {
 	struct room *r, *s;
 
-#ifdef UDP_SUPPORT
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 	if (!(sysflags & SYS_EMPTY))
 	{
-		extern void save_hosts(struct host *, char *);
-		extern struct host *hosts;
 #ifdef CDUDP_SUPPORT
 		extern struct host *cdudp_hosts;
-
-		save_hosts(cdudp_hosts, F_CDUDP_HOSTS);
-#endif /* CDUDP_SUPPORT */
+#endif
+#ifdef INETD_SUPPORT
+		extern struct host *hosts;
 		save_hosts(hosts, F_INETD_HOSTS);
+#endif
+#ifdef CDUDP_SUPPORT
+		save_hosts(cdudp_hosts, F_CDUDP_HOSTS);
+#endif
 	}
-#endif /* UDP_SUPPORT */
+#endif
 
 	for (r = rooms->next; r != (struct room *)NULL; r = s)
 	{
@@ -272,23 +327,192 @@ clean_up(struct event *e)
 	add_event(create_event(), clean_up, CLEANUP_FREQUENCY, "cleanup");
 }
 
-void
+static void setup_hour_notify(void);
+
+static void
 notify_hour(struct event *e)
 {
-	void setup_hour_notify(void);
 
 	notify_level_wrt_flags(L_VISITOR, EAR_CHIME,
-	    "\nAnother hour passes....\n\n");
+	    "\nAnother hour passes....\n");
 	setup_hour_notify();
 }
 
-void
+static void
 setup_hour_notify()
 {
 	int i = 3600 - (int)current_time % 3600;
 
 	add_event(create_event(), notify_hour, i, "chime");
 }
+
+time_t
+calc_time_until(int h, int m)
+{
+	struct tm *t;
+
+	if ((t = localtime(&current_time)) == (struct tm *)NULL)
+	{
+		log_file("error",
+		    "Calc_time_until: Could not get time of day.");
+		return -1;
+	}
+
+	return
+	    (((h > t->tm_hour || (h == t->tm_hour && m > t->tm_min)) ? h :
+	    h + 24) - t->tm_hour) * 3600 + (m - t->tm_min) * 60 - t->tm_sec;
+}
+
+#ifdef JL_CRON
+
+static void handle_cron(struct event *);
+
+static void
+init_cron_event(char *p, int h, int m, int dom, int dow)
+{
+	struct event *ev;
+
+	ev = create_event();
+	push_number(&ev->stack, dom);
+	push_number(&ev->stack, dow);
+	push_number(&ev->stack, h);
+	push_number(&ev->stack, m);
+	push_malloced_string(&ev->stack, p);
+	add_event(ev, handle_cron, (int)calc_time_until(h, m), "cron");
+}
+
+static void
+handle_cron(struct event *ev)
+{
+	struct tm *t;
+
+	FUN_START("handle_cron");
+
+	if ((t = localtime(&current_time)) == (struct tm *)NULL)
+	{
+		log_file("error", "CRON: Could not get time of day.");
+		/* Kill this event.. */
+		FUN_END;
+		return;
+	}
+
+	/* Check that we are on a correct dom/dow for this event. */
+	if (((ev->stack.sp - 4)->u.number == -1 ||
+	    (ev->stack.sp - 4)->u.number == t->tm_mday) &&
+	    ((ev->stack.sp - 3)->u.number == -1 ||
+	    (ev->stack.sp - 3)->u.number == t->tm_wday))
+	{
+		/* Run this command in background, then it can take as long
+		 * as it likes.. */
+		switch (fork())
+		{
+		    case 0:
+		    {
+			char cmd[BUFFER_SIZE];
+
+			sprintf(cmd, "%s/cron/%s", BIN_PATH,
+			    ev->stack.sp->u.string);
+			system(cmd);
+			/* Beware of flushing buffers.. */
+			_exit(0);
+		    }
+		    case -1:
+			notify_level(L_OVERSEER,
+			    "[ Cron execution failed: could not fork. ]");
+			break;
+		    default:	/* Parent */
+			notify_level(L_OVERSEER, "[ Cron executing: %s ]",
+			    ev->stack.sp->u.string);
+			log_file("cron", "EXEC: %s", ev->stack.sp->u.string);
+			break;
+		}
+	}
+
+	FUN_LINE;
+
+	/* Restart event */
+	init_cron_event(ev->stack.sp->u.string,
+	    (ev->stack.sp - 2)->u.number,
+	    (ev->stack.sp - 1)->u.number,
+	    (ev->stack.sp - 4)->u.number,
+	    (ev->stack.sp - 3)->u.number);
+	/* Reuse the string on the event stack to avoid having to make
+	 * another copy for the repeat event. */
+	dec_stack(&ev->stack);
+	FUN_END;
+}
+
+void
+init_cron()
+{
+	char buf[BUFFER_SIZE];
+	int h, m, dom, dow, line;
+	FILE *fp;
+	char *p;
+
+	if ((fp = fopen(F_CRON, "r")) == (FILE *)NULL)
+	{
+		log_file("syslog", "Crontab not found.");
+		return;
+	}
+
+	line = 0;
+
+	while (fgets(buf, sizeof(buf), fp) != (char *)NULL)
+	{
+		line++;
+
+		if (ISCOMMENT(buf))
+			continue;
+
+		if ((p = strchr(buf, '\n')) != (char *)NULL)
+			*p = '\0';
+
+		if ((p = strchr(buf, ',')) == (char *)NULL)
+		{
+			log_file("error", "Crontab line %d: no ,", line);
+			continue;
+		}
+
+		*p++ = '\0';
+
+		if (sscanf(buf, "%d:%d:%d:%d", &h, &m, &dom, &dow) != 4)
+		{
+			log_file("error", "Crontab line %d: bad time", line);
+			continue;
+		}
+
+		if (dom != -1 && (dom < 1 || dom > 31))
+		{
+			log_file("error",
+			    "Crontab line %d: bad month day, %d.", dom);
+			continue;
+		}
+
+		if (dow != -1 && (dow < 0 || dow > 6))
+		{
+			log_file("error",
+			    "Crontab line %d: bad week day, %d.", dow);
+			continue;
+		}
+
+		/* Security check. */
+		if (strpbrk(p, "./") != (char *)NULL)
+		{
+			log_file("error", "Crontab line %d: bad command",
+			    line);
+			continue;
+		}
+
+		log_file("cron", "INIT: %02d:%02d Mday: %2d, Wday %d :\n"
+		    "      %s",
+		    h, m, dom, dow, p);
+
+		init_cron_event(string_copy(p, "init_cron"), h, m, dom, dow);
+	}
+	fclose(fp);
+}
+#endif /* JL_CRON */
 
 void
 sig_shutdown(struct event *ev)
@@ -316,22 +540,45 @@ sig_shutdown(struct event *ev)
 void
 tidy_shutdown(int sig)
 {
-	/* SIGTERM received. Either machine is shutting down or else
-	 * we are being killed by another copy.
-	 * In either case, shut down NOW! */
+	char *s;
+
+	signal(sig, SIG_DFL);
+
+	switch (sig)
+	{
+	    case SIGINT:
+		s = "SIGINT";
+		break;
+
+	    case SIGTERM:
+		s = "SIGTERM";
+		/* Want to shutdown quickly so don't bother saving
+		 * host files. */
+		sysflags |= SYS_EMPTY;
+		break;
+
+	    default:
+		fatal("Unknown signal in tidy_shutdown");
+	}
+
+	/* Shut down.. */
 	sysflags |= SYS_SHUTDWN;
+
+	log_file("shutdown", "%s received.", s);
+	log_file("syslog", "%s received.", s);
+
 	write_all("\nShutdown request received!\n");
-	log_file("shutdown", "SIGTERM received.");
-	log_file("syslog", "SIGTERM received.");
 }
 
 char *
 type_name(struct svalue *s)
 {
-	switch(s->type)
+	switch (s->type)
 	{
 	    case T_NUMBER:
-		return "int";
+		return "long";
+	    case T_UNUMBER:
+		return "ulong";
 	    case T_STRING:
 		return "string";
 	    case T_EMPTY:
@@ -340,6 +587,8 @@ type_name(struct svalue *s)
 		return "array";
 	    case T_POINTER:
 		return "pointer";
+	    case T_MAPPING:
+		return "mapping";
 	    case T_FPOINTER:
 		return "fpointer";
 	    default:
@@ -362,12 +611,14 @@ equal_svalue(struct svalue *sv, struct svalue *sv2)
 		return 1;
 	if (sv->type != sv2->type)
 		return 0;
-	switch(sv->type)
+	switch (sv->type)
 	{
 	    case T_STRING:
 		return !strcmp(sv->u.string, sv2->u.string);
 	    case T_NUMBER:
 		return sv->u.number == sv2->u.number;
+	    case T_UNUMBER:
+		return sv->u.unumber == sv2->u.unumber;
 	    case T_POINTER:
 		return sv->u.pointer == sv2->u.pointer;
 	    case T_FPOINTER:
@@ -386,6 +637,9 @@ equal_svalue(struct svalue *sv, struct svalue *sv2)
 				return 0;
 		return 1;
 	    }
+	    case T_MAPPING:
+		log_file("error", "equal_svalue(mappings) - please report");
+		return 0;
 	    default:
 		fatal("Bad type in equal_svalue: %d.", sv->type);
 	}
@@ -395,17 +649,22 @@ equal_svalue(struct svalue *sv, struct svalue *sv2)
 void
 free_svalue(struct svalue *sv)
 {
-	switch(sv->type)
+	switch (sv->type)
 	{
 	    case T_STRING:
 		FREE(sv->u.string);
 	    case T_EMPTY:
 	    case T_NUMBER:
+	    case T_UNUMBER:
 	    case T_POINTER:
 	    case T_FPOINTER:
 		break;
 	    case T_VECTOR:
+		/* Possible need to check for recursion.. */
 		free_vector(sv->u.vec);
+		break;
+	    case T_MAPPING:
+		free_mapping(sv->u.map);
 		break;
 	    default:
 		fatal("Bad type in free_svalue(); received %d", sv->type);
@@ -426,7 +685,7 @@ void
 background_process()
 {
 	log_file("syslog", "Backgrounding.");
-	switch((int)fork())
+	switch ((int)fork())
 	{
 	    case -1:
 		log_perror("fork");
@@ -445,6 +704,73 @@ float_exception(int sig)
 	log_file("error", "Floating point exception occured!");
 }
 
+static void
+set_version_code()
+{
+	char *c, *d, *str;
+	int x, y, z;
+
+	version_code = 0x0;
+
+	str = c = string_copy(VERSION, "version copy");
+	if ((d = strchr(c, '.')) == (char *)NULL)
+		return;
+	*d++ = '\0';
+	x = atoi(c);
+	c = d;
+	if ((d = strchr(c, '.')) == (char *)NULL)
+		return;
+	*d++ = '\0';
+	y = atoi(c);
+	z = atoi(d);
+	version_code = JL_VERSION_CODE(x, y, z);
+	xfree(str);
+}
+
+#ifdef SETFDLIMIT
+static void
+setfdlim()
+{
+	struct rlimit rm;
+	int l = SETFDLIMIT, o;
+
+	if (getrlimit(RLIMIT_NOFILE, &rm) == -1)
+	{
+		log_perror("getrlimit");
+		return;
+	}
+
+	o = rm.rlim_cur;
+
+	log_file("syslog", "FDLIM: Current limit is %d/%d.", rm.rlim_cur,
+	    rm.rlim_max);
+
+	if (l == rm.rlim_cur)
+	{
+		log_file("syslog", "FDLIM: Limit is already %d.", l);
+		return;
+	}
+
+	if (l > rm.rlim_max)
+	{
+		log_file("syslog", "FDLIM: New limit > System limit.");
+		log_file("syslog", "FDLIM: System limit used (%d).",
+		    rm.rlim_max);
+		l = rm.rlim_max;
+	}
+
+	rm.rlim_cur = l;
+
+	if (setrlimit(RLIMIT_NOFILE, &rm) == -1)
+	{
+		log_perror("setrlimit");
+		return;
+	}
+	log_file("syslog", "FDLIM: Changed limit: %d -> %d (Max: %d)",
+	    o, l, rm.rlim_max);
+}
+#endif /* SETFDLIMIT */
+
 int
 main(int argc, char **argv)
 {
@@ -452,14 +778,12 @@ main(int argc, char **argv)
 	FILE *fp;
 	struct passwd *pwd;
 	struct user *p, *p_next;
-#ifdef RUN_GROUP
-	struct group *grp;
-#endif
 #ifdef RUN_UMASK
 	int oumask;
 #endif
 	char lib_path[MAXPATHLEN + 1];
 	char pidfile[30];
+	int i;
 
 	/* Hmm.. wonder if I have enough prototypes here... */
 
@@ -472,6 +796,10 @@ main(int argc, char **argv)
 	extern void init_erq_table(void);
 	extern void init_user_list(void);
 	extern void init_room_list(void);
+	extern void init_start_rooms(void);
+#ifdef REMOTE_NOTIFY
+	extern void init_rnotify(void);
+#endif
 
 	/* Load functions */
 	extern void load_feelings(void);
@@ -479,6 +807,7 @@ main(int argc, char **argv)
 	extern void load_banned_hosts(void);
 	extern void load_hosts(int);
 	extern void preload_jlms(void);
+	extern void restore_galiases(void);
 
 	/* Check functions */
 	extern void check_cmd_table(void);
@@ -486,7 +815,6 @@ main(int argc, char **argv)
 
 	/* Boot time events. */
 	extern void start_erqd(void);
-	extern void stop_erqd(void);
 	extern void prepare_ipc(void);
 	extern void remove_ipc(void);
 	extern void start_purge_event(void);
@@ -495,9 +823,6 @@ main(int argc, char **argv)
 	extern void process_sockets(void);
 	extern void new_user(int, int);
 	extern void handle_event(void);
-
-	/* Shutdown events. */
-	extern void closedown_jlms(void);
 
 	/* Now misc config dependant functions */
 #ifdef DEBUG_MALLOC
@@ -512,16 +837,15 @@ main(int argc, char **argv)
 #ifdef HASH_JLM_FUNCS
 	extern void hash_jlm_funcs(void);
 #endif
-#ifdef UDP_SUPPORT
+#ifdef INETD_SUPPORT
 	extern void initialise_inetd(void);
 	extern void ping_all(void);
-	extern void save_hosts(struct host *, char *);
 	extern struct host *hosts;
+#endif /* INETD_SUPPORT */
 #ifdef CDUDP_SUPPORT
 	extern struct host *cdudp_hosts;
 	extern void ping_all_cdudp_event(struct event *);
 #endif /* CDUDP_SUPPORT */
-#endif /* UDP_SUPPORT */
 #ifdef AUTO_VALEMAIL
 	extern void restore_valemail(void);
 #endif
@@ -542,6 +866,7 @@ main(int argc, char **argv)
 #endif
 
 	malloc_init();
+
 	update_current_time();
 
 	port = DEFAULT_PORT;
@@ -553,7 +878,7 @@ main(int argc, char **argv)
 	 * If this fails, assume a problem with chdir() itself.
 	 */
 	if (chdir("/"))
-		fatal("Cannot chdir !\n");
+		fatal("Cannot chdir !");
 
 	argc--, argv++;
 	while (argc > 0 && *argv[0] == '-') 
@@ -561,6 +886,10 @@ main(int argc, char **argv)
 		for (cp = &argv[0][1]; *cp; cp++) 
 			switch (*cp) 
 	      		{
+			    case '3':
+				sysflags |= SYS_NOI3;
+				break;
+
 			    case 'b':
 				if (*++cp == '\0')
 					log_file("syslog",
@@ -575,22 +904,28 @@ main(int argc, char **argv)
 					    "directory, [%s]", bin_path);
 				}
 				goto nextopt;
+
 			    case 'B':
 				sysflags |= SYS_BACKGROUND;
 				sysflags &= ~SYS_CONSOLE;
 				/* Fall through */
+
 			    case 'L':
 				sysflags |= SYS_LOG;
 				break;
+
 			    case 'c':
 				sysflags |= SYS_SHOWLOAD;
 				break;
+
 			    case 'd':
 				sysflags |= SYS_NOERQD;
 				break;
+
 			    case 'e':
 				sysflags |= SYS_EMPTY;
 				break;
+
 	   		    case 'H':
 				if (sysflags & SYS_CHECK_HELPS)
 				{	/* Double call, set other things */
@@ -600,17 +935,21 @@ main(int argc, char **argv)
 					sysflags |= SYS_NOIPC;
 					sysflags |= SYS_NOUDP;
 					sysflags |= SYS_NOSERVICE;
+					sysflags |= SYS_NONOTIFY;
 					sysflags |= SYS_SHUTDWN;
 				}
 				else
 					sysflags |= SYS_CHECK_HELPS;
 				break;
+
 			    case 'i':
 				sysflags |= SYS_NOIPC;
 				break;
+
 			    case 'k':
 				sysflags |= SYS_KILLOLD;
 				break;
+
 			    case 'l':
 				if (*++cp == '\0')
 					log_file("syslog",
@@ -625,9 +964,15 @@ main(int argc, char **argv)
 					    "directory, [%s]", lib_path);
 				}
 				goto nextopt;
+
+			    case 'n':
+				sysflags |= SYS_NONOTIFY;
+				break;
+
 			    case 'P':
 				sysflags |= SYS_NOPROCTITLE;
 				break;
+
 			    case 'p':
 				port = atoi(++cp);
 				if (port < 1024 || port > 65535)
@@ -639,32 +984,44 @@ main(int argc, char **argv)
 					port = DEFAULT_PORT;
 				}
 				goto nextopt;
+
 			    case 'S':
 				sysflags |= SYS_NOERQD;
 				sysflags |= SYS_NOPING;
 				sysflags |= SYS_NOIPC;
 				sysflags |= SYS_NOUDP;
 				sysflags |= SYS_NOSERVICE;
+				sysflags |= SYS_NONOTIFY;
 				sysflags |= SYS_LOG;
+				sysflags |= SYS_NOI3;
 				/* Fall through */
+
 			    case 'C':
 				sysflags |= SYS_CONSOLE;
 				sysflags &= ~SYS_BACKGROUND;
 				break;
+
 			    case 's':
 				sysflags |= SYS_NOPING;
 				break;
+
 			    case 't':
 				sysflags |= SYS_NOSERVICE;
 				break;
+
 			    case 'u':
 				sysflags |= SYS_NOUDP;
 				break;
+
 			    case 'x':
 				sysflags |= SYS_SHUTDWN;
 				break;
+
 			    case 'h':
 				printf("Jeamland boot options:\n"
+#ifdef IMUD3_SUPPORT
+				    "\t3\tBoot without starting Imud3.\n"
+#endif
 				    "\tb\tBoot using alternate bin dir.\n"
 				    "\tB\tBackground self (implies -L too).\n"
 				    "\tc\tShow loads in syslog.\n"
@@ -678,17 +1035,27 @@ main(int argc, char **argv)
 				    "\tl\tBoot using alternate lib dir.\n"
 				    "\tL\tWrite to log files instead of "
 				         "screen.\n"
+#ifdef REMOTE_NOTIFY
+				    "\tn\tDisable remote notifications.\n"
+#endif
 				    "\tp\tBoot to a specific port.\n"
 				    "\tP\tDont change proctitle.\n"
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 				    "\ts\tBoot without sending startup "
 				         "pings.\n"
+#endif
 				    "\tS\tBoot to single user mode.\n"
+#ifdef SERVICE_PORT
 				    "\tt\tBoot without starting the TCP "
 					"service port.\n"
+#endif
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT) || defined(REMOTE_NOTIFY)
 				    "\tu\tBoot without starting UDP "
 					"services.\n"
+#endif
 				    "\tx\tShutdown after boot.\n");
 				exit(0);
+
 			    default:
 				fprintf(stderr,
 				    "%s: Unknown flag -%c ignored.\n", *Argv,
@@ -702,7 +1069,7 @@ nextopt:
 	if (chdir(lib_path))
 	{
 		log_perror("chdir");
-		fatal("Bad lib directory [%s].\n", lib_path);
+		fatal("Bad lib directory [%s].", lib_path);
 	}
 
 #ifdef SETPROCTITLE
@@ -715,10 +1082,13 @@ nextopt:
                 execv("../bin/jeamland", Argv);
 		log_perror("execv");
 		log_file("syslog", "Could not set proctitle.");
-		xfree(tmp);
+		free(tmp);
 		/* Carry on.. it's not serious ;-) */
         }
 #endif
+
+	set_version_code();
+	log_file("syslog", "Booting JeamLand %s (%#x)", VERSION, version_code);
 
 	sprintf(pidfile, F_PID".%d", port);
 
@@ -734,7 +1104,7 @@ nextopt:
 				if (kill(pid, SIGTERM) == -1)
 					log_perror("Kill");
 				else
-					my_sleep(2);
+					my_sleep(5);
 			}
 			fclose(fp);
 		}
@@ -756,11 +1126,8 @@ nextopt:
 	    oumask);
 #endif
 
-#ifdef RUN_GROUP
-	if ((grp = getgrnam(RUN_GROUP)) == (struct group *)NULL)
-		fatal("Group %s does not exist.", RUN_GROUP);
-	if (setgid(grp->gr_gid) == -1)
-		fatal("Can not set group id to %s.", RUN_GROUP);
+#ifdef SETFDLIMIT
+	setfdlim();
 #endif
 
 	log_file("syslog", "Loading mastersave.");
@@ -800,21 +1167,37 @@ nextopt:
 
 	log_file("syslog", "Initialising events.");
 	initialise_events();
-#ifdef UDP_SUPPORT
+
+	log_file("syslog", "Initialising start rooms.");
+	init_start_rooms();
+
+#ifdef INETD_SUPPORT
 	initialise_inetd();
-	if (!(sysflags & SYS_EMPTY))
-	{
-		log_file("syslog", "Loading inetd hosts.");
-		load_hosts(0);
-#ifdef CDUDP_SUPPORT
-		log_file("syslog", "Loading cdudp hosts.");
-		load_hosts(1);
 #endif
-	}
+
+#ifdef IMUD3_SUPPORT
+	i3_init();
 #endif
 
 	if (!(sysflags & SYS_EMPTY))
 	{
+#ifdef INETD_SUPPORT
+		log_file("syslog", "Loading inetd hosts.");
+		load_hosts(0);
+#endif
+#ifdef CDUDP_SUPPORT
+		log_file("syslog", "Loading cdudp hosts.");
+		load_hosts(1);
+#endif
+#ifdef IMUD3_SUPPORT
+		if (!(sysflags & SYS_NOI3))
+		{
+			log_file("syslog", "Loading imud3 database.");
+			i3_load();
+		}
+#endif
+		log_file("syslog", "Loading global aliases.");
+		restore_galiases();
 		log_file("syslog", "Loading banned hosts.");
 		load_banned_hosts();
 		log_file("syslog", "Loading feelings.");
@@ -840,8 +1223,15 @@ nextopt:
 	log_file("syslog", "Initialising ip table.");
 	initialise_ip_table();
 
+#ifdef SERVICE_PORT
 	log_file("syslog", "Initialising services.");
 	init_services();
+#endif
+
+#ifdef REMOTE_NOTIFY
+	log_file("syslog", "Initialising remote notification table.");
+	init_rnotify();
+#endif
 
 	log_file("syslog", "Initialising erq table.");
 	init_erq_table();
@@ -862,8 +1252,22 @@ nextopt:
 		fclose(fp);
 	}
 
+#ifdef IMUD3_SUPPORT
+	if (!(sysflags & (SYS_EMPTY | SYS_NOI3)))
+		i3_event_connect((struct event *)NULL);
+#endif
+
+#ifdef JL_CRON
+	log_file("syslog", "Initialising cron jobs.");
+	update_current_time();
+	init_cron();
+#endif
+
 	log_file("syslog", "Starting miscellaneous events.");
 	handle_idlers((struct event *)NULL);
+#ifdef IDLE_AUTO_AFK
+	handle_autoafk((struct event *)NULL);
+#endif
 	add_event(create_event(), autosave, AUTOSAVE_FREQUENCY, "autosave");
 	add_event(create_event(), clean_up, CLEANUP_FREQUENCY, "cleanup");
 	update_averages((struct event *)NULL);
@@ -871,27 +1275,31 @@ nextopt:
         add_event(create_event(), update_statistics, STATISTICS_INTERVAL,
             "stats");
 #endif
-	/* Better update the current time before setting these events.. */
+
 	update_current_time();
 	start_purge_event();
 	setup_hour_notify();
 
-#ifdef UDP_SUPPORT
 	if (!(sysflags & (SYS_NOPING | SYS_NOUDP)))
 	{
+#ifdef INETD_SUPPORT
 		ping_all();
+#endif
 #ifdef CDUDP_SUPPORT
+		/* Wait until the INETD pings have finished before sending
+		 * these */
 		add_event(create_event(), ping_all_cdudp_event,
 		    (RETRIES + 1) * REPLY_TIMEOUT + 5, "cdudp ping");
 #endif
 	}
-#endif
 
 #ifdef DEBUG_MALLOC
 	signal(SIGUSR1, dump_malloc_table_sig);
 #endif /* DEBUG_MALLOC */
 
 	signal(SIGTERM, tidy_shutdown);
+	signal(SIGINT, tidy_shutdown);
+
 #ifdef SIGUSR2
 	signal(SIGUSR2, SIG_IGN);
 #endif
@@ -900,12 +1308,20 @@ nextopt:
 		new_user(fileno(stdin), 1);
 
 	/* Here is the /massive/ (*ahem*) main loop... */
-	while(!(sysflags & SYS_SHUTDWN))
+	while (!(sysflags & SYS_SHUTDWN))
 	{
+#if defined(DEBUG) && defined(CRASH_TRACE)
+		check_fundepth(1);
+#endif
 		if (sysflags & SYS_EVENT)
 			handle_event();
 		process_sockets();
 	}
+
+	update_current_time();
+
+	log_file("shudown", "Shutdown after %s",
+	    conv_time(current_time - start_time));
 
 	write_all("\n"
 	    "---------------------------\n"
@@ -914,57 +1330,89 @@ nextopt:
 	    );
 
 	/* Kick off all but admin with the nokick flag set... */
-	notify_level(L_WARDEN, "[ SHUTDOWN: Closing down user sockets. ]\n");
+	notify_level(L_WARDEN, "[ SHUTDOWN: Closing down user sockets. ]");
 	for (p = users->next; p != (struct user *)NULL; p = p_next)
 	{
 		p_next = p->next;
 
-		notify_level(L_WARDEN, "[ SHUTDOWN: Saving %s. ]\n",
+		notify_level(L_WARDEN, "[ SHUTDOWN: Saving %s. ]",
 		    p->capname);
 		save_user(p, 1, 0);
 
 		if (p->level >= L_WARDEN && (p->saveflags & U_SHUTDOWN_NOKICK))
+		{
+			if (IN_GAME(p))
+				lastlog(p);
 			continue;
+		}
 
 		if (IN_GAME(p))
 			notify_level(L_WARDEN,
-			    "[ SHUTDOWN: Removed %s. ]\n", p->capname);
+			    "[ SHUTDOWN: Removed %s. ]", p->capname);
+
+		/* We are not going back into the main loop, call close_socket
+		 * directly but must set the SOCK_CLOSING flag first
+		 */
+		p->flags |= U_SOCK_CLOSING;
 		close_socket(p);
 	}
 
-	notify_level(L_WARDEN, "[ SHUTDOWN: Shutting down erqd. ]\n");
+	notify_level(L_WARDEN, "[ SHUTDOWN: Shutting down rnotify clients. ]");
+	closedown_rnotify();
+
+	notify_level(L_WARDEN, "[ SHUTDOWN: Shutting down erqd. ]");
 	stop_erqd();
-	my_sleep(1);
-#ifdef UDP_SUPPORT
 	if (!(sysflags & SYS_EMPTY))
 	{
 		/* We don't want to overwrite our hosts files with the blank
 		 * tables.
 		 * This comes from experience... oh yes! */
+#ifdef INETD_SUPPORT
 		notify_level(L_WARDEN,
-		    "[ SHUTDOWN: Saving intermud hosts. ]\n");
+		    "[ SHUTDOWN: Saving intermud hosts. ]");
 		save_hosts(hosts, F_INETD_HOSTS);
+#endif
 #ifdef CDUDP_SUPPORT
 		save_hosts(cdudp_hosts, F_CDUDP_HOSTS);
 #endif
-	}
+#ifdef IMUD3_SUPPORT
+		i3_save();
 #endif
+	}
 
 	FUN_END;
 	
-	notify_level(L_WARDEN, "[ SHUTDOWN: Removing ipc. ]\n");
+	notify_level(L_WARDEN, "[ SHUTDOWN: Removing ipc. ]");
 	log_file("syslog", "Removing ipc.");
 	remove_ipc();
-	notify_level(L_WARDEN, "[ SHUTDOWN: Closing down jlms. ]\n");
+
+#ifdef IMUD3_SUPPORT
+	if (i3_shutdown() == 1)
+	{
+		log_file("syslog", "I3: Router disconnect");
+		notify_level(L_WARDEN,
+		    "[ SHUTDOWN: Disconnected from i3 router. ]");
+	}
+	else
+		log_file("syslog", "I3: Not connected to router");
+#endif
+
+	cleanup_jlms();
+	notify_level(L_WARDEN, "[ SHUTDOWN: Closing down jlms. ]");
 	log_file("syslog", "Removing jlms.");
 	closedown_jlms();
 	/* Give the jlms time to clean up.. 
 	 * This used to be implemented using sleep() but some systems
 	 * object to mixing alarm() and sleep() calls
 	 */
-	notify_level(L_WARDEN, "[ SHUTDOWN: Waiting for jlms to exit. ]\n");
-	my_sleep(6);
-	notify_level(L_WARDEN, "[ SHUTDOWN: Complete. ]\n");
+	notify_level(L_WARDEN, "[ SHUTDOWN: Waiting for jlms to exit. ]");
+	/* Hang around for ten seconds at most */
+	for (i = 0; i < 10 && jlms != (struct jlm *)NULL; i++)
+	{
+		cleanup_jlms();
+		my_sleep(1);
+	}
+	notify_level(L_WARDEN, "[ SHUTDOWN: Complete. ]");
 	log_file("syslog", "Exiting.\n");
 	return 0;
 }

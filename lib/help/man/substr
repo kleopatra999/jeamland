@@ -1,0 +1,8 @@
+NAME            substr
+SYNTAX          substr(string str,int s,int n)
+DESCRIPTION     Extracts the n character substring of str, starting at
+		character s.
+		Characters are numbered left to right and start at 0.
+		If n is 0, then all of the string to the right of character s
+		is returned.
+RETURN VALUE	Returns the substring.

@@ -1,0 +1,12 @@
+NAME		abbr
+SYNTAX		abbr <character> [command]
+DESCRIPTION	Abbr adds, removes or redefines a system command shortcut.
+		For example, by default, the ';' prefix executes the 'memote'
+		command. If you are used to using ';' for 'emote' then you
+		need only issue the command:
+			abbr ; emote
+		To remove this mapping, you would use:
+			abbr ;
+NOTA BENE	abbr is actually a global alias wrapper to the 'alias' command
+		and may have been removed by the administrators.
+SEE ALSO	alias

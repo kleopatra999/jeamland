@@ -30,6 +30,7 @@ DESCRIPTION	mbs - the Multi Board System.
 		mbs -p <subject>	Post a note to the current board.
 		mbs -r [note number]	Read a note on the current board
 					(or first unread note).
+		mbs -R <number>		Reply to poster via email.
 		mbs -s <board>		Subscribe to a board.
 		mbs -u <board>		Unsubscribe from a board.
 		mbs -S			Subscribe to all boards.

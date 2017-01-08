@@ -1,5 +1,13 @@
-# A rather silly sed program which does (almost) the same as
-# mkcmdprot.l and mkcmdprot.awk
+#/**********************************************************************
+# * The JeamLand talker system v.1.2.0
+# * (c) Andy Fiddaman, 1993-97
+# *
+# * File:	mkcmdprot.sed
+# * Function:	Generates prototypes for command functions.
+# *		Used to create cmd.table.h during compilation
+# **********************************************************************/
+#
+# A sed program which does (almost) the same as mkcmdprot.l and mkcmdprot.awk
 # but using sed.
 # Difference: this one doesn't remove duplicates.. Could be done by piping
 #             through sort, then uniq - but then the output wouldn't look
@@ -30,8 +38,8 @@
 /^#end.*$/ {		p
 }
 
-/f_[a-z_]*/ {	
-		s/^.*\(f_[a-z_]*\).*$/extern void \1(struct user *, int, char **);/1
+/f_[0-9a-z_]*/ {	
+		s/^.*\(f_[0-9a-z_]*\).*$/extern void \1(struct user *, int, char **);/1
 		p
 }
 

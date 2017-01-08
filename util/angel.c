@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	angel.c
  * Function:	Guardian angel. Reboots the talker after a crash or machine
@@ -12,6 +12,7 @@
 #include <sys/signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -28,7 +29,7 @@
 #define BINARY_NAME		"jeamland"
 #define BINARY_OPTIONS		"-L"
 #define DEFAULT_PS		"JeamLand"
-#define ABORT_THRESHOLD		15
+#define ABORT_THRESHOLD		30
 #define LOG_FILE		"UPRECORD"
 
 struct {
@@ -54,6 +55,58 @@ struct {
 
 FILE *fp = (FILE *)NULL;
 
+#define LFILE LIB_PATH"/log/"LOG_FILE
+
+char *
+conv_time(time_t t)
+{
+	time_t i;
+	int flag = 0;
+	static char buf[50];
+	char tmp[20];
+	strcpy(buf, "");
+
+	if (!t)
+	{
+		strcpy(buf, "no time");
+		return buf;
+	}
+	if ((i = t / 86400))
+	{
+		sprintf(tmp, "%ld day%s", (long)i, i == 1 ? "" : "s");
+		strcat(buf, tmp);
+		t = t % 86400;
+		flag++;
+	}
+	if ((i = t / 3600))
+	{
+		if (flag)
+			strcat(buf, ", ");
+		sprintf(tmp, "%ld hour%s", (long)i, i == 1 ? "" : "s");
+		strcat(buf, tmp);
+		t = t % 3600;
+		flag++;
+	}
+	if ((i = t / 60))
+	{
+		if (flag)
+			strcat(buf, ", ");
+		sprintf(tmp, "%ld minute%s", (long)i, i == 1 ? "" : "s");
+		strcat(buf, tmp);
+		t = t % 60;
+		flag++;
+	}
+	if (t)
+	{
+		if (flag)
+			strcat(buf, ", ");
+		sprintf(tmp, "%ld second%s", (long)t, t == (time_t)1 ?
+		    "" : "s");
+		strcat(buf, tmp);
+	}
+	return buf;
+}
+
 void
 log_it(char *fmt, ...)
 {
@@ -63,11 +116,19 @@ log_it(char *fmt, ...)
 
 	if (fp == (FILE *)NULL || fflush(fp) == -1)
 	{
-		if ((fp = fopen(LIB_PATH"/log/"LOG_FILE, "a")) == (FILE *)NULL)
+#ifdef CYCLIC_LOGS
+		struct stat st;
+
+		if (stat(LFILE, &st) != -1 && st.st_size > CYCLIC_LOGS)
+			rename(LFILE, LFILE"~");
+#endif /* CYCLIC_LOGS */
+
+		if ((fp = fopen(LFILE, "a")) == (FILE *)NULL)
 		{
 			perror("fopen");
-			fprintf(stderr, "Could not open log file.\n");
-			exit(-1);
+			fprintf(stderr, "Could not open log file, %s.\n",
+			    LFILE);
+			exit(1);
 		}
 	}
 
@@ -105,7 +166,7 @@ main(int argc, char **argv)
 	if (chdir(TOP_DIR))
 	{
 		fprintf(stderr, "Cannot change to %s\n", TOP_DIR);
-		exit(-1);
+		exit(1);
 	}
 
 #ifdef SETPROCTITLE
@@ -159,47 +220,43 @@ main(int argc, char **argv)
                         {
 			    case 'c':
 				if (flags & (ANGELUP | JLUP))
-					exit(24);
+					return 24;
 				break;
+
 			    case 'K':
 				if (kill(angelpid, SIGHUP) == -1)
 					printf("Running angel not found.\n");
 				else
-				{
 					printf("Running angel killed.\n");
-					flags &= ~ANGELUP;
-				}
 				if (kill(talkerpid, SIGTERM) == -1)
 					printf("Running talker not found.\n");
 				else
-				{
 					printf("Running talker killed.\n");
-					flags &= ~JLUP;
-				}
-				exit(0);
+				return 0;
+
 			    case 'k':
 				if (kill(angelpid, SIGHUP) == -1)
 					printf("Running angel not found.\n");
-				else
-					flags &= ~ANGELUP;
-				exit(0);
+				return 0;
+
 			    case 'l':
 				flags |= FDEBUG;
 				break;
+
 			    case 'h':
 				printf("Angel boot options:\n"
 				    "\tc\tExit silently if already running.\n"
 				    "\tk\tKill running angel (nicely).\n"
 				    "\tK\tKill running angel & talker.\n"
 				    "\tl\tRun in foreground.\n");
-				exit(0);
+				return 0;
+
                             default:
                                 fprintf(stderr,
-                                    "%s: Unknown flag -%c ignored.\n", *argv,
-                                    *cp);
+                                    "%s: Unknown flag -%c ignored.\n",
+				    *argv, *cp);
                                 break;
                         }
-/*nextopt:*/
                 argc--, argv++;
         }
 
@@ -207,13 +264,13 @@ main(int argc, char **argv)
 	{
 		fprintf(stderr,
 		    "There is already a copy of the angel running.\n");
-		exit(-1);
+		exit(1);
 	}
 	if (flags & JLUP)
 	{
 		fprintf(stderr,
 		    "There is already a copy of the talker running.\n");
-		exit(-1);
+		exit(1);
 	}
 
 	/* Background ourself.. */
@@ -226,7 +283,7 @@ main(int argc, char **argv)
 	    case -1:
 		perror("fork");
 		fprintf(stderr, "Could not fork.\n");
-		exit(-1);
+		exit(1);
 	    default:
 		exit(0);
 	}
@@ -252,12 +309,12 @@ main(int argc, char **argv)
 			if (execl(BIN_PATH"/"BINARY_NAME, DEFAULT_PS,
 			    BINARY_OPTIONS, (char *)NULL) == -1)
 				perror("execl");
-			_exit(-1);  /* Beware of flushing buffers. */
+			_exit(1);  /* Beware of flushing buffers. */
 			/* NOTREACHED */
 		    case -1:
 			fprintf(stderr, "Could not fork.\n");
 			fclose(fp);
-			exit(-1);
+			exit(1);
 		    default:
 			break;
 		}
@@ -269,8 +326,10 @@ main(int argc, char **argv)
 		{
 			log_it("### Could not start process.");
 			fclose(fp);
-			exit(-1);
+			exit(1);
 		}
+		tm = time((time_t *)NULL);
+		log_it("\tElapsed: %s\n", conv_time(tm - start_time));
 		if (WIFEXITED(status))
 			log_it(
 			    "\tProcess exited normally with status %d.",
@@ -288,13 +347,12 @@ main(int argc, char **argv)
 					break;
 				}
 		}
-		tm = time((time_t *)NULL);
 		if (tm - start_time < ABORT_THRESHOLD)
 		{
 			log_it("### Abort threshold exceeded.");
 			log_it("### Exiting.");
 			fclose(fp);
-			exit(-1);
+			exit(1);
 		}
 	}
 	/* NOTREACHED */

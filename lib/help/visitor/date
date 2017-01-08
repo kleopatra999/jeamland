@@ -1,4 +1,17 @@
 NAME		date
-SYNTAX		date
+SYNTAX		date [option]
 DESCRIPTION 	Show the current time, start time and up time of the server,
 		along with a few usage statistics.
+
+		Available options are:
+
+			-t	Talker time.
+			-s	Start time.
+			-u	Up time.
+			-l	Your local time.
+			-L	Number of logins.
+			-r	Number of rooms created.
+			-o	Number of room loads from disk.
+
+		If no option is supplied, then all of the above are shown.
+

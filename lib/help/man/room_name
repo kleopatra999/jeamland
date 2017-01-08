@@ -1,0 +1,4 @@
+NAME		room_name
+SYNTAX		room_name(room_filename)
+DESCRIPTION	Used to query the name of a room.
+RETURN VALUE	Returns the name of the room.

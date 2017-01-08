@@ -3,4 +3,8 @@
 
 	alias.tutorial	 - The tutorial on the JeamLand alias system.
 	reference        - Reference card containing basic commands.
+	intermud_sys	 - Intermud System Overview.
+	rnclient	 - Remote Notification Client source code.
+	CHANGES		 - Recent changes to the JeamLand talker system.
+	CHANGES.all	 - Full history of changes to JeamLand.
 	

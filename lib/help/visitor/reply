@@ -6,3 +6,9 @@ DESCRIPTION	Reply to the person who last told you something.
 		This latter option is very useful if you a receiving a lot
 		of tells and your reply list is likely to have changed before
 		you have finished typing the command.
+
+		If message begins with a : character, then the reply is sent
+		as a 'remote'
+		If message begins with a . character, then the reply is sent
+		as a 'feeling'
+SEE ALSO	tell, remote

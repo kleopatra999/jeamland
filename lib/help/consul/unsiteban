@@ -1,4 +1,0 @@
-NAME		unsiteban
-SYNTAX		unsiteban [host]
-DESCRIPTION	Removes the lock on a particular site. Without an argument,
-		lists currently banned sites.

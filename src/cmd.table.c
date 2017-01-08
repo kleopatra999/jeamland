@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	cmd.table.c
  * Function:	The command table
@@ -11,6 +11,10 @@
 #include "jeamland.h"
 
 #include "cmd.table.h"
+
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
+extern void f_hosts(struct user *, int, char **);
+#endif
 
 /* The following comment is used by lexer, do not remove! */
 /* CT */
@@ -28,9 +32,11 @@ struct command partial_commands[] = {
 	  CMD_PARTIAL,	1, "<text>" },
 	{ ">",		f_tell,		L_VISITOR,
 	  CMD_PARTIAL,	2, "<user> <message>" },
-/* Resident partial commands */
-	{ "<",		f_remote,	L_RESIDENT,
+	{ "<",		f_tell,		L_VISITOR,
 	  CMD_PARTIAL,	2, "<user> <message>" },
+	{ "-",		f_to,		L_VISITOR,
+	  CMD_PARTIAL,	2, "<user> <message>" },
+/* Resident partial commands */
 	{ "=",		f_whisper,	L_RESIDENT,
 	  CMD_PARTIAL,	2, "<user> <message>" },
 	{ NULL, 	NULL, 		0,
@@ -39,9 +45,11 @@ struct command partial_commands[] = {
 
 struct command commands[] = {
 /* Visitor commands */
-	{ "ansi",	f_ansi,		L_VISITOR,
-	  0,		0, NULL },
+	{ "alconf",	f_alconf,	L_VISITOR,
+	  0,		1, "<alias profile>" },
 	{ "assist",	f_assist,	L_VISITOR,
+	  0,		0, NULL },
+	{ "attr",	f_attr,		L_VISITOR,
 	  0,		0, NULL },
 	{ "brief",	f_brief,	L_VISITOR,
 	  0,		0, NULL },
@@ -87,7 +95,11 @@ struct command commands[] = {
 	  0,		0, NULL },
 	{ "motd",	f_motd,		L_VISITOR,
 	  0,		0, NULL },
+	{ "next",	f_read,		L_VISITOR,
+	  0,		0, NULL },
 	{ "nl",		f_nl,		L_VISITOR,
+	  0,		0, NULL },
+	{ "out",	f_out,		L_VISITOR,
 	  0,		0, NULL },
 	{ "quiet",	f_quiet,	L_VISITOR,
 	  0,		1, "<command>" },
@@ -97,6 +109,8 @@ struct command commands[] = {
 	  0,		0, NULL },
 	{ "read",	f_read,		L_VISITOR,
 	  0,		1, "<note number>" },
+	{ "remote",	f_tell,		L_VISITOR,
+	  0,		2, "<user> <message>" },
 	{ "reply",	f_reply,	L_VISITOR,
 	  0,		0, NULL },
 	{ "say",	f_say,		L_VISITOR,
@@ -109,9 +123,11 @@ struct command commands[] = {
 	  0,		0, NULL },
 	{ "tell",	f_tell,		L_VISITOR,
 	  0,		2, "<user> <message>" },
+	{ "termtype",	f_termtype,	L_VISITOR,
+	  0,		0, NULL },
 	{ "to",		f_to,		L_VISITOR,
 	  0,		2, "<user> <message>" },
-	{ "tush",	f_tush,		L_VISITOR,
+	{ "tzadjust",	f_tzadjust,	L_VISITOR,
 	  0,		0, NULL },
 	{ "version",	f_version,	L_VISITOR,
 	  0,		0, NULL },
@@ -132,14 +148,20 @@ struct command commands[] = {
 	  0,		0, NULL },
 	{ "capname",	f_capname,	L_RESIDENT,
 	  0,		1, "<new capitalisation>" },
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT) || defined(IMUD3_SUPPORT)
+	{ "chanblock",	f_chanblock,	L_RESIDENT,
+	  0,		0, NULL },
+#endif
 	{ "chex",	f_chex,		L_RESIDENT,
 	  CMD_AUDIT,	2, "<old name> <new name>" },
+#ifdef CDUDP_SUPPORT
+	{ "chosts",	f_hosts,	L_RESIDENT,
+	  0,		0, NULL },
+#endif
 	{ "desc",	f_desc,		L_RESIDENT,
 	  CMD_AUDIT,	0, NULL },
 	{ "earmuffs",	f_earmuffs,	L_RESIDENT,
 	  0,		0, NULL },
-	{ "edalias",	f_edalias,	L_RESIDENT,
-	  0,		1, "<alias>" },
 	{ "edesc",	f_desc,		L_RESIDENT,
 	  CMD_AUDIT,	0, NULL },
 	{ "eject",	f_eject,	L_RESIDENT,
@@ -153,7 +175,11 @@ struct command commands[] = {
 	{ "finger",	f_finger,	L_RESIDENT,
 	  0,		1, "<user>" },
 	{ "followup",	f_followup,	L_RESIDENT,
-	  0,		1, "<note number>" },
+	  0,		1, "[-e] <note number>" },
+	{ "from",	f_from,		L_RESIDENT,
+	  0,		0, NULL },
+	{ "galias",	f_alias,	L_RESIDENT,
+	  0,		0, NULL },
 	{ "grupe",	f_grupe,	L_RESIDENT,
 	  0,		0, NULL },
 	{ "Grupe",	f_grupe,	L_RESIDENT,
@@ -162,15 +188,21 @@ struct command commands[] = {
 	  0,		1, "<room filename | exit>" },
 	{ "home",	f_home,		L_RESIDENT,
 	  0,		0, NULL },
-#ifdef UDP_SUPPORT
-#ifdef CDUDP_SUPPORT
-	{ "ghosts",	f_hosts,	L_RESIDENT,
-	  0,		0, NULL },
-#endif
+#ifdef INETD_SUPPORT
 	{ "hosts",	f_hosts,	L_RESIDENT,
 	  0,		0, NULL },
+	{ "ilocate",	f_ilocate,	L_RESIDENT,
+	  0,		1, "<user>" },
+	{ "import",	f_import,	L_RESIDENT,
+	  0,		1, "<user>@<JeamLand Talker>" },
+	{ "intercode",	f_ichannel,	L_RESIDENT,
+	  0,		1, "[:]<message>" },
 	{ "interjl",	f_ichannel_jl,	L_RESIDENT,
 	  0,		1, "[:]<message>" },
+	{ "intermud",	f_ichannel,	L_RESIDENT,
+	  0,		1, "[:]<message>" },
+#endif
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 	{ "iquery",	f_iquery,	L_RESIDENT,
 	  0,		2, "<host> <item>" },
 #endif
@@ -178,8 +210,10 @@ struct command commands[] = {
 	  0,		0, NULL },
 	{ "join",	f_join,		L_RESIDENT,
 	  0,		1, "<user>" },
+#ifdef INETD_SUPPORT
 	{ "jlhosts",	f_hosts,	L_RESIDENT,
 	  0,		0, NULL },
+#endif
 	{ "kill",	f_kill,		L_RESIDENT,
 	  0,		1, "[%]<job id>" },
 	{ "last",	f_last,		L_RESIDENT,
@@ -190,7 +224,7 @@ struct command commands[] = {
 	  CMD_AUDIT,	2, "<direction> <fname>" },
 	{ "lock",	f_lock,		L_RESIDENT,
 	  CMD_AUDIT,	0, NULL },
-#ifdef UDP_SUPPORT
+#ifdef INETD_SUPPORT
 	{ "lookup",	f_lookup,	L_RESIDENT,
 	  0,		1, "<word>" },
 #endif
@@ -206,8 +240,6 @@ struct command commands[] = {
 	  CMD_AUDIT,	1, "<room name>" },
 	{ "nosnoop",	f_nosnoop,	L_RESIDENT,
 	  0,		0, NULL },
-	{ "out",	f_out,		L_RESIDENT,
-	  0,		0, NULL },
 	{ "passwd", 	f_passwd, 	L_RESIDENT,
 	  0,		0, NULL },
 	{ "paste",	f_paste,	L_RESIDENT,
@@ -222,14 +254,8 @@ struct command commands[] = {
 	 0,		0, NULL },
 	{ "ralias",	f_alias,	L_RESIDENT,
 	  0,		0, NULL },
-	{ "redalias",	f_edalias,	L_RESIDENT,
-	  0,		1, "<alias>" },
-	{ "remote",	f_remote,	L_RESIDENT,
-	  0,		2, "<user> <message>" },
 	{ "remove",	f_remove,	L_RESIDENT,
 	  CMD_AUDIT,	1, "<note number>" },
-	{ "runalias",	f_unalias,	L_RESIDENT,
-	  0,		1, "<key>" },
 	{ "save", 	f_save, 	L_RESIDENT,
 	  0,		0, NULL },
 	{ "sched",	f_sched,	L_RESIDENT,
@@ -238,16 +264,20 @@ struct command commands[] = {
 	  CMD_AUDIT,	0, NULL },
 	{ "shout",	f_shout,	L_RESIDENT,
 	  0,		1, "<message>" },
+	{ "sig",	f_sig,		L_RESIDENT,
+	  0,		0, NULL },
 	{ "start",	f_start,	L_RESIDENT,
 	  0,		0, NULL },
+	{ "sticky",	f_sticky,	L_RESIDENT,
+	  0,		0, NULL },
 	{ "sudo",	f_sudo,		L_RESIDENT,
-	  0,		1, "<command>" },
+	  0,		0, NULL },
 	{ "SUICIDE",	f_suicide,	L_RESIDENT,
 	  0,		0, NULL },
+	{ "swho",	f_swho,		L_RESIDENT,
+	  0,		1, "<grupe>[,<grupe>, ..]" },
 	{ "title",	f_title,	L_RESIDENT,
 	  0,		1, "<new title>" },
-	{ "unalias",	f_unalias,	L_RESIDENT,
-	  0,		1, "<key>" },
 	{ "unlink",	f_unlink,	L_RESIDENT,
 	  CMD_AUDIT,	1, "<exit>" },
 	{ "unlock",	f_unlock,	L_RESIDENT,
@@ -258,25 +288,33 @@ struct command commands[] = {
 	  0,		1, "<command>" },
 	{ "whisper",	f_whisper,	L_RESIDENT,
 	  0,		2, "<user> <message>" },
+#ifdef IMUD3_SUPPORT
+	{ "3channel",	f_3channel,	L_RESIDENT,
+	  0,		2, "<channel> <message>" }, 
+	{ "3hosts",	f_3hosts,	L_RESIDENT,
+	  0,		0, NULL },
+#endif
 /* Citizen commands */
+#ifndef REQUIRE_REGISTRATION
 	{ "validate", 	f_validate, 	L_CITIZEN,
 	  0,		1, "<user>" },
+#endif
 	{ "warn",	f_warn,		L_CITIZEN,
 	  0,		2, "<user> <warning>" },
 /* Warden commands */
 	{ "banish",	f_banish,	L_WARDEN,
 	  0,		1, "<name>" },
 	{ "boot",	f_boot,		L_WARDEN,
-	  0,		2, "<user> <reason>" },
+	  0,		2, "<user> <reason> [banish time]" },
 	{ "cat",	f_cat,		L_WARDEN,
 	  0,		1, "<file>" },
-#if defined(UDP_SUPPORT) && defined(CDUDP_SUPPORT)
+#if defined(CDUDP_SUPPORT)
 	{ "creator",	f_cdudpchan,	L_WARDEN,
 	  0,		1, "[:]<message>" },
 #endif
 	{ "curse",	f_curse,	L_WARDEN,
 	  0,		2, "<user> <reason>" },
-#ifdef UDP_SUPPORT
+#ifdef INETD_SUPPORT
 	{ "d-chat",	f_ichannel,	L_WARDEN,
 	  0,		1, "[:]<message>" },
 #endif
@@ -286,15 +324,11 @@ struct command commands[] = {
 	  0,		1, "<message>" },
 	{ "ed",		f_ed,		L_WARDEN,
 	  CMD_AUDIT,	1, "<file>" },
+	{ "grep",	f_grep,		L_WARDEN,
+	  0,		2, "[-i] <substring> <file>" },
 	{ "hash",	f_hash,		L_WARDEN,
 	  0,		0, NULL },
-#ifdef UDP_SUPPORT
-	{ "ihistory",	f_ihistory,	L_WARDEN,
-	  0,		1, "<channel>" },
-	{ "ilocate",	f_ilocate,	L_WARDEN,
-	  0,		1, "<user>" },
-	{ "intermud",	f_ichannel,	L_WARDEN,
-	  0,		1, "[:]<message>" },
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 	{ "iping",	f_iping,	L_WARDEN,
 	  0,		1, "<host>" },
 #endif
@@ -343,6 +377,8 @@ struct command commands[] = {
 	{ "watch",	f_watch,	L_WARDEN,
 	  0,		0, NULL },
 /* Consul commands */
+	{ "as",		f_as,		L_CONSUL,
+	  0,		2, "<level> <action>" },
 	{ "at",		f_at,		L_CONSUL,
 	  0,		2, "<user> <action>" },
 	{ "board",	f_board,	L_CONSUL,
@@ -379,13 +415,11 @@ struct command commands[] = {
 	  0,		2, "<room> <command>" },
 	{ "invis",	f_invis,	L_CONSUL,
 	  0,		0, NULL },
-#ifdef UDP_SUPPORT
+#ifdef INETD_SUPPORT
 	/* Not really suitable for a 'talker' ;-).. these are the existing
 	 * channels. Do not add any more or risk the wrath of the intermud
 	 * community! */
 	{ "interadmin",	f_ichannel,	L_CONSUL,
-	  0,		1, "[:]<message>" },
-	{ "intercode",	f_ichannel,	L_CONSUL,
 	  0,		1, "[:]<message>" },
 	{ "interjladmin", f_ichannel_jl, L_CONSUL,
 	  0,		1, "[:]<message>" },
@@ -398,6 +432,12 @@ struct command commands[] = {
 	  0,		0, NULL },
 	{ "mkroom",	f_mkroom,	L_CONSUL,
 	  CMD_AUDIT,	1, "<room filename>" },
+#ifdef REMOTE_NOTIFY
+	{ "rntab",	f_rntab,	L_CONSUL,
+	  0,		0, NULL },
+#endif
+	{ "showtail",	f_showtail,	L_CONSUL,
+	  CMD_AUDIT,	2, "<user> <file>" },
 	{ "siteban",	f_siteban,	L_CONSUL,
 	  0,		0, NULL },
 	{ "slylogin",	f_slylogin,	L_CONSUL,
@@ -406,8 +446,6 @@ struct command commands[] = {
 	  0,		1, "<user>" },
 	{ "unbanish",	f_unbanish,	L_CONSUL,
 	  0,		1, "<name>" },
-	{ "unsiteban",	f_siteban,	L_CONSUL,
-	  0,		0, NULL },
 	{ "valemail",	f_valemail,	L_CONSUL,
 	  0,		1, "<user>" },
 	{ "vis",	f_vis, 		L_CONSUL,
@@ -420,15 +458,21 @@ struct command commands[] = {
 	{ "barge",	f_go,		L_OVERSEER,
 	  0,		1, "<room filename | exit>" },
 	{ "chemail",	f_chemail,	L_OVERSEER,
-	  CMD_AUDIT,	2, "<user> <new email>" },
+	  CMD_AUDIT,	2, "<user> <new email> | <-r> <user>" },
 	{ "chtitle",	f_chtitle,	L_OVERSEER,
 	  CMD_AUDIT,	2, "<user> <new title>" },
 	{ "comment",	f_comment,	L_OVERSEER,
 	  CMD_AUDIT,	1, "<user> [new comment]" },
 	{ "cost",	f_cost,		L_OVERSEER,
 	  0,		1, "<command>" },
+	{ "cpuser",	f_cpuser,	L_OVERSEER,
+	  0,		2, "<old name> <new name>" },
 	{ "crash",	f_crash,	L_OVERSEER,
 	  0,		0, NULL },
+#ifdef JL_CRON
+	{ "cron",	f_cron,		L_OVERSEER,
+	  0,		0, NULL },
+#endif
 #ifdef DEBUG_MALLOC
 	{ "dm",		f_dm,		L_OVERSEER,
 	  CMD_AUDIT,	0, NULL },
@@ -441,6 +485,10 @@ struct command commands[] = {
 	  0,		1, "<command>" },
 	{ "fpc",	f_fpc,		L_OVERSEER,
 	  0,		1, "<user>" },
+#ifdef IMUD3_SUPPORT
+	{ "i3ctl",	f_i3ctl,	L_OVERSEER,
+	  CMD_AUDIT,	1, "<action> ..." },
+#endif
 	{ "killpp",	f_killpp,	L_OVERSEER,
 	  CMD_AUDIT,	0, NULL },
 	{ "mkuser",	f_mkuser,	L_OVERSEER,
@@ -461,7 +509,7 @@ struct command commands[] = {
 	  0,		1, "<user>" },
 	{ "reload",	f_reload,	L_OVERSEER,
 	  CMD_AUDIT,	1, "<room filename>" },
-#ifdef UDP_SUPPORT
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 	{ "rmhost",	f_rmhost,	L_OVERSEER,
 	  CMD_AUDIT,	1, "[%]<host name>" },
 #endif
@@ -471,7 +519,7 @@ struct command commands[] = {
 	  CMD_AUDIT,	0, NULL },
 	{ "supersnoop",	f_supersnoop,	L_OVERSEER,
 	  CMD_AUDIT,	1, "[-r] <user>" },
-#if 0
+#if 1
 	{ "test",	f_test,		L_OVERSEER,
 	  0,		0, NULL },
 #endif

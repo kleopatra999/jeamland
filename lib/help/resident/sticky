@@ -1,0 +1,8 @@
+NAME		sticky
+SYNTAX		sticky
+		sticky <user> <message>
+DESCRIPTION	Send a one line sticky note to another user. These notes are
+		less permanent than mail, they only hang around for one login.
+		During that login, however, the user can review the notes
+		by typing 'sticky' with no arguments.
+		

@@ -1,0 +1,26 @@
+
+An import conversation over intermud goes as follows:
+
+Convention,
+	T:	typed command by user.
+	->	Message sent to remote.
+	<-	Message received from remote.
+	W:	Written to user.
+
+T: import wibble@jeamland
+-> Request password SEED for wibble.
+<- Password SEED, two characters.
+W: Enter password for wibble@jeamland
+T: PASSWORD
+-> PASSWORD encrypted using SEED and a random KEY to tag transmissions with.
+<- Indication of whether password is ok.
+Then, one or more of:
+<- alias or attribute tagged with KEY. If KEY does not match that supplied
+   previously, or if the KEY has expired (currently 5 minutes),
+   the request is rejected.
+-> Received ok.
+
+In this way, the unencrypted password is never transmitted between talkers
+and the importing talker can not use this protocol to obtain the password in
+either encrypted or unencrypted form.
+

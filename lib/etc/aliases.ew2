@@ -1,0 +1,34 @@
+
+# Set of aliases to make JeamLand feel a bit more like an elsewhere talker.
+
+\, remote $*
+\. tell $*
+\: &%substr($1,0,1);$$@=(\:):memote @substr($*,1,0)$!;emote $*
+\; &%substr($1,0,1);$$@=(\;):memote @substr($*,1,0)$!;emote $*
+pemote memote $*
+actions feelings
+socials feelings
+w who $*
+idle who -i $*
+lsu who \#warden+
+idlemsg afk $*
+cls clear
+f finger $*
+hitells termtype $*
+jetlag tzadjust $*
+leave out
+main out
+password passwd $*
+recap capname $*
+where with $*
+x examine $*
+yell shout $*
+
+# Friends list aliases
+friend $$#0:finger friends$!;grupe friends $*
+finger $$@=(friends,$*):\\finger \#friends$!;\\finger $*
+unfriend friend $*
+mf mail \#friends $*
+ef remote \#friends $*
+tf tell \#friends $*
+

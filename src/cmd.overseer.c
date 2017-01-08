@@ -1,12 +1,13 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	cmd.overseer.c
  * Function:	Overseer commands.
  **********************************************************************/
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/param.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,6 +28,13 @@ void
 f_chemail(struct user *p, int argc, char **argv)
 {
 	struct user *who;
+	int remove = 0;
+
+	if (!strcmp(argv[1], "-r"))
+	{
+		remove = 1;
+		argv[1] = argv[2];
+	}
 
 	if ((who = doa_start(p, argv[1])) == (struct user *)NULL)
 	{
@@ -41,7 +49,17 @@ f_chemail(struct user *p, int argc, char **argv)
 	}
 
 	who->saveflags &= ~U_EMAIL_VALID;
-	COPY(who->email, argv[2], "email");
+
+	if (remove)
+	{
+		who->email = (char *)NULL;
+		who->saveflags |= U_NOEMAIL;
+	}
+	else
+	{
+		who->saveflags &= ~U_NOEMAIL;
+		COPY(who->email, argv[2], "email");
+	}
 	doa_end(who, 1);
 	write_socket(p, "Ok.\n");
 }
@@ -92,7 +110,7 @@ f_comment(struct user *p, int argc, char **argv)
 		COPY(u->comment, argv[2], "comment");
 	}
 	write_socket(p, "Changed comment for %s.\n", u->capname);
-	notify_levelabu(p, p->level, "[ %s has changed the comment on %s. ]\n",
+	notify_levelabu(p, p->level, "[ %s has changed the comment on %s. ]",
 	    p->capname, u->capname);
 	doa_end(u, 1);
 }
@@ -118,6 +136,61 @@ f_cost(struct user *p, int argc, char **argv)
 		    "WARNING: An event occured, result may be invalid.\n");
 }
 
+void
+f_cpuser(struct user *p, int argc, char **argv)
+{
+	struct user *who;
+	char fname[MAXPATHLEN + 1];
+
+	argv[2] = lower_case(argv[2]);
+
+	if (!valid_name(p, argv[2], 0))
+		return;
+
+	if (offensive(argv[2]))
+	{
+                write_socket(p, "Name caught in offensiveness filter.\n");
+		return;
+	}
+
+	if (exist_user(argv[2]))
+	{
+		write_socket(p, "User %s already exists!.\n", argv[2]);
+		return;
+	}
+
+	if ((who = dead_copy(argv[1])) == (struct user *)NULL)
+	{
+		write_socket(p, "No such user, %s.\n", argv[1]);
+		return;
+	}
+
+	if (!access_check(p, who))
+	{
+		tfree_user(who);
+		return;
+	}
+
+	/* Copy the mailbox over.. */
+	who->mailbox = restore_mailbox(who->rlname);
+	sprintf(fname, "mail/%s", argv[2]);
+	COPY(who->mailbox->fname, fname, "board fname");
+	store_board(who->mailbox);
+	free_board(who->mailbox);
+	who->mailbox = (struct board *)NULL;
+
+	/* Now the user... */
+	COPY(who->rlname, argv[2], "rlname");
+	COPY(who->name, who->rlname, "name");
+	*who->name = toupper(*who->name);
+	COPY(who->capname, who->name, "capname");
+
+	save_user(who, 0, 1);
+	tfree_user(who);
+
+	write_socket(p, "Copied user %s to %s.\n", argv[1], argv[2]);
+}
+
 /* A function for debugging the angel! */
 void
 crash2(struct user *p, char *c)
@@ -138,11 +211,42 @@ f_crash(struct user *p, int argc, char **argv)
 		crash2(p, "");
 	else
 	{
-		CHECK_INPUT_TO(p);
+		CHECK_INPUT_TO(p)
 		p->input_to = crash2;
 		write_prompt(p, "Press any key to crash the talker: ");
 	}
 }
+
+#ifdef JL_CRON
+void
+f_cron(struct user *p, int argc, char **argv)
+{
+	extern void init_cron(void);
+
+	if (argc < 2)
+	{
+		if (!dump_file(p, "etc", "crontab", DUMP_MORE))
+			write_socket(p, "No crontab.\n");
+		return;
+	}
+
+	if (!strcmp(argv[1], "-reload"))
+	{
+		/* Kill off all current "cron" events and reinitialise */
+		remove_events_by_name("cron");
+		init_cron();
+
+		write_socket(p, "Reinitialised cron.\n");
+	}
+	else if (!strcmp(argv[1], "-kill"))
+	{
+		remove_events_by_name("cron");
+		write_socket(p, "Removed all cron events.\n");
+	}
+	else
+		write_socket(p, "cron: unknown argument.\n");
+}
+#endif
 
 #ifdef DEBUG_MALLOC
 void
@@ -158,7 +262,7 @@ f_dm(struct user *p, int argc, char **argv)
 void
 f_erqd(struct user *p, int argc, char **argv)
 {
-	extern FILE *erqp;
+	extern int erqd_fd;
 	int req;
 	char buf[BUFFER_SIZE];
 	extern void start_erqd(void), stop_erqd(void);
@@ -167,7 +271,7 @@ f_erqd(struct user *p, int argc, char **argv)
 	{
 		if (!strcmp(argv[1], "restart"))
 		{
-			if (erqp != (FILE *)NULL)
+			if (erqd_fd != -1)
 			{
 				write_socket(p, "Erqd already running.\n");
 				return;
@@ -178,7 +282,7 @@ f_erqd(struct user *p, int argc, char **argv)
 		}
 		else if (!strcmp(argv[1], "kill"))
 		{
-			if (erqp == (FILE *)NULL)
+			if (erqd_fd == -1)
 			{
 				write_socket(p, "No erqd running.\n");
 				return;
@@ -211,7 +315,6 @@ void
 f_forceall(struct user *p, int argc, char **argv)
 {
 	struct user *u;
-	extern int insert_command(struct user *, char *);
 
 	log_file("force", "%s forced ALL to %s", p->capname, argv[1]);
 	for (u = users->next; u != (struct user *)NULL; u = u->next)
@@ -220,7 +323,7 @@ f_forceall(struct user *p, int argc, char **argv)
 			continue;
 		fwrite_socket(u, "You feel a strange presence in your mind.\n");
 		fwrite_socket(u, "%s\n", argv[1]);
-		insert_command(u, argv[1]);
+		insert_command(&u->socket, argv[1]);
 	}
 	write_socket(p, "Forced all to %s\n", argv[1]);
 }
@@ -247,6 +350,170 @@ f_fpc(struct user *p, int argc, char **argv)
 	    (u->saveflags ^= U_FPC) & U_FPC ? "on" : "off");
 	doa_end(u, 1);
 }
+
+#ifdef IMUD3_SUPPORT
+void
+f_i3ctl(struct user *p, int argc, char **argv)
+{
+	deltrail(argv[1]);
+
+	if (!strcmp(argv[1], "close"))
+	{
+		if (i3_shutdown() == -1)
+			write_socket(p, "Not connected.\n");
+		else
+			write_socket(p,
+			    "Successfully disconnected from router.\n");
+		return;
+	}
+
+	if (!strcmp(argv[1], "open"))
+	{
+		int i;
+
+		if ((i = i3_startup()) == -1)
+			write_socket(p, "Already connected to router.\n");
+		else if (i == 0)
+			write_socket(p, "Connect failed.\n");
+		else
+			write_socket(p, "Successfully connected to router.\n");
+		return;
+	}
+
+	if (!strcmp(argv[1], "send"))
+	{
+		if (argc < 3)
+		{
+			write_socket(p, "Syntax: i3ctl send <string>\n");
+			return;
+		}
+		i3_send_string(argv[2]);
+		write_socket(p, "Sent.\n");
+		return;
+	}
+
+	if (!strcmp(argv[1], "hosts"))
+	{
+		if (argc < 3)
+		{
+			write_socket(p, "Use 'i3hosts' to view hosts.\n");
+			return;
+		}
+
+		deltrail(argv[2]);
+
+		if (!strcmp(argv[2], "dump"))
+		{
+			i3_save();
+			write_socket(p, "Done.\n");
+			return;
+		}
+
+		write_socket(p, "Unknown i3 hosts command, %s.\n", argv[2]);
+		return;
+	}
+
+	if (!strcmp(argv[1], "chan"))
+	{
+		/* Handle channels... */
+		struct i3_channel *i;
+
+		if (argc < 3)
+		{
+			/* List... */
+			struct strbuf s;
+			extern struct i3_channel *i3chans;
+
+			init_strbuf(&s, 0, "i3ctl chanlist");
+
+			add_strbuf(&s, "Channel            Owner"
+			    "       Status  On/Off\n");
+
+			for (i = i3chans; i != (struct i3_channel *)NULL;
+			    i = i->next)
+			{
+				char buf[21];
+
+				my_strncpy(buf, i->owner, 20);
+
+				sadd_strbuf(&s, "%-20s %-20s %s %d\n",
+				    i->name, buf, i3chan_stat(i->status),
+				    i->listening);
+			}
+
+			pop_strbuf(&s);
+			more_start(p, s.str, NULL);
+
+			return;
+		}
+
+		deltrail(argv[2]);
+
+		if (!strcmp(argv[2], "delete"))
+		{
+			if (i3_del_channels() == -1)
+				write_socket(p,
+				    "Disconnect from router first.\n");
+			else
+				write_socket(p, "Ok.\n");
+			return;
+		}
+
+		if (argc < 4)
+		{
+			write_socket(p,
+			    "Syntax: i3ctl chan <channel> <command>\n");
+			return;
+		}
+
+		/* Next argument is channel name.. */
+
+		if ((i = i3_find_channel(argv[2])) == (struct i3_channel *)NULL)
+		{
+			write_socket(p, "Unknown channel: %s\n", argv[2]);
+			return;
+		}
+
+		/* Command */
+		deltrail(argv[3]);
+
+		if (!strcmp(argv[3], "tunein"))
+		{
+			if (i->listening == 1)
+				write_socket(p,
+				    "Already listening to channel %s.\n",
+				    i->name);
+			else
+			{
+				i3_tune_channel(i, 1);
+				write_socket(p, "Channel %s tuned in.\n",
+				    i->name);
+			}
+			return;
+		}
+
+		if (!strcmp(argv[3], "tuneout"))
+		{
+			if (i->listening != 1)
+				write_socket(p,
+				    "Channel %s is already tuned out.\n",
+				    i->name);
+			else
+			{
+				i3_tune_channel(i, 0);
+				write_socket(p, "Channel %s tuned out.\n",
+				    i->name);
+			}
+			return;
+		}
+
+		write_socket(p, "Unknown i3 channel command, %s.\n", argv[3]);
+		return;
+	}
+
+	write_socket(p, "Syntax: Unknown argument to i3ctl.\n");
+}
+#endif /* IMUD3_SUPPORT */
 
 void
 f_killpp(struct user *p, int argc, char **argv)
@@ -280,6 +547,7 @@ f_killpp(struct user *p, int argc, char **argv)
 void
 mkuser5(struct user *p, char *c)
 {
+	extern void send_valinfo(struct user *, char *);
 	extern char *host_name, *host_ip;
 
 	p->input_to = NULL_INPUT_TO;
@@ -299,6 +567,9 @@ mkuser5(struct user *p, char *c)
 	    "Regards,\n\n%s.\n\n", LOCAL_NAME, (p->stack.sp - 2)->u.string,
 	    p->stack.sp->u.string, LOCAL_NAME, host_name, DEFAULT_PORT,
 	    host_ip, DEFAULT_PORT, p->capname);
+
+	/* Send the contents of F_VALINFO if it exists */
+	send_valinfo(p, (p->stack.sp - 1)->u.string);
 
 	write_socket(p, "Email submitted.\n");
 	pop_n_elems(&p->stack, 3);
@@ -420,7 +691,7 @@ f_mkuser(struct user *p, int argc, char **argv)
 	if (!valid_name(p, name, 0))
 		return;
 
-	CHECK_INPUT_TO(p);
+	CHECK_INPUT_TO(p)
 
 	push_string(&p->stack, name);
 
@@ -549,14 +820,11 @@ f_reident(struct user *p, int argc, char **argv)
 {
 	struct user *who;
 
-	if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "No such user, %s.\n", capitalise(argv[1]));
+	if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	send_erq(ERQ_RESOLVE_NUMBER, "%s;\n", lookup_ip_number(who));
 	send_erq(ERQ_IDENT, "%s;%d,%d\n", lookup_ip_number(who),
-	    who->lport, who->rport);
+	    who->socket.lport, who->socket.rport);
 	write_socket(p, "Identification request sent.\n");
 }
 
@@ -574,12 +842,14 @@ f_reload(struct user *p, int argc, char **argv)
 	write_socket(p, "Room reloaded.\n");
 }
 
-#ifdef UDP_SUPPORT
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 void
 f_rmhost(struct user *p, int argc, char **argv)
 {
 	struct host **list;
+#ifdef INETD_SUPPORT
 	extern struct host *hosts;
+#endif
 #ifdef CDUDP_SUPPORT
 	extern struct host *cdudp_hosts;
 #endif
@@ -595,13 +865,17 @@ f_rmhost(struct user *p, int argc, char **argv)
 		argv[1]++;
 	}
 	else
+#ifdef INETD_SUPPORT
 		list = &hosts;
+#else
+		list = &cdudp_hosts;
+#endif
 	if (remove_host_by_name(list, argv[1]))
 		write_socket(p, "Removed.\n");
 	else
 		write_socket(p, "Host not found.\n");
 }
-#endif /* UDP_SUPPORT */
+#endif /* INETD_SUPPORT || CDUDP_SUPPORT */
 
 void
 f_rmuser(struct user *p, int argc, char **argv)
@@ -610,16 +884,16 @@ f_rmuser(struct user *p, int argc, char **argv)
 
 	if (!iaccess_check(p, query_real_level(argv[1])))
 		return;
-	if ((u = find_user(p, argv[1])) != (struct user *)NULL && 
-	    !strcasecmp(u->rlname, argv[1]))
+	if ((u = find_user_absolute(p, argv[1])) != (struct user *)NULL)
 	{
 		write_socket(p, "User is logged on... disconnecting.\n");
 		write_socket(u, "You have been disonnected by %s.\n",
 		    p->name);
-		u->flags |= U_SOCK_QUITTING;
 		notify_levelabu(p, p->level,
-		    "[ %s has been disconnected by %s. ]\n", u->capname,
+		    "[ %s has been disconnected by %s. ]", u->capname,
 		    p->capname);
+		save_user(u, 1, 0);
+		disconnect_user(u, 0);
 	}
 	if (!exist_user(argv[1]))
 	{
@@ -635,7 +909,7 @@ f_rmuser(struct user *p, int argc, char **argv)
 	}
 	delete_user(argv[1]);
 	write_socket(p, "User %s deleted\n", capitalise(argv[1]));
-	notify_levelabu(p, p->level, "[ User %s has been deleted by %s. ]\n",
+	notify_levelabu(p, p->level, "[ User %s has been deleted by %s. ]",
 	    capitalise(argv[1]), p->capname);
 }
 
@@ -695,7 +969,7 @@ f_supersnoop(struct user *p, int argc, char **argv)
 	else
 		user = argv[1];
 
-	u = find_user(p, user = lower_case(user));
+	u = find_user_absolute(p, user = lower_case(user));
 
 	if (!remove)
 	{

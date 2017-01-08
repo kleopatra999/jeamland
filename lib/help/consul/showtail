@@ -1,0 +1,4 @@
+NAME		showtail
+SYNTAX		showtail <user> <file>
+DESCRIPTION	Show the end of a file to a user.
+SEE ALSO	tail

@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	grupe.c
  * Function:	code to handle grupes
@@ -165,14 +165,11 @@ find_grupe(struct grupe *list, char *id)
 }
 
 int
-member_sysgrupe(char *grupe, char *name, int rec)
+member_grupe(struct grupe *list, char *grupe, char *name, int lv, int rec)
 {
 	struct grupe *g;
 	struct grupe_el *p;
-	char *id;
-	int idl = strlen(grupe) - 1;
-	int flag = 0;
-	int lev;
+	int flag, idl = strlen(grupe) - 1;
 
 	if (rec > GRUPE_RECURSE_DEPTH)
 	{
@@ -183,48 +180,65 @@ member_sysgrupe(char *grupe, char *name, int rec)
 
 	/* Is it a level grupe ?
 	 * This stuff is self contained and can not be recursive. */
-
-	id = string_copy(grupe, "member_sysgrupe tmp");
-
-	if (id[idl] == '+' || id[idl] == '-')
+	if (lv)
 	{
-		flag = id[idl] == '+' ? 1 : -1;
-		id[idl] = '\0';
-	}
-	if ((lev = level_number(id)) > L_RESIDENT)
-	{
-		int i = query_real_level(name);
+		char *id = string_copy(grupe, "member_grupe tmp");
+		int lev;
 
+		flag = 0;
+
+		if (id[idl] == '+' || id[idl] == '-')
+		{
+			flag = id[idl] == '+' ? 1 : -1;
+			id[idl] = '\0';
+		}
+		if ((lev = level_number(id)) > L_RESIDENT)
+		{
+			int i = query_real_level(name);
+
+			xfree(id);
+
+			return
+			    (i == lev && flag == 0) ||
+			    (i >= lev && flag == 1) ||
+			    (i <= lev && flag == -1);
+		}
 		xfree(id);
+	}
+		
+	/* Ok then, is it in the grupe list ? */
 
-		if ((i == lev && flag == 0) ||
-		    (i >= lev && flag == 1) ||
-		    (i <= lev && flag == -1))
-			return 1;
-
+	if ((g = find_grupe(list, grupe)) == (struct grupe *)NULL)
+	{
+		/* If not already checking system grupes, pass this request
+		 * on.. Always check level grupes at second level. */
+		if (list != sys_grupes)
+			return member_grupe(sys_grupes, grupe, name, 1,
+			    rec + 1);
 		return 0;
 	}
-	
-	/* Ok then, is it a system grupe ? */
 
-	if ((g = find_grupe(sys_grupes, id)) == (struct grupe *)NULL)
-	{
-		xfree(id);
-		return 0;
-	}
-	xfree(id);
+	flag = 0;
 
 	for (p = g->el; p != (struct grupe_el *)NULL; p = p->next)
 		/* Exclusions */
 		if (p->name[0] == '!' && !strcasecmp(p->name + 1, name))
 			return 0;
 		else if (!strcasecmp(p->name, name))
-			return 1;
-		else if (p->name[0] == '#')
-			/* Recursion.. */
-			return member_sysgrupe(p->name + 1, name, rec + 1);
+			flag = 1;
+		/* Recursion..
+		 * Always check level grupes at second level */
+		else if (p->name[0] == '#' &&
+		    member_grupe(list, p->name + 1, name, 1, rec + 1))
+			flag = 1;
 
-	return 0;
+	return flag;
+}
+
+int
+member_sysgrupe(char *grupe, char *name)
+{
+	return member_grupe(sys_grupes, grupe, name, 1, 0);
 }
 
 int

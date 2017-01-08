@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	cmd.resident.c
  * Function:	Resident commands.
@@ -14,11 +14,13 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <sys/param.h>
+#include <arpa/telnet.h>
 #include <netinet/in.h>
 #include "jeamland.h"
 
 extern struct user *users;
 extern struct grupe *sys_grupes;
+extern struct alias *galiases;
 extern time_t current_time;
 
 /*
@@ -30,7 +32,7 @@ afk2(struct user *p, char *c)
 {
 	if (strcmp(p->passwd, crypt(c, p->passwd)))
 	{
-		write_socket(p, "\nIncorrect password.\nEnter your password: ");
+		write_prompt(p, "\nIncorrect password.\nEnter your password: ");
 		return;
 	}
 	echo(p);
@@ -38,9 +40,12 @@ afk2(struct user *p, char *c)
 	if (p->stack.sp->type == T_STRING)
 		write_socket(p, "\t[ %s ]\n", p->stack.sp->u.string);
 	pop_stack(&p->stack);
-	notify_levelabu(p, p->level, "[%s returns from afk.]\n",
+	notify_levelabu(p, p->level, "[%s returns from afk.]",
 	    p->capname);
 	write_roomabu(p, "%s returns from afk.\n", p->name);
+#ifdef REMOTE_NOTIFY
+	send_rnotify(p, "-afk");
+#endif
 	p->flags &= ~U_AFK;
 	p->flags &= ~U_NOESCAPE;
 	p->input_to = NULL_INPUT_TO;
@@ -50,9 +55,9 @@ afk2(struct user *p, char *c)
 void
 f_afk(struct user *p, int argc, char **argv)
 {
-	CHECK_INPUT_TO(p);
+	CHECK_INPUT_TO(p)
 
-	notify_levelabu(p, p->level, "[%s goes afk.]\n", p->capname);
+	notify_levelabu(p, p->level, "[%s goes afk.]", p->capname);
 	write_socket(p, "You set yourself in Away From Keyboard mode.\n");
 	if (argc > 1)
 	{
@@ -69,10 +74,63 @@ f_afk(struct user *p, int argc, char **argv)
 		write_roomabu(p, "%s goes afk [ %s ].\n", p->name, argv[1]);
 	else
 		write_roomabu(p, "%s goes afk.\n", p->name);
+#ifdef REMOTE_NOTIFY
+	send_rnotify(p, "+afk");
+#endif
 	p->flags |= U_AFK;
 	p->flags |= U_NOESCAPE;
 	p->input_to = afk2;
 	return;
+}
+
+enum alias_type { AL_USER, AL_ROOM, AL_GLOBAL };
+
+void
+edalias2(struct user *p, int i)
+{
+	struct alias *a, **list;
+	char *c;
+	int j, r;
+
+	if (i != EDX_NORMAL)
+	{
+		pop_n_elems(&p->stack, 2);
+		return;
+	}
+
+	if ((r = (p->stack.sp - 2)->u.number) == AL_ROOM)
+		list = &p->super->alias;
+	else if (r == AL_GLOBAL)
+		list = &galiases;
+	else
+		list = &p->alias;
+
+	if ((a = find_alias(*list, (p->stack.sp - 1)->u.string))
+	    != (struct alias *)NULL)
+		remove_alias(list, a);
+
+	/* Need to sort out the string returned from the editor.. */
+
+	/* Remove trailing newlines */
+	j = strlen(p->stack.sp->u.string) - 1;
+	while (p->stack.sp->u.string[j] == '\n')
+		p->stack.sp->u.string[j--] = '\0';
+	
+	/* Replace all newlines with ; characters */
+	for (c = p->stack.sp->u.string; *c != '\0'; c++)
+		if (*c == '\n')
+			*c = ';';
+
+	if ((a = create_alias((p->stack.sp - 1)->u.string,
+	    p->stack.sp->u.string)) == (struct alias *)NULL)
+		write_socket(p, "Bad alias, aborting.\n");
+	else
+		add_alias(list, a);
+	pop_n_elems(&p->stack, 3);
+	if (r == AL_ROOM)
+		store_room(p->super);
+	else if (r == AL_GLOBAL)
+		store_galiases();
 }
 
 static void
@@ -104,18 +162,25 @@ alias2(struct user *p, int argc, char **argv, struct alias **list, int lim)
 			more_start(p, ab.str, NULL);
 			return;
 		}
-		if (!strcmp(argv[1], "debug"))
+		if (!strcmp(argv[1], "-debug"))
 		{
 			write_socket(p, "Alias debug mode turned %s.\n",
 			    (p->flags ^= U_DEBUG_ALIAS) & U_DEBUG_ALIAS ?
 			    "on" : "off");
 			return;
 		}
+		if (!strcmp(argv[1], "-wipe"))
+		{
+			free_aliases(list);
+			write_socket(p, "All aliases removed.\n");
+			return;
+		}
 		if ((a = find_alias(*list, argv[1])) !=
 		    (struct alias *)NULL)
 		{
-				write_socket(p, "%-20s %s\n", a->key,
-					   a->fob);
+				write_socket(p, "Unaliased: %-20s %s\n",
+				    a->key, a->fob);
+				remove_alias(list, a);
 				return;
 		}
 		write_socket(p, "%s is not aliased.\n", argv[1]);
@@ -153,7 +218,61 @@ alias2(struct user *p, int argc, char **argv, struct alias **list, int lim)
 void
 f_alias(struct user *p, int argc, char **argv)
 {
-	if (*argv[0] == 'r')
+	enum alias_type al;
+
+	if (!strcmp(argv[0], "ralias"))
+		al = AL_ROOM;
+	else if (!strcmp(argv[0], "galias"))
+		al = AL_GLOBAL;
+	else
+		al = AL_USER;
+
+	if (argc == 2 && !strncmp(argv[1], "edit:", 5))
+	{
+		struct alias *a;
+
+		argv[1] += 5;
+
+		if (al == AL_ROOM)
+		{
+			if (!ISROOT(p) && !valid_ralias(argv[1]))
+			{
+				write_socket(p,
+				    "%s is an existing system command, "
+				    "can not room alias.\n", argv[1]);
+				return;
+			}
+			a = p->super->alias;
+		}
+		else if (al == AL_GLOBAL)
+		{
+			if (p->level < A_GALIASES)
+			{
+				write_socket(p, "Permission denied.\n");
+				return;
+			}
+			a = galiases;
+		}
+		else
+			a = p->alias;
+			
+		push_number(&p->stack, al);
+
+		if ((a = find_alias(a, argv[1])) == (struct alias *)NULL)
+		{
+			/* New alias.. */
+			push_string(&p->stack, argv[1]);
+			ed_start(p, edalias2, 20, 0);
+			return;
+		}
+		push_string(&p->stack, a->key);
+		push_string(&p->stack, ";");	/* Ed token */
+		push_string(&p->stack, a->fob);
+		ed_start(p, edalias2, 20, ED_STACKED_TOK | ED_STACKED_TEXT);
+		return;
+	}
+
+	if (al == AL_ROOM)
 	{
 		if (!CAN_CHANGE_ROOM(p, p->super))
 		{
@@ -162,6 +281,16 @@ f_alias(struct user *p, int argc, char **argv)
 		}
 		alias2(p, argc, argv, &p->super->alias, p->super->alias_lim);
 		store_room(p->super);
+	}
+	else if (al == AL_GLOBAL)
+	{
+		if (argc > 1 && p->level < A_GALIASES)
+		{
+			write_socket(p, "Permission denied.\n");
+			return;
+		}
+		alias2(p, argc, argv, &galiases, -1);
+		store_galiases();
 	}
 	else if (!strcmp(argv[0], "aliases"))
 	{
@@ -174,11 +303,8 @@ f_alias(struct user *p, int argc, char **argv)
 		}
 
 		deltrail(argv[1]);
-		if ((u = find_user(p, argv[1])) == (struct user *)NULL)
-		{
-			write_socket(p, "User %s not found.\n", argv[1]);
+		if ((u = find_user_msg(p, argv[1])) == (struct user *)NULL)
 			return;
-		}
 		argv++, argc--;
 		alias2(p, argc, argv, &u->alias, u->alias_lim);
 	}
@@ -196,14 +322,12 @@ f_beep(struct user *p, int argc, char **argv)
 		write_socket(p, "You may not use the beep command.\n");
 		return;
 	}
-	if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capitalise(argv[1]));
+	if ((who = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
-	bold(who);
-	write_socket(who, "%c%s beeps you.\n", 7, p->name);
+	attr_colour(who, "incoming");
+	write_socket(who, "%c%s beeps you.", 7, p->name);
 	reset(who);
+	write_socket(who, "\n");
 	write_socket(p, "You beep %s.\n", who->name);
 }
 
@@ -230,6 +354,60 @@ f_capname(struct user *p, int argc, char **argv)
 	}
 	write_socket(p, "Ok.\n");
 }
+
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT) || defined(IMUD3_SUPPORT)
+void
+f_chanblock(struct user *p, int argc, char **argv)
+{
+	struct strlist *s;
+	int ok;
+
+	if (argc < 2)
+	{
+		if (p->chan_earmuff == (struct strlist *)NULL)
+		{
+			write_socket(p,
+			    "You are not blocking any channels.\n");
+			return;
+		}
+		write_socket(p, "Blocking: ");
+		for (s = p->chan_earmuff; s != (struct strlist *)NULL;
+		    s = s->next)
+			write_socket(p, "%s ", s->str);
+		write_socket(p, "\n");
+		return;
+	}
+
+	if ((s = member_strlist(p->chan_earmuff, argv[1])) !=
+	    (struct strlist *)NULL)
+	{
+		remove_strlist(&p->chan_earmuff, s);
+		write_socket(p, "Unblocked: %s\n", argv[1]);
+		return;
+	}
+
+	ok = 0;
+
+#ifdef IMUD3_SUPPORT
+	if (i3_find_channel(argv[1]) != (struct i3_channel *)NULL)
+		ok = 1;
+#endif
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
+	if (inter_channel(argv[1], p->level))
+		ok = 1;
+#endif
+
+	if (ok)
+	{
+		s = create_strlist("chanblock");
+		s->str = string_copy(argv[1], "chanblock");
+		add_strlist(&p->chan_earmuff, s, SL_SORT);
+		write_socket(p, "Now blocking %s\n", argv[1]);
+	}
+	else
+		write_socket(p, "Unknown channel, %s.\n", argv[1]);
+}
+#endif /* INETD_SUPPORT || CDUDP_SUPPORT || IMUD3_SUPPORT */
 
 void
 f_chex(struct user *p, int argc, char **argv)
@@ -312,14 +490,16 @@ f_earmuffs(struct user *p, int argc, char **argv)
 	    { "shout",		EAR_SHOUTS,	L_RESIDENT },
 	    { "notify",		EAR_NOTIFY,	L_RESIDENT },
 	    { "chime",		EAR_CHIME,	L_RESIDENT },
-	    { "interjl",	EAR_JLCHAN,	L_RESIDENT },
-	    { "intermud",	EAR_INTERMUD,	L_WARDEN },
-	    { "d-chat",		EAR_DCHAT,	L_WARDEN },
-	    { "creator",	EAR_CDUDP,	L_WARDEN },
-	    { "interadmin",	EAR_INTERADMIN,	L_CONSUL },
-	    { "intercode",	EAR_INTERCODE,	L_CONSUL },
 	    { "tcp_notify",	EAR_TCP,	L_CONSUL },
+#ifdef DEBUG_UDP
 	    { "udp_notify",	EAR_UDP,	L_CONSUL },
+#endif
+#ifdef DEBUG_IMUD3
+	    { "i3_notify",	EAR_I3,		L_CONSUL },
+#endif
+#ifdef DEBUG_RNCLIENT
+	    { "rnclient",	EAR_RNCLIENT,	L_CONSUL },
+#endif
 	    { NULL, 0, 0 } };
 
 
@@ -387,94 +567,12 @@ f_earmuffs(struct user *p, int argc, char **argv)
 }
 
 void
-edalias2(struct user *p, int i)
-{
-	struct alias *a, **list;
-	char *c;
-	int j, r;
-
-	if (i != EDX_NORMAL)
-	{
-		pop_n_elems(&p->stack, 2);
-		return;
-	}
-
-	if ((r = (p->stack.sp - 2)->u.number))
-		list = &p->super->alias;
-	else
-		list = &p->alias;
-
-	if ((a = find_alias(*list, (p->stack.sp - 1)->u.string))
-	    != (struct alias *)NULL)
-		remove_alias(list, a);
-
-	/* Need to sort out the string returned from the editor.. */
-
-	/* Remove trailing newlines */
-	j = strlen(p->stack.sp->u.string) - 1;
-	while (p->stack.sp->u.string[j] == '\n')
-		p->stack.sp->u.string[j--] = '\0';
-	
-	/* Replace all newlines with ; characters */
-	for (c = p->stack.sp->u.string; *c != '\0'; c++)
-		if (*c == '\n')
-			*c = ';';
-
-	if ((a = create_alias((p->stack.sp - 1)->u.string,
-	    p->stack.sp->u.string)) == (struct alias *)NULL)
-		write_socket(p, "Bad alias, aborting.\n");
-	else
-		add_alias(list, a);
-	pop_n_elems(&p->stack, 3);
-	if (r)
-		store_room(p->super);
-}
-
-void
-f_edalias(struct user *p, int argc, char **argv)
-{
-	struct alias *a, *list;
-
-	if (*argv[0] == 'r')
-	{
-		if (!ISROOT(p) && !valid_ralias(argv[1]))
-		{
-			write_socket(p, "%s is an existing system command, "
-			    "can not room alias.\n", argv[1]);
-			return;
-		}
-		push_number(&p->stack, 1);
-		list = p->super->alias;
-	}
-	else
-	{
-		push_number(&p->stack, 0);
-		list = p->alias;
-	}
-
-	if ((a = find_alias(list, argv[1])) == (struct alias *)NULL)
-	{
-		/* New alias.. */
-		push_string(&p->stack, argv[1]);
-		ed_start(p, edalias2, 20, 0);
-		return;
-	}
-	push_string(&p->stack, a->key);
-	push_string(&p->stack, ";");	/* Ed token */
-	push_string(&p->stack, a->fob);
-	ed_start(p, edalias2, 20, ED_STACKED_TOK | ED_STACKED_TEXT);
-}
-
-void
 f_eject(struct user *p, int argc, char **argv)
 {
 	struct user *who;
 
-	if ((who = with_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "%s is not here.\n", capitalise(argv[1]));
+	if ((who = with_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	if (!CAN_CHANGE_ROOM(p, p->super))
 	{
 		write_socket(p, "You do not own this room.\n");
@@ -492,13 +590,27 @@ f_eject(struct user *p, int argc, char **argv)
 	write_socket(p, "Succesfully ejected %s\n", who->name);
 }
 
+void
+send_valinfo(struct user *p, char *addr)
+{
+	char *q;
+
+	if ((q = read_file(F_VALINFO)) == (char *)NULL)
+		return;
+
+	send_email(p->rlname, addr, (char *)NULL, "Welcome to "LOCAL_NAME, 1,
+	    "%s\n", q);
+
+	xfree(q);
+}
+
 static void
 email2(struct user *p, char *c)
 {
 #ifdef AUTO_VALEMAIL
+	char buf[BUFFER_SIZE];
 	char *id;
 #endif
-	char buf[BUFFER_SIZE];
 
 	p->input_to = NULL_INPUT_TO;
 
@@ -511,11 +623,15 @@ email2(struct user *p, char *c)
 
 	/* Unset the validated email flag.. */
 	p->saveflags &= ~U_EMAIL_VALID;
+	p->saveflags &= ~U_NOEMAIL;
 
 	notify_levelabu(p, p->level >= L_WARDEN ? p->level : L_WARDEN,
-	    "[ %s has changed %s email address to %s. ]\n",
+	    "[ %s has changed %s email address to %s. ]",
 	    p->capname, query_gender(p->gender, G_POSSESSIVE),
 	    p->stack.sp->u.string);
+
+	if (p->email == (char *)NULL)
+		send_valinfo(p, p->stack.sp->u.string);
 
 	FREE(p->email);
 	p->email = p->stack.sp->u.string;
@@ -536,11 +652,11 @@ email2(struct user *p, char *c)
 	    "address. Please reply to this message, preserving the subject\n"
 	    "line, with the text body 'yes' if this is acceptable.\n\n"
 	    "If it is unacceptable then please help us to cut down\n"
-	    "on fradulent use of our system by replying with the text body\n"
+	    "on fraudulent use of our system by replying with the text body\n"
 	    "'no'.\n\n"
 	    "Regards,\n\t%s talker administration.\n\n\n",
-	    p->capname, LOCAL_NAME, query_gender(p->gender, G_POSSESSIVE),
-	    LOCAL_NAME);
+	    p->capname, LOCAL_NAME,
+	    query_gender(p->gender, G_POSSESSIVE), LOCAL_NAME);
 
 	register_valemail_id(p, id);
 #endif /* AUTO_VALEMAIL */
@@ -580,11 +696,11 @@ f_email(struct user *p, int argc, char **argv)
 		return;
 	}
 
-	CHECK_INPUT_TO(p);
+	CHECK_INPUT_TO(p)
 
 	push_string(&p->stack, argv[1]);
 
-	write_socket(p, "New email address: %s\nIs this correct ? (y/n) ",
+	write_prompt(p, "New email address: %s\nIs this correct ? (y/n) ",
 	    argv[1]);
 
 	p->input_to = email2;
@@ -593,16 +709,16 @@ f_email(struct user *p, int argc, char **argv)
 void
 f_finger(struct user *p, int argc, char **argv)
 {
-	extern void inetd_finger(struct user *, char *);
 	extern int fob_finger(struct user *, char *);
 
-#ifdef UDP_SUPPORT
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT) || defined(IMUD3_SUPPORT)
 	if (strchr(argv[1], '@') != (char *)NULL)
 	{
-		inetd_finger(p, argv[1]);
+		imud_finger(p, argv[1]);
 		return;
 	}
-#endif
+#endif /* INETD_SUPPORT || CDUDP_SUPPORT || IMUD3_SUPPORT */
+
 	if (*argv[1] == '#')
 	{
 		struct vecbuf buf;
@@ -651,39 +767,115 @@ void
 f_followup(struct user *p, int argc, char **argv)
 {
 	struct message *m;
+	struct board *targ;
+	struct room *r;
 	char *subj;
+	int em = 0;
 
 	if (!(p->super->flags & R_BOARD))
 	{
 		write_socket(p, "No board in this room.\n");
 		return;
 	}
-	if (!CAN_WRITE_BOARD(p, p->super->board))
+
+	if (!CAN_READ_BOARD(p, p->super->board))
 	{
-		write_socket(p, "You may not post to this board.\n");
+		write_socket(p, "You may not read this board.\n");
 		return;
 	}
+
+	deltrail(argv[1]);
+
+	if (argc > 2 && !strcmp(argv[1], "-e"))
+	{
+		em = 1;
+		argc--, argv++;
+	}
+
 	if ((m = find_message(p->super->board, atoi(argv[1]))) ==
 	    (struct message *)NULL)
 	{
 		write_socket(p, "No such note, %s\n", argv[1]);
 		return;
 	}
-	subj = (char *)xalloc(strlen(m->subject) + 5, "pushed subject");
-	/* Prepend a 'Re: ' if there isn't already one there */
-	if (!strncmp(m->subject, "Re: ", 4))
-		strcpy(subj, m->subject);
-	else
-		sprintf(subj, "Re: %s", m->subject);
 
-	write_roomabu(p,
-	    "%s begins to write a note entitled '%s'\n",
+	if (em)
+	{
+		reply_message(p, m, 0);
+		return;
+	}
+
+	r = p->super;
+	targ = r->board;
+
+	if (targ->followup != (char *)NULL)
+	{
+		if (!ROOM_POINTER(r, targ->followup))
+		{
+			log_file("error", "Followup board room missing: "
+			    "%s (from %s).", targ->followup, p->super->fname);
+			write_socket(p, "Followup board room not found.\n");
+			return;
+		}
+		if (!(r->flags & R_BOARD))
+		{
+			log_file("error", "Followup board missing: "
+			    "%s (from %s).", targ->followup, p->super->fname);
+			write_socket(p, "Followup board not found.\n");
+			return;
+		}
+		targ = r->board;
+	}
+
+	if (!CAN_WRITE_BOARD(p, targ))
+	{
+		write_socket(p, "You may not post to the followup board.\n");
+		return;
+	}
+
+	if (r != p->super)
+		write_socket(p, "--\nNB: Followups set to %s.\n--\n", r->name);
+
+	subj = prepend_re(m->subject);
+
+	write_roomabu(p, "%s begins to write a note entitled '%s'\n",
 	    p->name, subj);
-	push_string(&p->stack, p->super->fname);
+
+	push_string(&p->stack, r->fname);
 	push_malloced_string(&p->stack, subj);
 	push_malloced_string(&p->stack, quote_message(m->text, p->quote_char));
-	ed_start(p, post2, 500, ED_STACKED_TEXT);
+	ed_start(p, post2, MAX_BOARD_LINES, ED_STACKED_TEXT |
+	    ((p->medopts & U_EDOPT_SIG) ? ED_APPEND_SIG : 0));
 	return;
+}
+
+void
+f_from(struct user *p, int argc, char **argv)
+{
+	extern char *mail_from(struct user *, int);
+	char *tmp;
+	int flag = 0;
+	int o;
+
+	if (p->mailbox == (struct board *)NULL)
+	{
+		flag = 1;
+		p->mailbox = restore_mailbox(p->rlname);
+	}
+	
+	o = p->medopts;
+	if (argc > 1 && !strcmp(argv[1] , "-a"))
+		p->medopts &= ~U_MAILOPT_NEW_ONLY;
+
+	if ((tmp = mail_from(p, 0)) != (char *)NULL)
+		more_start(p, tmp, NULL);
+	p->medopts = o;
+
+	if (flag)
+	{
+		free_board(p->mailbox);
+		p->mailbox = (struct board *)NULL;
+	}
 }
 
 void
@@ -756,6 +948,10 @@ f_grupe(struct user *p, int argc, char **argv)
 	if (!strcmp(argv[1], "-r"))
 	{
 		/* Wipe a grupe. */
+
+		if (*argv[2] == '#')
+			argv[2]++;
+
 		if ((g = find_grupe(*list, argv[2])) == (struct grupe *)NULL)
 		{
 			write_socket(p, "Grupe %s does not exist.\n", argv[2]);
@@ -767,6 +963,9 @@ f_grupe(struct user *p, int argc, char **argv)
 			store_mastersave();
 		return;
 	}
+
+	if (*argv[1] == '#')
+		argv[1]++;
 
 	/* First things first, are we adding a new grupe.. */
 	if ((g = find_grupe(*list, argv[1])) == (struct grupe *)NULL)
@@ -855,8 +1054,8 @@ f_go(struct user *p, int argc, char **argv)
 			return;
 		}
 	}
-	if (r->lock_grupe != (char *)NULL &&
-	    !member_sysgrupe(r->lock_grupe, p->rlname, 0) && !ISROOT(p))
+	if (r->lock_grupe != (char *)NULL && !ISROOT(p) &&
+	    !member_sysgrupe(r->lock_grupe, p->rlname))
 	{
 		if (barge)
 		{
@@ -896,24 +1095,27 @@ f_home(struct user *p, int argc, char **argv)
 	    	if ((r = new_room(p->rlname, tmp)) == (struct room *)NULL)
 			fatal("Error creating room.");
 		notify_levelabu(p, p->level >= L_WARDEN ? p->level : L_WARDEN,
-		    "[ %s has created a home. ]\n", p->capname);
+		    "[ %s has created a home. ]", p->capname);
 	}
 	move_user(p, r);
 }
 
-#ifdef UDP_SUPPORT
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 void
 f_hosts(struct user *p, int argc, char **argv)
 {
-	extern void ping_all(void), ping_all_cdudp(void);
 	extern void load_hosts(int), save_hosts(struct host *, char *);
+#ifdef INETD_SUPPORT
+	extern void ping_all(void);
 	extern struct host *hosts;
+#endif
 #ifdef CDUDP_SUPPORT
+	extern void ping_all_cdudp(void);
 	extern struct host *cdudp_hosts;
 #endif
 	struct host *h;
 	int lon, column, total, up;
-	int ghosts = !strcmp(argv[0], "ghosts");
+	int ghosts = !strcmp(argv[0], "chosts");
 	int jlhosts = !strcmp(argv[0], "jlhosts");
 	time_t tm;
 	struct strbuf str;
@@ -922,31 +1124,35 @@ f_hosts(struct user *p, int argc, char **argv)
 
 	if (!jlhosts && p->level > L_CONSUL && argc > 1)
 	{
-		if (!strcmp(argv[1], "startup"))
+		if (!strcmp(argv[1], "-startup"))
 		{
 			write_socket(p, "Pinging all hosts.\n");
 #ifdef CDUDP_SUPPORT
 			if (ghosts)
 				ping_all_cdudp();
-			else
 #endif
+#ifdef INETD_SUPPORT
+			if (!ghosts)
 				ping_all();
+#endif
 			return;
 		}
-		else if (!strcmp(argv[1], "reload"))
+		else if (!strcmp(argv[1], "-reload"))
 		{
 			load_hosts(ghosts);
 			write_socket(p, "Rescanned hosts file.\n");
 			return;
 		}
-		else if (!strcmp(argv[1], "dump"))
+		else if (!strcmp(argv[1], "-dump"))
 		{
 #ifdef CDUDP_SUPPORT
 			if (ghosts)
 				save_hosts(cdudp_hosts, F_CDUDP_HOSTS);
-			else
 #endif
+#ifdef INETD_SUPPORT
+			if (!ghosts)
 				save_hosts(hosts, F_INETD_HOSTS);
+#endif
 			write_socket(p, "Dumped.\n");
 			return;
 		}
@@ -957,22 +1163,29 @@ f_hosts(struct user *p, int argc, char **argv)
 			lon++;
 		else
 		{
-			if ((h = lookup_host_by_name(
-#ifdef CDUDP_SUPPORT
-			ghosts ? cdudp_hosts :
+#if defined(INETD_SUPPORT)
+			if (!ghosts)
+				h = lookup_inetd_host(argv[1]);
 #endif
-			    hosts, argv[1], 0)) == (struct host *)NULL)
-				write_socket(p,
-				    "Unknown or ambiguous host name: %s\n",
-				    argv[1]);
-			else
+#if defined(CDUDP_SUPPORT)
+			if (ghosts)
+				h = lookup_cdudp_host(argv[1]);
+#endif
+			if (h == (struct host *)NULL)
 			{
-				write_socket(p, "%s: %s (%d)\n", h->name,
-				    h->host, h->port);
-				    write_socket(p,
+				write_socket(p,
+				    "Unknown or ambiguous host name:"
+				    " %s\n", argv[1]);
+				return;
+			}
+			write_socket(p, "%s: %s (%d)\n", h->name,
+			    h->host, h->port);
+#ifdef INETD_SUPPORT
+			if (!ghosts)
+				write_socket(p,
 				    "Use iquery <host> mud_port to get "
 				    "the login port\n");
-			}
+#endif
 			return;
 		}
 	}
@@ -981,9 +1194,11 @@ f_hosts(struct user *p, int argc, char **argv)
 #ifdef CDUDP_SUPPORT
 	if (ghosts)
 		h = cdudp_hosts;
-	else
 #endif
+#ifdef INETD_SUPPORT
+	if (!ghosts)
 		h = hosts;
+#endif
 	for (; h != (struct host *)NULL; h = h->next)
 	{
 		if (jlhosts && !h->is_jeamland)
@@ -1002,7 +1217,7 @@ f_hosts(struct user *p, int argc, char **argv)
 			if (h->status)
 				sadd_strbuf(&str, "%-20s %-5s %s", h->name,
 			    	    h->status > 0 ? "UP" : "DOWN",
-				    ctime(&tm));
+				    ctime(user_time(p, tm)));
 			else
 				sadd_strbuf(&str,
 				    "%-20s UNKNOWN Never accessed.\n",
@@ -1027,15 +1242,71 @@ f_hosts(struct user *p, int argc, char **argv)
 	}
 	write_socket(p, "Currently listed hosts [total:%d up:%d down:%d]\n",
 	    total, up, total - up);
+	cadd_strbuf(&str, '\n');
 	pop_strbuf(&str);
 	more_start(p, str.str, NULL);
 }
+#endif
 
+#ifdef INETD_SUPPORT
+void
+f_ichannel(struct user *p, int argc, char **argv)
+{
+	extern void inetd_channel(struct user *, char *, char *, int);
+
+	inetd_channel(p, argv[0], argv[1], 0);
+}
+
+void
+f_ichannel_jl(struct user *p, int argc, char **argv)
+{
+	extern void inetd_channel(struct user *, char *, char *, int);
+
+	inetd_channel(p, argv[0], argv[1], 1);
+}
+#endif
+
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT) || defined(IMUD3_SUPPORT)
+void
+f_ilocate(struct user *p, int argc, char **argv)
+{
+	int all;
+
+	deltrail(argv[1]);
+
+	all = argc > 2 && !strcmp(argv[2], "all");
+
+#ifdef IMUD3_SUPPORT
+	i3_cmd_locate(p, argv[1]);
+#endif
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
+	inetd_locate(p, argv[1], all);
+#endif
+}
+#endif /* INETD_SUPPORT || CDUDP_SUPPORT || IMUD3_SUPPORT */
+
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 void
 f_iquery(struct user *p, int argc, char **argv)
 {
 	extern void inetd_query(struct user *, char *, char *);
 	inetd_query(p, argv[1], argv[2]);
+}
+#endif
+
+#ifdef INETD_SUPPORT
+void
+f_import(struct user *p, int argc, char **argv)
+{
+	char *q;
+
+	if ((q = strchr(argv[1], '@')) == (char *)NULL)
+	{
+		write_socket(p, "Syntax: import <user>@<JeamLand Host>\n");
+		return;
+	}
+	*q++ = '\0';
+	inetd_import(p, argv[1], q);
 }
 #endif
 
@@ -1068,20 +1339,16 @@ f_join(struct user *p, int argc, char **argv)
 {
 	struct user *u;
 
-	if ((u = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capitalise(argv[1]));
+	if ((u = find_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	if ((u->super->flags & R_LOCKED) && 
 	    strcmp(u->super->owner, p->rlname))
 	{
 		write_socket(p, "That room is locked.\n");
 		return;
 	}
-	if (u->super->lock_grupe != (char *)NULL &&
-	    !member_sysgrupe(u->super->lock_grupe, p->rlname, 0) &&
-	    !ISROOT(p))
+	if (u->super->lock_grupe != (char *)NULL && !ISROOT(p) &&
+	    !member_sysgrupe(u->super->lock_grupe, p->rlname))
 	{
 		write_socket(p, "That room is locked.\n");
 		return;
@@ -1135,7 +1402,7 @@ f_last(struct user *p, int argc, char **argv)
 	int i;
 
 	init_vecbuf(&vb, 0, "f_last vecbuf");
-	expand_user_list(p, argv[1], &vb, 0);
+	expand_user_list(p, argv[1], &vb, 0, 0, 0);
 
 	v = vecbuf_vector(&vb);
 
@@ -1150,7 +1417,8 @@ f_last(struct user *p, int argc, char **argv)
 			continue;
 
 		sadd_strbuf(&str, "%15s : ", capfirst(v->items[i].u.string));
-		if (find_user(p, v->items[i].u.string) != (struct user *)NULL)
+		if (find_user_absolute(p, v->items[i].u.string) !=
+		    (struct user *)NULL)
 			add_strbuf(&str, "[ Currently logged on ].\n");
 		else
 		{
@@ -1165,7 +1433,8 @@ f_last(struct user *p, int argc, char **argv)
 				add_strbuf(&str, "<Unknown>\n");
 			else
 			{
-				sadd_strbuf(&str, "%s.\n", nctime(&tmptim));
+				sadd_strbuf(&str, "%s.\n",
+				    nctime(user_time(p, tmptim)));
 				sadd_strbuf(&str, "%15s   (%s)\n", " ",
 				    conv_time(current_time - tmptim));
 			}
@@ -1250,7 +1519,7 @@ f_lock(struct user *p, int argc, char **argv)
 	write_socket(p, "This room is now locked.\n");
 }
 
-#ifdef UDP_SUPPORT
+#ifdef INETD_SUPPORT
 void
 f_lookup(struct user *p, int argc, char **argv)
 {
@@ -1268,11 +1537,12 @@ mail3(struct user *p, char *c)
 	struct vector *vec;
 	struct strbuf cc;
 	int i, flag;
+	int snt = 0;
 
 	init_vecbuf(&v, 0, "mail3 vecbuf");
 	init_strbuf(&cc, 0, "mail3 cc");
-	expand_user_list(p, (p->stack.sp - 2)->u.string, &v, 0);
-	expand_user_list(p, c, &v, 0);
+	expand_user_list(p, (p->stack.sp - 2)->u.string, &v, 0, 0, 1);
+	expand_user_list(p, c, &v, 0, 0, 1);
 	vec = vecbuf_vector(&v);
 
 	for (i = vec->size; i--; )
@@ -1284,11 +1554,12 @@ mail3(struct user *p, char *c)
 
 		r = vec->items[i].u.string;
 		
-#ifdef UDP_SUPPORT
+#ifdef INETD_SUPPORT
 		if (strchr(r, '@') != (char *)NULL)
 		{
 			inetd_mail(p->rlname, r, (p->stack.sp - 1)->u.string,
 			    p->stack.sp->u.string, 0);
+			snt++;
 			*r = '\0';
 		}
 		else
@@ -1337,29 +1608,37 @@ mail3(struct user *p, char *c)
 					    capitalise(r));
 					*r = '\0';
 				}
+				else
+					snt++;
 			}
 		}
 	}
 
-	reinit_strbuf(&cc);
-	for (flag = 0, i = vec->size; i--; )
+	if (!snt)
+		write_socket(p,
+		    "No recipients found. Message can be retrieved with ~R\n");
+	else
 	{
-		char *r;
+		reinit_strbuf(&cc);
+		for (flag = 0, i = vec->size; i--; )
+		{
+			char *r;
 
-		if (vec->items[i].type != T_STRING)
-			continue;
+			if (vec->items[i].type != T_STRING)
+				continue;
 
-		r = vec->items[i].u.string;
+			r = vec->items[i].u.string;
 
-		if (*r == '\0')
-			continue;
-		if (flag)
-			add_strbuf(&cc, ", ");
-		else
-			flag = 1;
-		add_strbuf(&cc, r);
+			if (*r == '\0')
+				continue;
+			if (flag)
+				add_strbuf(&cc, ", ");
+			else
+				flag = 1;
+			add_strbuf(&cc, r);
+		}
+		write_socket(p, "Mail sent: %s\n", cc.str);
 	}
-	write_socket(p, "Mail sent: %s\n", cc.str);
 	free_vector(vec);
 	free_strbuf(&cc);
 	pop_n_elems(&p->stack, 3);
@@ -1392,7 +1671,8 @@ mail_subject(struct user *p, char *c)
 	else
 		push_string(&p->stack, c);
 	p->input_to = NULL_INPUT_TO;
-	ed_start(p, mail2, 500, 0);
+	ed_start(p, mail2, MAX_MAIL_LINES,
+	    (p->medopts & U_MAILOPT_SIG) ? ED_APPEND_SIG : 0);
 }
 
 void
@@ -1401,11 +1681,11 @@ f_mail(struct user *p, int argc, char **argv)
 	extern void mail_start(struct user *);
 	extern void kill_mailspool(struct user *, char *);
 
-	CHECK_INPUT_TO(p);
+	CHECK_INPUT_TO(p)
 
 	if (argc > 1)
 	{
-#ifdef UDP_SUPPORT
+#ifdef INETD_SUPPORT
 		if (!strncmp(argv[1], "-s", 2))
 		{
 			kill_mailspool(p, argv[1] + 2);
@@ -1516,7 +1796,7 @@ f_myrooms(struct user *p, int argc, char **argv)
 {
 	struct vector *vec;
 	struct room *r;
-	char buff[MAXPATHLEN + 1], *user;
+	char buf[MAXPATHLEN + 1], *user;
 	int found = 0, s;
 
 	if (argc > 1 && p->level > L_WARDEN)
@@ -1526,28 +1806,35 @@ f_myrooms(struct user *p, int argc, char **argv)
 
 	s = strlen(user);
 
-	sprintf(buff, "room/%c", user[0]);
+	sprintf(buf, "room/%c", user[0]);
 
-	if ((vec = get_dir(buff, 0)) != (struct vector *)NULL)
+	if ((vec = get_dir(buf, 0)) != (struct vector *)NULL)
 	{
 		int i;
 
 		for (i = vec->size; i--; )
+		{
+			char *t = strrchr(vec->items[i].u.string, '.');
+			if (t != (char *)NULL && !strcmp(t, ".o"))
+				*t = '\0';
+			else
+				continue;
+
 			if (!strncmp(vec->items[i].u.string, user, s) &&
-			    sscanf(vec->items[i].u.string, "%[^.].o", buff) &&
-			    ROOM_POINTER(r, buff) &&
+			    ROOM_POINTER(r, vec->items[i].u.string) &&
 			    !strcmp(r->owner, user))
 			{
 				struct exit *e;
 
-				write_socket(p, "%-15s  :  %s\n", buff,
-				    r->name);
+				write_socket(p, "%-15s  :  %s\n",
+				    r->fname, r->name);
 				for (e = r->exit; e != (struct exit *)NULL;
 				    e = e->next)
 					write_socket(p, "\t%-15s : %s\n",
 					    e->name, e->file);
 				found++;
 			}
+		}
 		free_vector(vec);
 	}
 	if ((vec = get_dir("room/_", 0)) != (struct vector *)NULL)
@@ -1561,17 +1848,23 @@ f_myrooms(struct user *p, int argc, char **argv)
 		 * after it is finished with */
 		for (i = vec->size; i--; )
 		{
+			char *t = strrchr(vec->items[i].u.string, '.');
+			if (t != (char *)NULL && !strcmp(t, ".o"))
+				*t = '\0';
+			else
+				continue;
+
 			destroy_after = 0;
 
-			if (sscanf(vec->items[i].u.string, "%[^.].o", buff) &&
-			    ((r = find_room(buff)) != (struct room *)NULL ||
-			    ((destroy_after = 1) &&
-			    (r = restore_room(buff)) != (struct room *)NULL)))
+			if (((r = find_room(vec->items[i].u.string)) !=
+			    (struct room *)NULL || ((destroy_after = 1) &&
+			    (r = restore_room(vec->items[i].u.string)) !=
+			    (struct room *)NULL)))
 			{
 				if (!strcmp(r->owner, user))
 				{
-					write_socket(p, "%-15s  :  %s\n", buff,
-				    	    r->name);
+					write_socket(p, "%-15s  :  %s\n",
+				    	    r->fname, r->name);
 					found++;
 				}
 				/* *wave sadly* */
@@ -1607,12 +1900,6 @@ f_nosnoop(struct user *p, int argc, char **argv)
 {
 	write_socket(p, "You have %s your nosnoop flag.\n",
 	    (p->saveflags ^= U_NOSNOOP) & U_NOSNOOP ? "set" : "unset");
-}
-
-void
-f_out(struct user *p, int argc, char **argv)
-{
-	move_user(p, get_entrance_room());
 }
 
 void new_passwd(struct user *, char *);
@@ -1696,7 +1983,7 @@ old_passwd(struct user *p, char *c)
 void
 f_passwd(struct user *p, int argc, char **argv)
 {
-	CHECK_INPUT_TO(p);
+	CHECK_INPUT_TO(p)
 
 	noecho(p);
 	if (p->passwd != (char *)NULL && strlen(p->passwd))
@@ -1843,7 +2130,7 @@ epost3(struct user *p, int i)
 	/* Simple checks first.. */
 	if (!(r->flags & R_BOARD))
 	{
-		write_socket(p, "Board has dissapeared from this room!\n");
+		write_socket(p, "Board has disappeared from this room!\n");
 		pop_n_elems(&p->stack, 5);
 		return;
 	}
@@ -1882,7 +2169,7 @@ epost2(struct user *p, char *c)
 		(p->stack.sp - 1)->u.string = string_copy(c, "epost2 subj");
 	}
 	p->input_to = NULL_INPUT_TO;
-	ed_start(p, epost3, 500, ED_STACKED_TEXT);
+	ed_start(p, epost3, MAX_BOARD_LINES, ED_STACKED_TEXT);
 }
 
 void
@@ -1908,7 +2195,8 @@ f_post(struct user *p, int argc, char **argv)
 		    p->name, argv[1]);
 		push_string(&p->stack, p->super->fname);
 		push_string(&p->stack, argv[1]);
-		ed_start(p, post2, 500, 0);
+		ed_start(p, post2, MAX_BOARD_LINES,
+		    (p->medopts & U_EDOPT_SIG) ? ED_APPEND_SIG : 0);
 		return;
 	}
 	if ((m = find_message(p->super->board, (num = atoi(argv[1])))) ==
@@ -1947,8 +2235,61 @@ f_prompt(struct user *p, int argc, char **argv)
 {
 	if (argc < 2)
 	{
+		if (p->prompt == (char *)NULL)
+			write_socket(p, "Your prompt is not set.\n");
+		else
+			write_socket(p, "Your prompt is currently: %s\n",
+			    p->prompt);
+		if (p->saveflags & U_IACEOR)
+			write_socket(p,
+			    "IAC EOR prompt compatiblility turned on.\n");
+		if (p->saveflags & U_IACGA)
+			write_socket(p,
+			    "IAC GA prompt compatilibility turned on.\n");
+		return;
+	}
+	if (!strcmp(argv[1], "-default"))
+	{
 		COPY(p->prompt, PROMPT, "prompt");
 		write_socket(p, "Prompt reset to default.\n");
+		return;
+	}
+	if (!strcmp(argv[1], "-iaceor"))
+	{
+		write_socket(p, "IAC EOR prompt compatibility turned %s.\n",
+		    (p->saveflags ^= U_IACEOR) & U_IACEOR ? "on" : "off");
+		if (p->saveflags & U_IACEOR)
+		{
+			write_socket(p, "%c%c%c", IAC, WILL, TELOPT_EOR);
+			p->socket.telnet.expect |= TN_EXPECT_EOR;
+			if (p->saveflags & U_IACGA)
+			{
+				p->saveflags &= ~U_IACGA;
+				write_socket(p, "%c%c%c", IAC, WILL,
+				    TELOPT_SGA);
+				p->socket.telnet.expect |= TN_EXPECT_SGA;
+			}
+		}
+		return;
+	}
+	if (!strcmp(argv[1], "-iacga"))
+	{
+		write_socket(p, "IAC GA prompt compatibility turned %s.\n",
+		    (p->saveflags ^= U_IACGA) & U_IACGA ? "on" : "off");
+		if (p->saveflags & U_IACGA)
+		{
+			write_socket(p, "%c%c%c", IAC, WONT, TELOPT_SGA);
+			p->socket.telnet.expect |= TN_EXPECT_SGA;
+			/* Assume we may.. */
+			p->socket.flags |= TCPSOCK_GA_OK;
+			if (p->saveflags & U_IACEOR)
+			{
+				p->saveflags &= ~U_IACEOR;
+				write_socket(p, "%c%c%c", IAC, WONT,
+				    TELOPT_EOR);
+				p->socket.telnet.expect |= TN_EXPECT_EOR;
+			}
+		}
 		return;
 	}
 	if (strlen(argv[1]) > PROMPT_LEN)
@@ -1983,22 +2324,6 @@ f_quotechar(struct user *p, int argc, char **argv)
 	}
 	p->quote_char = q;
 	write_socket(p, "Quote character set to '%c'.\n", q);
-}
-
-void
-f_remote(struct user *p, int argc, char **argv)
-{
-	struct user *who;
-
-	if ((who = find_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "User %s not found.\n", capitalise(argv[1]));
-		return;
-	}
-	write_socket(p, "You remote: %s %s\n", p->name, argv[2]);
-	bold(who);
-	write_socket(who, " *** %s %s\n", p->name, argv[2]);
-	reset(who);
 }
 
 void
@@ -2065,8 +2390,8 @@ sched2(struct event *ev)
 	int quiet, qi;
 	int i;
 
-	if ((p = find_user((struct user *)NULL, ev->stack.sp->u.string)) ==
-	    (struct user *)NULL)
+	if ((p = find_user_absolute((struct user *)NULL,
+	    ev->stack.sp->u.string)) == (struct user *)NULL)
 	{
 		/* User has logged off */
 		pop_n_elems(&ev->stack, 2);
@@ -2216,7 +2541,7 @@ f_sendme(struct user *p, int argc, char **argv)
 	{
 		/* Naughty, naughty.. */
 		notify_level(L_CONSUL,
-		    "[ %s tried to read outside the lib (%s) ]\n",
+		    "[ %s tried to read outside the lib (%s) ]",
 		    p->capname, argv[1]);
 		log_file("illegal", "%s: sendme: %s", p->capname, argv[1]);
 		write_socket(p, "Email request failed. No such file ?\n");
@@ -2224,7 +2549,10 @@ f_sendme(struct user *p, int argc, char **argv)
 	}
 
 	if (send_email_file(p, argv[1]) != -1)
+	{
 		write_socket(p, "Email request submitted.\n");
+		log_file("sendme", "%s (%s)", p->rlname, argv[1]);
+	}
 	else
 		write_socket(p, "Email request failed. No such file ?\n");
 }
@@ -2248,64 +2576,221 @@ f_shout(struct user *p, int argc, char **argv)
 	for (u = users->next; u != (struct user *)NULL; u = u->next)
 		if (IN_GAME(u) && !(u->earmuffs & EAR_SHOUTS) &&
 		    p != u)
-			write_socket(u, "%s shouts: %s\n", p->name,
+		{
+			attr_colour(u, "shout");
+			write_socket(u, "%s shouts: %s", p->name,
 	    		    argv[1]);
+			reset(u);
+			write_socket(u, "\n");
+		}
 	write_socket(p, "You shout: %s\n", argv[1]);
+}
+
+void
+sig2(struct user *p, int i)
+{
+	if (i != EDX_NORMAL)
+		return;
+	FREE(p->sig);
+	p->sig = p->stack.sp->u.string;
+	dec_stack(&p->stack);
+}
+
+void
+f_sig(struct user *p, int argc, char **argv)
+{
+	if (argc > 1)
+	{
+		if (!strcmp(argv[1], "-edit"))
+		{
+			if (p->sig != (char *)NULL)
+			{
+				push_string(&p->stack, p->sig);
+				/* The FORCE_WRAP means that users can't
+				 * have lines longer than 75 characters. */
+				ed_start(p, sig2, 4,
+				    ED_STACKED_TEXT | ED_FORCE_WRAP);
+			}
+			else
+			{
+				/* Defaults */
+				p->medopts |= (U_MAILOPT_SIG | U_EDOPT_SIG);
+				ed_start(p, sig2, 4, ED_FORCE_WRAP);
+			}
+			return;
+		}
+
+		if (!strcmp(argv[1], "-remove"))
+		{
+			FREE(p->sig);
+			write_socket(p, "Sig removed.\n");
+			p->medopts &= ~(U_EDOPT_SIG | U_MAILOPT_SIG);
+			return;
+		}
+
+		if (!strcmp(argv[1], "-mail"))
+		{
+			if ((p->medopts ^= U_MAILOPT_SIG) & U_MAILOPT_SIG)
+				write_socket(p,
+				    "Your signature will be appended"
+				    " to mail.\n");
+			else
+				write_socket(p,
+				    "Your signature will no longer be appended"
+				    " to mail.\n");
+			return;
+		}
+
+		if (!strcmp(argv[1], "-board"))
+		{
+			if ((p->medopts ^= U_EDOPT_SIG) & U_EDOPT_SIG)
+				write_socket(p,
+				    "Your signature will be appended"
+				    " to board messages.\n");
+			else
+				write_socket(p,
+				    "Your signature will no longer be appended"
+				    " to board messages.\n");
+			return;
+		}
+		write_socket(p, "Sig: unknown argument.\n");
+		return;
+	}
+
+	if (p->sig == (char *)NULL)
+		write_socket(p, "Your signature is not currently set.\n");
+	else
+		write_socket(p, "%s\n", p->sig);
+	if (p->medopts & U_EDOPT_SIG)
+		write_socket(p, "Signature is appended to board messages.\n");
+	if (p->medopts & U_MAILOPT_SIG)
+		write_socket(p, "Signature is appended to mail messages.\n");
 }
 
 void
 f_start(struct user *p, int argc, char **argv)
 {
+	struct room *r;
+
 	if (argc > 1 && p->level > L_CITIZEN)
 	{
-		struct room *r;
-
 		if (!ROOM_POINTER(r, argv[1]))
 		{
 			write_socket(p, "Room %s does not exist.\n", argv[1]);
 			return;
 		}
-		COPY(p->startloc, r->fname, "startloc");
-		write_socket(p, "Start location set to '%s'\n", r->fname);
+	}
+	else
+		r = p->super;
+
+	COPY(p->startloc, r->fname, "startloc");
+	write_socket(p, "Start location set to: %s.\n", r->name);
+}
+
+void
+f_sticky(struct user *p, int argc, char **argv)
+{
+	struct user *who;
+	char fname[MAXPATHLEN + 1];
+	char *buf;
+
+	if (argc < 2)
+	{
+		sprintf(fname, "%s#sticky", p->rlname);
+		if (!dump_file(p, "mail", fname, DUMP_MORE))
+			write_socket(p, "You have no sticky notes.\n");
 		return;
 	}
-	COPY(p->startloc, p->super->fname, "startloc");
-	write_socket(p, "Start location set to your current location.\n");
+
+	if (argc < 3)
+	{
+		write_socket(p, "Syntax: sticky <user> <message>\n");
+		return;
+	}
+
+	deltrail(argv[1]);
+
+	argv[1] = lower_case(argv[1]);
+
+	if (!exist_user(argv[1]))
+	{
+		write_socket(p, "User not found, %s.\n", capitalise(argv[1]));
+		return;
+	}
+
+	who = find_user_absolute((struct user *)NULL, argv[1]);
+
+	sprintf(fname, "mail/%s#sticky", argv[1]);
+
+	/* The 30 is for '[ <time> ]' - Added 5 for newlines & end of string */
+	buf = (char *)xalloc(35 + strlen(p->name) + strlen(argv[2]),
+	    "sticky buf");
+	sprintf(buf, "[ %s : %s ]\n%s\n", nctime(&current_time), p->name,
+	    argv[2]);
+
+	if (!append_file(fname, buf))
+	{
+		write_socket(p, "Could not write to sticky note file.\n");
+		xfree(buf);
+		return;
+	}
+
+	xfree(buf);
+
+	if (who != (struct user *)NULL)
+	{
+		attr_colour(who, "notify");
+		write_socket(who, "[ New sticky note from %s. ]", p->name);
+		reset(who);
+		write_socket(who, "\n");
+	}
+
+	write_socket(p, "Posted a sticky note to %s.\n", capitalise(argv[1]));
 }
 
 void
 f_sudo(struct user *p, int argc, char **argv)
 {
-	extern int check_sudo(char *, char *);
 	char *cmd;
-	int olevel = p->level;
+	int olevel;
+
+	if (argc < 2)
+	{
+		list_sudos(p, p->rlname);
+		return;
+	}
 
 	cmd = string_copy(argv[1], "sudo tmp");
 	deltrail(cmd);
-	if (!check_sudo(p->rlname, cmd))
+	if (!check_sudo(p->rlname, cmd, argc > 2 ? argv[2] : (char *)NULL))
 	{
 		write_socket(p, "Permission denied.\n");
 		log_file("secure/sudo", "%s - (%s)", p->capname,
 		    argv[1]);
 		notify_levelabu(p, p->level >= L_CONSUL ? p->level : L_CONSUL,
-		    "[ SUDO: - %s: %s ]\n", p->capname, argv[1]);
+		    "[ SUDO: - %s: %s ]", p->capname, argv[1]);
 		xfree(cmd);
 		return;
 	}
+
+	log_file("secure/sudo", "%s + (%s)", p->capname, argv[1]);
+	notify_levelabu(p, p->level >= L_CONSUL ? p->level : L_CONSUL,
+	    "[ SUDO: + %s: %s ]", p->capname, argv[1]);
+
 	strcpy(cmd, argv[1]);
-	p->sudo = 1;
+	p->flags |= U_SUDO;
+	olevel = p->level;
 	p->level = L_OVERSEER;
 
+	p->flags |= U_INHIBIT_ALIASES;
 	parse_command(p, &cmd);
-
-	p->sudo = 0;
-	p->level = olevel;
-
-	log_file("secure/sudo", "%s + (%s)", p->capname, cmd);
-	notify_levelabu(p, p->level >= L_CONSUL ? p->level : L_CONSUL,
-	    "[ SUDO: + %s: %s ]\n", p->capname, cmd);
+	p->flags &= ~U_INHIBIT_ALIASES;
 
 	xfree(cmd);
+
+	p->flags &= ~U_SUDO;
+	if ((p->level = query_real_level(p->rlname)) == -1)
+		p->level = olevel;
 }
 
 void
@@ -2322,9 +2807,9 @@ suicide3(struct user *p, char *c)
 	write_socket(p, "Goodbye.............\n"
 	                "         .................for ever!\n");
 	log_file("suicide", "+ %s (%s)", p->capname, lookup_ip_name(p));
-	p->flags |= U_SOCK_QUITTING;
+	disconnect_user(p, 0);
 	delete_user(p->rlname);
-	notify_levelabu(p, p->level, "[ %s has committed suicide. ]\n",
+	notify_levelabu(p, p->level, "[ %s has committed suicide. ]",
 	    p->capname);
 	write_roomabu(p, "%s has committed suicide.\n", p->name);
 }
@@ -2358,12 +2843,45 @@ f_suicide(struct user *p, int argc, char **argv)
 		write_socket(p, "Permission denied.\n");
 		return;
 	}
-	CHECK_INPUT_TO(p);
+	CHECK_INPUT_TO(p)
 	noecho(p);
 	write_prompt(p, "You have chosen to delete this user permanently.\n"
 	    "This can NOT be undone!\n"
 	    "Enter your password for confirmation: ");
 	p->input_to = suicide2;
+}
+
+void
+f_swho(struct user *p, int argc, char **argv)
+{
+	struct strbuf str;
+	struct vecbuf vb;
+	struct vector *v;
+	int i;
+
+	init_vecbuf(&vb, 0, "f_swho vecbuf");
+	expand_user_list(p, argv[1], &vb, 1, 0, 0);
+
+	v = vecbuf_vector(&vb);
+
+	/* This will only happen if a grupe name was supplied. */
+	if (!v->size)
+		write_socket(p, "%s: No members logged on.\n", argv[1]);
+	else
+	{
+		init_strbuf(&str, 0, "f_swho grupe sb");
+		init_composite_words(&str);
+
+		for (i = v->size; i--; )
+			if (v->items[i].type == T_POINTER)
+				add_composite_word(&str,
+				    ((struct user *)(v->items[i].u.pointer))
+				    ->name);
+		end_composite_words(&str);
+		write_socket(p, "%s\n", str.str);
+		free_strbuf(&str);
+	}
+	free_vector(v);
 }
 
 void
@@ -2395,6 +2913,11 @@ f_unalias(struct user *p, int argc, char **argv)
 		r = 1;
 		list = &p->super->alias;
 	}
+	else if (*argv[0] == 'g')
+	{
+		list = &galiases;
+		r = 2;
+	}
 	else
 		list = &p->alias;
 
@@ -2414,8 +2937,10 @@ f_unalias(struct user *p, int argc, char **argv)
 	}
 	remove_alias(list, a);
 	write_socket(p, "Unaliased '%s'\n", argv[1]);
-	if (r)
+	if (r == 1)
 		store_room(p->super);
+	else if (r == 1)
+		store_galiases();
 }
 
 void
@@ -2505,7 +3030,7 @@ f_url(struct user *p, int argc, char **argv)
 	{
 		FREE(p->url);
 		notify_levelabu(p, p->level >= L_WARDEN ? p->level : L_WARDEN,
-		    "[ %s has removed %s homepage url. ]\n",
+		    "[ %s has removed %s homepage url. ]",
 		    p->capname, query_gender(p->gender, G_POSSESSIVE));
 		write_socket(p, "Your homepage url has been removed.\n");
 		return;
@@ -2521,7 +3046,7 @@ f_url(struct user *p, int argc, char **argv)
 		return;
 	}
 	notify_levelabu(p, p->level >= L_WARDEN ? p->level : L_WARDEN,
-	    "[ %s has changed %s homepage url to %s. ]\n",
+	    "[ %s has changed %s homepage url to %s. ]",
 	    p->capname, query_gender(p->gender, G_POSSESSIVE), argv[1]);
 	COPY(p->url, argv[1], "url");
 	write_socket(p, "You have changed your homepage url to: %s\n",
@@ -2533,13 +3058,12 @@ f_which(struct user *p, int argc, char **argv)
 {
 	struct command *cmd;
 	struct alias *a;
-	char *t;
-	extern char *expand_galias(char *);
+	struct sent *s;
 
 	/* It could be a global alias.. */
-	if ((t = expand_galias(argv[1])) != (char *)NULL)
+	if ((a = find_alias(galiases, argv[1])) != (struct alias *)NULL)
 	{
-		write_socket(p, "%s: global aliased to %s\n", argv[1], t);
+		write_socket(p, "%s: global aliased to %s\n", argv[1], a->fob);
 		return;
 	}
 
@@ -2551,10 +3075,22 @@ f_which(struct user *p, int argc, char **argv)
 	}
 
 	/* Perhaps a room alias.. */
-	if ((a = find_alias(p->super->alias, argv[1])) !=
-	    (struct alias *)NULL)
+	if ((a = find_alias(p->super->alias, argv[1])) != (struct alias *)NULL)
 	{
 		write_socket(p, "%s: room aliased to %s\n", argv[1], a->fob);
+		return;
+	}
+
+	/* Perhaps a sentence.. */
+	if ((s = find_sent_cmd(p, argv[1])) != (struct sent *)NULL)
+	{
+		char buf[0x100];
+
+		strcpy(buf, obj_name(s->ob));
+
+		write_socket(p, "%s: Sentence in %s [%s]\n", argv[1],
+		    s->ob->type == OT_JLM ? obj_name(s->ob->super) : "<..>",
+		    buf);
 		return;
 	}
 
@@ -2579,7 +3115,10 @@ f_which(struct user *p, int argc, char **argv)
 	/* A feeling ? */
 	if (exist_feeling(argv[1]) != (struct feeling *)NULL)
 	{
+		extern void f_feelings(struct user *, int, char **);
+
 		write_socket(p, "%s: feeling command.\n", argv[1]);
+		f_feelings(p, argc, argv);
 		return;
 	}
 
@@ -2592,21 +3131,153 @@ f_whisper(struct user *p, int argc, char **argv)
 {
 	struct user *who;
 
-	if ((who = with_user(p, argv[1])) == (struct user *)NULL)
-	{
-		write_socket(p, "%s is not here.\n", capitalise(argv[1]));
+	if ((who = with_user_msg(p, argv[1])) == (struct user *)NULL)
 		return;
-	}
 	if (who == p)
 	{
 		write_socket(p, "You want to talk to yourself ??\n");
 		return;
 	}
 	write_socket(p, "You whisper to %s: %s.\n", who->name, argv[2]);
-	bold(who);
-	write_socket(who, "%s whispers to you: %s.\n", p->name, argv[2]);
+	attr_colour(who, "incoming");
+	write_socket(who, "%s whispers to you: %s.", p->name, argv[2]);
 	reset(who);
+	write_socket(who, "\n");
 	write_roomabu2(p, who, "%s whispers something to %s.\n",
 	    p->name, who->name);
 }
+
+#ifdef IMUD3_SUPPORT
+void
+f_3channel(struct user *p, int argc, char **argv)
+{
+	i3_cmd_channel(p, argv[1], argv[2]);
+}
+
+void
+f_3hosts(struct user *p, int argc, char **argv)
+{
+	extern struct i3_host *i3hosts;
+	struct i3_host *i;
+	struct strbuf h;
+	int column;
+	int tot, up;
+
+	init_strbuf(&h, 0, "3hosts buf");
+
+	if (argc > 1)
+	{
+		int len = strlen(argv[1]);
+
+		for (i = i3hosts; i != (struct i3_host *)NULL; i = i->next)
+			if (!strncasecmp(argv[1], i->name, len))
+			{
+				struct svalue *sv;
+				int flag, j;
+
+				sadd_strbuf(&h,
+				    "Name    : %-25s   Type    : %s\n",
+				    i->name, i->mud_type);
+				sadd_strbuf(&h,
+				    "Driver  : %-25s   Ports   : "
+				    "UDP %d, TCP %d\n", i->driver,
+				    i->imud_tcp_port, i->imud_udp_port);
+				sadd_strbuf(&h,
+				    "Mudlib  : %-25s   Base    : %s\n",
+				    i->mudlib, i->base_mudlib);
+				sadd_strbuf(&h,
+				    "          %s\n", i->open_status);
+				add_strbuf(&h,
+				    "Status  : ");
+				if (i->state == -1)
+					add_strbuf(&h, "UP\n");
+				else if (i->state == 0)
+					add_strbuf(&h, "DOWN\n");
+				else
+					sadd_strbuf(&h,
+					    "DOWN but expected back in %s\n",
+					    conv_time(i->state));
+				sadd_strbuf(&h,
+				    "Email   : %s\n", i->admin_email);
+				sadd_strbuf(&h,
+				    "Address : %-17s %-5d\n",
+				    i->ip_addr, i->player_port);
+
+				if ((sv = map_string(i->services, "ftp")) !=
+				    (struct svalue *)NULL &&
+				    sv->type == T_NUMBER)
+					sadd_strbuf(&h, "FTP Server port: %d\n",
+					    sv->u.number);
+
+				if ((sv = map_string(i->services, "http")) !=
+				    (struct svalue *)NULL &&
+				    sv->type == T_NUMBER)
+					sadd_strbuf(&h, "WWW Server port: %d\n",
+					    sv->u.number);
+
+				add_strbuf(&h, "Services: ");
+
+				for (flag = j = 0; j < i->services->size; j++)
+				{
+					if (i->services->indices->items[j].type
+					    == T_STRING &&
+					    strcmp(i->services->indices->
+					    items[j].  u.string, "ftp") &&
+					    strcmp(i->services->indices->
+					    items[j].u.string, "http"))
+					{
+						if (flag)
+							add_strbuf(&h, ", ");
+						else
+							flag = 1;
+						add_strbuf(&h,
+						    i->services->indices->
+						    items[j].u.string);
+					}
+				}
+				add_strbuf(&h, "\n\n");
+			}
+
+		if (!h.offset)
+		{
+			write_socket(p, "No hosts found matching: %s\n",
+			    argv[1]);
+			free_strbuf(&h);
+		}
+		else
+		{
+			pop_strbuf(&h);
+			more_start(p, h.str, NULL);
+		}
+		return;
+	}
+
+	tot = up = column = 0;
+
+	for (i = i3hosts; i != (struct i3_host *)NULL; i = i->next)
+	{
+#define TRUNC_LEN 16
+		char trunc_name[TRUNC_LEN + 1];
+
+		my_strncpy(trunc_name, i->name, TRUNC_LEN);
+#undef TRUNC_LEN
+
+		sadd_strbuf(&h, "%c%-17s", i->state == -1 ? 
+		    (i->is_jl ? '!' : '*') : 
+		    (i->state > 0 ? '-' : ' '), trunc_name);
+		if (column++ > 2)
+		{
+			column = 0;
+			cadd_strbuf(&h, '\n');
+		}
+		tot++;
+		if (i->state == -1)
+			up++;
+	}
+	write_socket(p, "Currently listed hosts [total:%d up:%d down:%d]\n",
+	    tot, up, tot - up);
+	pop_strbuf(&h);
+	more_start(p, h.str, NULL);
+}
+#endif /* IMUD3_SUPPORT */
 

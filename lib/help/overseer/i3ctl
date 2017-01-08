@@ -1,0 +1,13 @@
+NAME		i3ctl
+SYNTAX		i3ctl <subcommand> [arguments] ...
+DESCRIPTION	Control the intermud-III system.
+
+		i3ctl close			- Disconnect from router.
+		i3ctl open			- Connect to router.
+		i3ctl send <string>		- Send a string to router.
+		i3ctl hosts dump		- Flush host list to disk.
+		i3ctl chan			- List channels.
+		i3ctl chan delete		- Delete channel list.
+		i3ctl chan <channel> tunein	- Tune talker into <channel>.
+		i3ctl chan <channel> tuneout	- Tune talker out of <channel>.
+

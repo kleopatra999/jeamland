@@ -1,0 +1,10 @@
+
+** This is not a command, just information **
+
+JeamLand allows you to specify the colours used for talker output.
+
+See the 'attr' command for more information, type 'attr -default' to set up
+some defaults.
+
+You will also need to set a terminal type using the 'termtype' command.
+

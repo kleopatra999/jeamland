@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	master.c
  * Function:	Main security functions
@@ -302,12 +302,18 @@ valid_path(struct user *p, char *path, enum valid_mode action)
 			return 1;
 		if (!strcmp(path, F_MASTERSAVE) ||
 		    !strcmp(path, F_SUDO) ||
+		    !strcmp(path, F_CRON) ||
 		    !strncmp(path, "users", 5) ||
 		    !strncmp(path, "log", 3))
 			return 0;
 		return 1;
 	}
-	else if (p->level > L_WARDEN)
+
+	/* Block access to intermud3 db */
+	if (!strcmp(path, F_IMUD3))
+		return 0;
+
+	if (p->level > L_WARDEN)
 	{
 		if (!strncmp(path, "log/channel", 11) ||
 		    !strncmp(path, "dead_ed", 7) ||
@@ -413,6 +419,7 @@ crypted(char *c)
 void
 insecure_passwd_text(struct user *p, int i)
 {
+#ifdef SECURE_PASSWORDS
 	write_socket(p, "\n"
 	    "Password security requirements:\n"
 	    "\t1. Password must be at least six characters in length\n"
@@ -429,6 +436,10 @@ insecure_passwd_text(struct user *p, int i)
 	    "\n"
 	    "Your password failed to meet the above requirements on "
 	    "point: %d.\n\n", i);
+#else
+	write_socket(p,
+	    "\nPassword too short, must be at least 4 characters.\n");
+#endif
 }
 
 /* Check whether a password is considered secure.
@@ -527,49 +538,52 @@ secure_password(struct user *p, char *passwd, char *old)
 
 #endif /* SECURE_PASSWORDS */
 
+	/* Still check the length */
+	if (strlen(passwd) < 4)
+		return 1;
 	return 0;
 }
 
-enum { UNAME = 0, BITNET, MACHINE, DOMAIN };
 int
 valid_email(char *e)
 {
-	int host, state;
+	int host;
 	char *p;
+	enum { EM_UNAME = 0, EM_BITNET, EM_MACHINE, EM_DOMAIN } state;
 
 	host = 0;
-	state = UNAME;
+	state = EM_UNAME;
 
 	for (p = e; *p != '\0'; p++)
 	{
-		switch(*p)
+		switch (*p)
 		{
 		    case '.':
 			if (!host)
 				return 0;
-			if (state == MACHINE)
-				state = DOMAIN;
+			if (state == EM_MACHINE)
+				state = EM_DOMAIN;
 			host = 0;
 			break;
 		    case '@':
-			if (!host || state > BITNET ||
+			if (!host || state > EM_BITNET ||
 			    !strncasecmp("ftp", e, host))
 				return 0;
 			host = 0;
-			state = MACHINE;
+			state = EM_MACHINE;
 			break;
 		    case '!':
 		    case '%':
-			if (!host || state > BITNET)
+			if (!host || state > EM_BITNET)
 				return 0;
-			state = BITNET;
+			state = EM_BITNET;
 			host = 0;
 			break;
 		    default:
 			host++;
 		}
 	}
-	if ((state == BITNET || state >= DOMAIN) && host > 1)
+	if ((state == EM_BITNET || state >= EM_DOMAIN) && host > 1)
 		return 1;
 	return 0;
 }
@@ -613,10 +627,14 @@ delete_user(char *name)
 	delete_users_rooms(name);
 	sprintf(buf, "room/%c/%s.o", name[0], name);
 	unlink(buf);
-	sprintf(buf, "board/mail/%s", name);
+	sprintf(buf, "mail/%s", name);
 	unlink(buf);
 	sprintf(buf, "board/%s", name);
 	unlink(buf);
+
+#ifdef AUTO_VALEMAIL
+	remove_any_valemail(name);
+#endif
 }
 
 void start_purge_event(void);
@@ -631,7 +649,7 @@ purge_users(struct event *ev)
 	char fname[MAXPATHLEN + 1];
 	struct user *p;
 
-	notify_level(L_VISITOR, "[ Users are being purged - please wait. ]\n");
+	notify_level(L_VISITOR, "[ Users are being purged - please wait. ]");
 
 	total = purged = 0;
 
@@ -707,8 +725,8 @@ purge_users(struct event *ev)
 	tfree_user(p);
 	if (ev != (struct event *)NULL)
 		start_purge_event();
-	notify_level(L_VISITOR, "[ Purge done. ]\n");
-	notify_level(L_OVERSEER, "[ Purged %d/%d ; %d]\n", purged, total,
+	notify_level(L_VISITOR, "[ Purge done. ]");
+	notify_level(L_OVERSEER, "[ Purged %d/%d ; %d]", purged, total,
 	    total - purged);
 	if (purged)
 		log_file("purge", "Purged %d of %d ; leaving %d.\n", purged,
@@ -719,8 +737,6 @@ void
 start_purge_event()
 {
 #ifdef PURGE_HOUR
-	int hour;
-	time_t tim;
 	struct stat st;
 
 #ifdef F_NOPURGE
@@ -728,48 +744,9 @@ start_purge_event()
 		return;
 #endif
 
-	hour = (current_time / 3600) % 24 + 1;
-	tim = (time_t)(3600 - current_time % 3600 +
-	    ((PURGE_HOUR > hour ? PURGE_HOUR :
-	    PURGE_HOUR + 24) - hour) * 3600);
-	add_event(create_event(), purge_users, (int)tim, "purge");
+	add_event(create_event(), purge_users,
+	    (int)calc_time_until(PURGE_HOUR, 0), "purge");
 #endif
-}
-
-/* These are not loaded into memory but scanned as required.
- * Should this be changed ? */
-int
-check_sudo(char *user, char *cmd)
-{
-	FILE *fp;
-	char *p;
-	char buf[BUFFER_SIZE];
-	int ok = 0;
-
-	if ((fp = fopen(F_SUDO, "r")) == (FILE *)NULL)
-		return 0;
-
-	while (fgets(buf, sizeof(buf), fp) != (char *)NULL)
-	{
-		if (ISCOMMENT(buf))
-			continue;
-
-		if ((p = strchr(buf, '\n')) != (char *)NULL)
-			*p = '\0';
-		else
-			log_file("error", "check_sudo: buf overflow.");
-
-		if ((p = strtok(buf, ":")) == (char *)NULL || strcmp(p, user))
-			continue;
-
-		while ((p = strtok((char *)NULL, ":, ")) != (char *)NULL)
-			if (!strcmp(p, "*") || !strcmp(p, cmd))
-				ok = 1;
-			else if (*p == '!' && !strcmp(p + 1, cmd))
-				ok = 0;
-	}
-	fclose(fp);
-	return ok;
 }
 
 #ifdef AUTO_VALEMAIL
@@ -967,7 +944,7 @@ register_valemail_id(struct user *p, char *id)
 }
 
 int
-valemail_service(char *str)
+valemail_service(char *str, char *args)
 {
 	struct valemail *v;
 	struct user *u;
@@ -975,10 +952,10 @@ valemail_service(char *str)
 
 	/* Str looks like: valemail <password> <id> <yes|no> */
 
-	if (strncmp(str, "valemail ", 9))
+	if (strcmp(str, "valemail"))
 		return 0;
 
-	str += 9;
+	str = args;
 
 	if ((p = strchr(str, ' ')) == (char *)NULL)
 		return 0;
@@ -990,7 +967,7 @@ valemail_service(char *str)
 		log_file("illegal", "Bad valemail password on service port.");
 		log_file("services", "Bad valemail password on service port.");
 		notify_level(L_CONSUL,
-		    "[ !ILLEGAL! Bad valemail password on service port. ]\n");
+		    "[ !ILLEGAL! Bad valemail password on service port. ]");
 		return 0;
 	}
 
@@ -1056,17 +1033,18 @@ valemail_service(char *str)
 	u->saveflags |= U_EMAIL_VALID;
 
 	notify_levelabu(u, L_CONSUL,
-	    "[ Auto-validated the email address for %s. ]\n", u->capname);
+	    "[ Auto-validated the email address for %s. ]", u->capname);
 
 	log_file("valemail", "%s (%s) validated by system", u->capname,
 	    u->email);
 
 	if (IN_GAME(u))
 	{
-		yellow(u);
+		attr_colour(u, "notify");
 		write_socket(u,
-		    "Your email address has been auto-validated.\n");
+		    "Your email address has been auto-validated.");
 		reset(u);
+		write_socket(u, "\n");
 	}
 
 	doa_end(u, 1);
@@ -1088,7 +1066,8 @@ pending_valemails(struct user *p)
 	for (flag = 0, v = valemails; v != (struct valemail *)NULL;
 	    flag = 1, v = v->next)
 		sadd_strbuf(&str, "%s: %-20s %s\n"
-		    "                          %s\n", nctime(&v->date),
+		    "                          %s\n",
+		    nctime(user_time(p, v->date)),
 		    v->user, v->id, v->email);
 
 	if (!flag)
@@ -1104,4 +1083,260 @@ pending_valemails(struct user *p)
 }
 
 #endif /* AUTO_VALEMAIL */
+
+/*
+ * Sudo related stuff...
+ */
+
+#define SUDO_RECURSE_DEPTH 10
+
+static struct sudo_entry {
+	char *name;
+	struct vector *v;
+	struct sudo_entry *next;
+	} *sudos = (struct sudo_entry *)NULL;
+
+static struct sudo_entry *
+create_sudo()
+{
+	struct sudo_entry *s;
+
+	s = (struct sudo_entry *)xalloc(sizeof(struct sudo_entry), "sudo ent");
+	s->name = (char *)NULL;
+	s->v = (struct vector *)NULL;
+	s->next = (struct sudo_entry *)NULL;
+	return s;
+}
+
+static void
+free_sudo(struct sudo_entry *s)
+{
+	FREE(s->name);
+	free_vector(s->v);
+	xfree(s);
+}
+
+static struct sudo_entry *
+find_sudo(char *name)
+{
+	struct sudo_entry *s;
+
+	for (s = sudos; s != (struct sudo_entry *)NULL; s = s->next)
+		if (!strcmp(name, s->name))
+			break;
+	return s;
+}
+
+static void
+load_sudos()
+{
+	struct sudo_entry *s, *t;
+	static time_t lst = 0;
+	struct vecbuf vec;
+	struct stat st;
+	char *buf, *p;
+	int line, ent;
+	time_t tm;
+	FILE *fp;
+
+	/* Don't need to reload if nothing has changed.
+	 * Note: if the file is non-existant, then file_time returns -1 and
+	 *       this works.
+	 */
+	if ((tm = file_time(F_SUDO)) <= lst)
+		return;
+
+	lst = tm;
+
+	/* Clean out old entries.. */
+	for (s = sudos; s != (struct sudo_entry *)NULL; s = t)
+	{
+		t = s->next;
+		free_sudo(s);
+	}
+	sudos = (struct sudo_entry *)NULL;
+
+	if ((fp = fopen(F_SUDO, "r")) == (FILE *)NULL)
+		return;
+
+	if (fstat(fileno(fp), &st) == -1)
+	{
+		log_perror("fstat");
+		fatal("Cannot stat open file.");
+	}
+
+	if (!st.st_size)
+	{
+		fclose(fp);
+		unlink(F_SUDO);
+		return;
+	}
+
+	buf = (char *)xalloc((size_t)st.st_size, "load_sudos");
+	line = ent = 0;
+
+	while (fgets(buf, (int)st.st_size, fp) != (char *)NULL)
+	{
+		line++;
+
+		if (ISCOMMENT(buf))
+			continue;
+
+		if ((p = strchr(buf, '\n')) != (char *)NULL)
+			*p = '\0';
+
+		if ((p = strtok(buf, ":")) == (char *)NULL)
+		{
+			log_file("error", "Error in sudoers at line %d, "
+			    "no : separator.", line);
+			continue;
+		}
+
+		if (find_sudo(buf) != (struct sudo_entry *)NULL)
+		{
+			log_file("error", "Duplicate sudo entry at line %d.",
+			    line);
+			continue;
+		}
+
+		s = create_sudo();
+		COPY(s->name, buf, "sudo name");
+
+		init_vecbuf(&vec, 0, "sudo vector");
+
+		while ((p = strtok((char *)NULL, ":,")) != (char *)NULL)
+		{
+			int i = vecbuf_index(&vec);
+			vec.vec->items[i].type = T_STRING;
+			vec.vec->items[i].u.string = string_copy(p,
+			    "sudo vec el");
+		}
+		s->v = vecbuf_vector(&vec);
+		s->next = sudos;
+		sudos = s;
+		ent++;
+	}
+	xfree(buf);
+	fclose(fp);
+	log_file("syslog", "Sudo: loaded %d entr%s.", ent,
+	    ent == 1 ? "y" : "ies");
+}
+
+void
+list_sudos(struct user *p, char *name)
+{
+	static int indent = 0, rec = 0;
+	struct sudo_entry *s;
+	int i, j;
+
+	if (!rec)
+		load_sudos();
+	else if (rec > SUDO_RECURSE_DEPTH)
+	{
+		log_file("error", "Sudo: recursion too deep for %s.", name);
+		return;
+	}
+
+	if ((s = find_sudo(name)) == (struct sudo_entry *)NULL)
+	{
+		if (!rec)
+			write_socket(p, "Permission denied.\n");
+		return;
+	}
+
+	if (!rec)
+		write_socket(p, "Sudo permissions for %s.\n", p->capname);
+
+	indent += 8, rec++;
+
+	for (i = 0; i < s->v->size; i++)
+	{
+		for (j = indent; j--; )
+			write_socket(p, " ");
+		write_socket(p, "%s\n", s->v->items[i].u.string);
+		if (*s->v->items[i].u.string == '[')
+		{
+			list_sudos(p, s->v->items[i].u.string);
+			continue;
+		}
+	}
+	indent -= 8, rec--;
+}
+
+int
+check_sudo(char *user, char *cmd, char *args)
+{
+	struct sudo_entry *s;
+	int ok = 0;
+	static int rec = 0;
+	char *p;
+	int i;
+
+	if (!rec)
+		load_sudos();
+	else if (rec > SUDO_RECURSE_DEPTH)
+	{
+		log_file("error", "Sudo: recursion too deep for %s.", user);
+		return 0;
+	}
+
+	if ((s = find_sudo(user)) == (struct sudo_entry *)NULL)
+		return 0;
+
+	rec++;
+
+	for (i = 0; i < s->v->size; i++)
+	{
+		char *q, *o;
+		int n;
+
+		/* Check for recursion.. */
+		if (*s->v->items[i].u.string == '[')
+		{
+			if (check_sudo(s->v->items[i].u.string, cmd, args) == 1)
+				ok = 1;
+			continue;
+		}
+
+		o = q = string_copy(s->v->items[i].u.string, "check_sudo tmp");
+
+		/* Check for allowed arguments */
+		if ((p = strchr(q, '(')) != (char *)NULL)
+			*p++ = '\0';
+
+		if (*q == '!')
+			n = 0, q++;
+		else
+			n = 1;
+
+		/* Check the command.. */
+		if (!strcmp(q, cmd) || !strcmp(q, "*"))
+		{
+			/* This is the required command..
+			 * any arguments to check ? */
+			if (p != (char *)NULL)
+			{
+				if (args != (char *)NULL)
+				{
+					q = strtok(p, "|)");
+					do
+					{
+						if (!strcmp(q, args))
+						{
+							ok = n;
+							break;
+						}
+					} while ((q = strtok((char *)NULL,
+					    "|)")) != (char *)NULL);
+				}
+			}
+			else
+				ok = n;
+		}
+
+		xfree(o);
+	}
+	rec--;
+	return ok;
+}
 

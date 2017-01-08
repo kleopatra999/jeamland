@@ -1,0 +1,5 @@
+NAME            strlen
+SYNTAX          strlen(string)
+DESCRIPTION     Count the number of characters in a string or the number of
+		digits in a number.
+RETURN VALUE	Returns the number of characters or digits.

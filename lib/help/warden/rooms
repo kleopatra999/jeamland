@@ -1,3 +1,8 @@
 NAME		rooms
 SYNTAX		rooms
+		rooms -reload
 DESCRIPTION	Show all loaded rooms (ie. rooms currently in memory).
+		The second form of the command causes the library to be
+		scanned for entrance rooms and the internal list to be
+		updated - this should be used whenever an entrance room is
+		added or removed and saves having to reboot.

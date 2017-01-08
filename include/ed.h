@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	ed.h
  * Function:
@@ -11,6 +11,8 @@
 #define ED_NO_AUTOLIST  0x2
 #define ED_INFO		0x4
 #define ED_STACKED_TOK	0x8
+#define ED_FORCE_WRAP	0x10
+#define ED_APPEND_SIG	0x20
 
 /* Ed exit flags */
 #define EDX_NORMAL      0

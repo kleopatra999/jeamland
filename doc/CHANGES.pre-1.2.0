@@ -1,0 +1,948 @@
+1.1.0
+ - Fixed bug in the editor where listing a file containing a line longer than
+   1024 characters would cause general memory corruption. Also added a check
+   to sadd_strbuf() to pick up any similar problems.
+ - Fixed bug in the epost command. exiting with an empty buffer or with the
+   ~q command caused a crash.
+ - Some more logging added - chgender is now notified to admin, eval too long
+   events are logged to syslog.
+ - The remote command can now use . feelings.
+ - Changed the 'wait for jlms' pause code in shutdown.
+
+1.1.1
+ - Added alias functions: substr(), strlen(), environment(), room_name(),
+   user_on().
+ - Updated the man page for map() - it was wrong!
+ - Added 'reecho' option in the editor (requested by Dreamer)
+ - Added an extra reset_eval_depth() call.. Sometimes evaluation could be too
+   long during a login (Rare event but spotted by Neil).
+
+1.1.2
+ - Fixed 'reecho' option in the editor.
+ - Fixed crash bug in search-and-replace in the editor.
+
+1.1.3 & 1.1.4
+   Never properly released, interim version given to a couple of people.
+
+1.1.5
+ - Added the 'R' command to the mailer help page.
+ - Changed the message given by 'start' a little.
+ - Small security fix to erqd. It was possible for an overseer to mail himself
+   any file on the machine (eg. /etc/passwd)... not so good if the overseer
+   doesn't have account access.
+ - Changed sudo to reset the user's level to that stored in mastersave rather
+   than that stored in their user file - a bit extra security.
+ - New command, 'as' - execute a command as a certain level - mainly for admin
+   to test with.
+ - Fixed the 'sudo' logging.
+ - Deleting a user now also removes any pending valemail requests for them.
+ - 'su' command now disregards any capitalisation of its argument.
+ - 'jlm reload' now also implicitly does an 'erqd restart'
+ - If you send a mail message to yourself using the 'M' command in the mailer
+   and it fails (due to the erqd being absent), then it will tell you so
+   instead of silently ignoring the message.
+ - New jlm functions: move(), join().
+   Fixed a crash bug in jlm::force();
+ - Comments in datafiles can now begin with a ; character as well as a #
+   character.
+ - Internal restructure: have introduced generic 'tcp socket' objects. A
+   user object now uses a tcpsock object for its network communications.
+ - Service ports now use the new 'tcp socket' objects. They can now handle
+   character mode telnet clients (*grin Dreamer*). Service ports now also
+   have a 60 second timeout to conclude business.
+ - Events system restructure - remove_event() on current_event caused an
+   event lockup until the next add_event().
+ - All tcpsocket objects now buffer their output (no more 'wrote x bytes,
+   should have been y.' messages - although I don't think they ever happened.
+ - Added a check to stop sockets hanging if they received more input than their
+   buffer could cope with; in these extreme cases, the input received so far is
+   just dumped. (This should never happen, example: a player would need to send
+   2K of data without a newline in it)
+ - The '-' character is now a shortcut for the 'to' command.
+ - Lots of small network code changes.
+ - Changed mkcmdprot programs to accept function names containing numbers.
+ - Initial Intermud-III protocol support.
+   (See http://www.imaginary.com/intermud/intermud3.html)
+ - Netstat command now also includes UDP packet activity and shows service
+   and i3_router ports.
+ - Restructure of udp intermud code. It is now possible to have any combination
+   of the intermud systems compiled in (yes, I tried all 8 combinations).
+   (Previously, CDUDP was dependent on INETD and it wasn't possible to
+    compile without any intermud)
+ - While I was at it, fixed compiling without a service port!
+   One day, going to have to try compiling with all combinations of options..
+   Don't think I'll ever have the time though.
+ - Syslog output is also written to console (if booting in console mode)
+   This is subject to a define in config.h
+ - Hash table changes. It is now possible to specify a hash function to use
+   for each hash table rather than having to try and find a one which works
+   satisfactorally for all tables. (Besides, the existing hash function was
+   no good for imud3 hosts ;-)
+ - A finger request sent via the service port now returns a mailto URL for
+   the user's email address. (Suggested by Sweep I think...)
+ - Global aliases are now dynamic and altered / viewed with the "galias"
+   command.
+ - Alias change.. The 'unalias' commands are gone. To remove an alias, use
+   'alias <alias-to-remove>' .. similarly 'ralias', 'galias' and 'aliases'.
+ - The 'edalias' commands are gone. To edit an alias, use
+   'alias edit:<alias-to-edit>' .. similarly 'ralias' and 'galias'.
+   (I suppose you could write 'edalias' as an alias ;-)
+ - Another alias change.. $0 is now available and is the name of the command
+   being run.
+ - Banish is no longer case sensitive.
+ - New command, 'chanblock' to block arbitrary intermud channels. The options
+   have been removed from "earmuffs".. Due to this restructure, all users'
+   earmuffs options have been reset.
+
+1.1.6
+ - If the connection to the intermud-III router fails, the talker will wait
+   60 seconds and then attempt to reconnect.
+   The talker now also notifies consul and above of the failure.
+ - Added a missing FUN_END call which made the backtrace log useless.
+ - Added some checks on the function stack.. If anything goes wrong, the
+   talker will abort.
+
+1.1.7
+ - Fixed small I3 problem, if the router connection was down, it wasn't
+   possible to use any of the intermud systems.
+ - Rewrote the i3-router reconnect code. If the link fails, the talker will
+   wait 60 seconds before retrying. If the link can't be brought up, then
+   the talker will wait for 120 seconds before retrying. The delay doubles
+   with each attempt. 
+   If the link does come up and remains up for 10 minutes then this counter
+   is reset to 60 seconds again.
+
+1.1.8
+ - It takes a long time to store the intermud-III database and the talker
+   was hanging while the save took place. The database dump is now done by
+   a child process, leaving the main talker to continue.
+ - Doubled the size of the malloc table.
+
+1.1.9
+ - 'help CHANGES' and 'help CHANGES.all' now available to all levels.
+ - The 'chlim' command is slightly less destructive in that it will no longer
+   allow you to set a limit which will truncate existing aliases /
+   mail messages.
+ - Siteban host format changed.
+ - Fixed bug in the hibernate code!
+ - It is now possible to limit the ip addresses which you can log in from
+   by adding them to a personal grupe. The grupe's name is defined at compile
+   time but is '_valid_ip' in the distribution.
+   See 'help siteban' for details of the host matching.
+ - Fixed the i3 router connection handler. If the talker managed to establish
+   a router connection which dropped immediately, then it would instantly
+   retry - was causing it to to repeatedly try and establish connection.
+
+1.1.10
+ - Changed the crash trace routine.. it was causing some crash bugs to show
+   up falsely as a crash trace stack overflow.
+ - Fixed bug in the erqd email sending. Sending any email messages containing
+   % characters caused the talker to die.
+ - Having fixed that one, sending any email messages containing % characters
+   caused erqd to die (similar bug)!
+
+1.1.11
+ - Incoming I3 channel-t support.
+ - Tidied up channel-[em] support.
+ - Stopped the duplicate hashing problem.
+ - Changed the logic in dropped router connection handling (again!) I think
+   it is right now..
+ - Implemented remote channel who over intermud 3.
+            (Use <channel> @<mud>)
+
+1.1.12
+ - The file etc/logout.newbie is shown to people who have logged in less
+   than 20 times.
+ - Changed the logic in dropped router connection handling (again!) See above
+   comment.
+ - Added trap to stop broadcasting channel who requests over inetd and cdudp
+   (They are not implemented there)
+ - Removed current_execution variable - duplicates work done by the function
+   trace code.
+ - Added more function tracing to intermud 3.
+ - Rewrote parts of i3_update_host()
+ - Removed the RUN_USER / RUN_GROUP config options.
+ - Updated the config.h file.. collected groups of options more logically
+   and changed some defaults.
+ - Changed the maximum evaluation depth to 20 (was 10) as some complex aliases
+   can achieve a depth of 10.
+ - Removed the "ihistory" command.
+ - Channel history is now available on all three intermud networks by
+   broadcasting a ! message (same as built in channels).
+
+1.1.13
+ - User mailboxes are now stored to disk in an encrypted form.
+ - New command, 'abbr'. Well, not exactly a command - it's a global alias
+   which wraps the alias command. There is a help page.
+ - It is now possible to leave the editor either by typing a . alone on a line
+   or by typing ** alone on a line. This is for people who are used to muds
+   which use this terminator.
+ - The 'boot' command can now take an aditional argument which is the number
+   of minutes to banish the user from the talker for. The default is still
+   five minutes.
+ - New command, 'from'.
+ - You can now enter the mailer even if you have no mail.
+ - If a crash occured at the wrong time, it was possible for a user's password
+   to end up in the backtrace log; this should no longer happen.
+ - Extra backtrace debugging added to the login routine. It should make it
+   easier to pinpoint the elusive crash bug.
+ - Improved the 'mailall' program a bit.
+
+1.1.14
+ - Fixed the 'f', 'r' and 'M' commands in the mailer to deal with encrypted
+   messages. Fixed carbon copy encryption.
+ - Three unsuccesful logins will now suggest that you send email to the
+   administrators.
+ - Alias file parsing now has improved error checking. Duplicate aliases will
+   also be filtered out.
+ - In order to keep a channel history on local channels, LOCAL_CHANHIST must
+   be defined in the config file. Public (Intermud etc.) channels are not
+   effected.
+ - New editor command, ~R, will recall the last message you edited. Useful
+   if mail you have sent fails for any reason (mistyped addressee ?) as you
+   can quickly send it again.
+
+1.1.15
+ - Jlm communications now use buffered input. Should fix the problems with
+   the calculator and the odd problem with the bio jlm.
+   Also fixed a bug which made the talker crash if a jlm died (*oops*).
+   Wrote a 'crash' jlm for testing.
+ - Small speed increase in scan_tcpsock() function.
+ - Restructure of find_user and with_user to report if a match failed or if
+   there were multiple matches... (Suggested by Dreamer)
+ - Added find_user_absolute() .. should save a few CPU cycles.
+ - write_user() in the jlm library no longer expects a trailing newline
+   character. Similarly, write_level() etc.
+ - write_user_nonl() added to the jlm library for writing text without a
+   trailing newline character.
+ - The doom.jlm is now distributed as an example.
+
+1.1.16
+ - When a who listing is retrieved via the service port, it now contains
+   html tags linking to the appropriate finger information for each user.
+ - Fixed the 'assist' command.
+ - Added ambiguous username reporting to soul commands.
+   It is also now possible to specify multiple recipients of soul commands
+   separating them by commas.. This may need tidying up, let me know if it
+   works ok! It should also be possible to use feelings with a Grupe as the
+   target.. again, let me know!
+ - Added new composite_words() string functions to handle construction of
+   'a, b, c and d' type lists.
+ - Extended expand_user_list() function.
+ - The number of notes on a board and the position of the last note are now
+   cached. This speeds up lots of things, from the 'look' command where the
+   number of notes on the board is reported, to loading a board from disk
+   as the last note position no longer has to be calculated for each note
+   loaded.
+   This also speeds up an mbs check on a board with no unread messages as
+   only the last note needs to be compared against.
+
+1.1.17
+ - Added sticky notes. (See 'help sticky')
+ - New option to the 'write' command which supresses the trailing newline.
+   ( -n )
+ - Basic colour support started. parse_colour() function added which can
+   cope with all colours, on receipt of an instruction string. This is
+   currently only called from parse_cookie() which allows users to
+   colour their prompts using cookies. It is also called from JLMs allowing
+   a JLM to select any colour.
+   It is possible to add triggers using aliases so that colour is used..
+	Example:  alias say write -n \%c~\%c!r;\\say $*;write -n \%cz
+   This support is termcap based, and there have been significant changes to
+   the termcap code.
+ - The yellow() function is now just a wrapper to parse_colour(, "!y")
+ - 'fixscreen' command extended to reset colour codes too.
+ - Small change to comments in alias. If you had a comment character (#) 
+   anywhere in the alias, then it would return with 'command not found'
+   or equivalent.
+ - Fixed bug in the socket code introduced in 1.1.15. It was not possible to
+   paste text into the telnet client window... lines and characters were
+   being mislaid - I don't think anyone noticed ;-)
+
+1.1.18
+ - New option to the 'chemail' command. It is possible to blank out a user's
+   email address completely and still allow that user to save to disk.
+   (This was added so that I could blank out Wellard and Sharpe's address
+    as they seem to no longer have net access but have been around since the
+    talker started and so will not be deleted!)
+   Syntax is 'chemail -r <user>'
+ - Added a confirmation message to the 'sticky' command.
+ - Changed the 'time on this session' message at logout.
+ - Fixed the append_file() function.
+
+1.1.19
+ - Fixed a bug in expand_alias. Block was falling through instead of returning.
+   (This caused any alias which used a \\ expansion override to crash the
+    talker)
+ - Tightened up the jlm handling. When the talker crashes with a fatal error,
+   it now shuts down any jlms before it dumps core.
+ - Changed the dead_jlm handler to use waitpid() or wait3() instead of wait().
+   If more than one jlm exited or crashed at the same time, then the talker
+   would only spot one of them and would detect an error (flushed output)
+   every time it went around the main loop from then on.
+   This also happened if more than one jlm was missing at boot time.
+ - Changed the banner jlm. If its parent disappears (the talker) then it will
+   now exit cleanly of its own accord. If it does somehow drop into a loop,
+   it pauses for one second each time around and so should not consume too
+   much CPU.
+ - Changed the jlm library slightly. It sleeps for one second per read_line()
+   call - This should not affect performance.
+ - Added general support functions for the mapping datatype (previously used
+   only by the intermud-III system)
+ - New command, 'attr' will be used for setting various colour attributes
+   (These are stored in a mapping in the user's savefile).
+   At the moment, there are only two attributes available.
+
+1.1.20
+ - Various misc changes.. _Entry room as the entrance is no longer hard coded
+   into finger_text(). Running make in a subdirectory now tells you that you
+   should be running it from the top level. mkspod script now works if there
+   are no users with time on of more than a day.
+ - 'out' is now a visitor command.
+ - Previously, if you used a bad range in the editor (such as 2-1) then you
+   would not be told about it until after you had saved the text.
+ - Intermud channel attributes have been split into three different channel
+   types.
+ - New attributes for notification and incoming personal messages.
+ - 'attr default' sets up some defaults for your colour attributes.
+ - The 'ansi' command is now called 'termtype'
+ - Added a help page for 'colour' and 'color'.
+ - The yellow() function is gone.
+
+1.1.21
+ - If someone sends you mail and it fails because your mailbox is full, you
+   now get a sticky note telling you this.
+ - A couple of misc fixes and changes.
+ - New users are now asked at login what colour level they want. This sets
+   up some or all of their colour attributes to the defaults, also prompts
+   for their terminal type.
+ - Backtrace log messages are now time stamped.
+ - Compiling in memory debug mode now prints a message to that effect before
+   it starts... (*grin Dreamer*)
+ - New command, 'alconf' allows you to load a default set of aliases. The
+   aliases are held in the etc/ directory in a file called aliases.<profile>
+   The only supplied profile is ew2
+ - Restructure of login code.
+
+1.1.22
+ - The version number of the running talker is now stored in a user file
+   when it is saved. Allows for setup of new features as they are introduced.
+ - If any user has not logged in to a version > 1.1.21, they will be asked to
+   select their initial colour level.
+ - New colour attributes. room*, shout.
+
+1.1.23
+ - Fixed crash bug in the channel-e packet parser.
+ - Fixed typo in 'Unknown or ambiguous host name' message.
+ - If SECURE_PASSWORDS is not defined, passwords must now still be at least
+   four characters.
+ - New command, 'import' allows you to import your aliases and colour
+   attributes from another JeamLand talker. The remote talker does not send
+   any passwords over the link in encrypted or unencrypted form. The local
+   talker does not allow arbitrary incoming import data.
+   See 'help import.tech' for more details.   (Dreamer's idea)
+ - CAN_SEE macro now takes account of users who are in the same room.
+ - count_users() with no subject uses cached number of users value.
+   count_users() now uses CAN_SEE.
+ - You can now select how you want to build cmd.table.h from the Configure
+   script. If you don't have lex, you can choose awk. If you don't have awk,
+   then you can choose sed, which will work, but should really be a last
+   resort.
+ - 'alias debug' is now 'alias -debug'
+   To remove all aliases at once, use 'alias -wipe'
+ - To reset all colour attributes to default, use 'attr -default'
+   To remove all colour attributes at once, use 'attr -wipe'
+
+1.1.24
+ - Increased the maximum prompt length. (Who would believe that anyone could
+   have a prompt of more than 40 characters ?!)
+ - Fixed another crash bug in the channel-e parser - Hopefully the last.
+ - New command, 'showtail'.
+ - Continued to change the word options of commands to start with a -
+   character. Updated hosts, ghosts, jlhosts, feelings.
+ - Added new colour attributes for local channels, removed "localchan", added
+   "lc-<channel name>"
+ - The 'attr' command now checks the user's attribute list, removing unknown
+   or out-of-range attributes.
+ - 'import' now also transfers the user's prompt.
+ - Complete restructure of intermud protocol selection. Common commands
+   (tell, finger and who) have been pulled out into a new src file, imud.c
+   and they all use a common request_route() function. Hopefully, fallback
+   routes will work now.
+ - As a consequence, the method by which a protocol can be forced has changed.
+   If you want to force a tell, who or finger request to use a particular
+   network, then prefix the host name with ^i for inetd, ^3 for imud3 and
+   ^c for cdudp.
+ - On boot, the talker will now also ping itself, regardless of whether it
+   is in its own inetd_hosts file. This ensures that a talker is in its own
+   jlhosts list.
+ - It is now possible to compile a new version even if the talker is running
+   and the binary is still present.
+   
+1.1.25
+ - Rewrote part of the hosts/ghosts/jlhosts command. Hopefully fixed the
+   problem whereby the last host wasn't listed if it was alone on the last
+   line.
+ - Added new member_grupe() function, rewrote member_sysgrupe() to use it.
+ - Preferred grupe support. If you have a grupe called _preferred, then if
+   a search for a user is ambiguous and returns multiple matches, then if
+   one of the people matched is in your _preferred list, then that user
+   is selected. See the end of 'help grupe' for more information!
+	(Suggested by ElDavid)
+ - Fixed linewrapping with a coloured prompt.
+ - It is now possible to set attributes for messages received in a room
+   from a particular user. See 'help attr' for more info.
+	(Suggested by Dreamer)
+
+1.1.26
+ - Rewrote boot command. To specify a banish delay, you now use an initial
+   -t flag.	(Spotted by Gamma)
+ - Incoming intermud tells may now use partial usernames - all protocols.
+ - interjl(admin) channel messages now have packet timeout and retransmission.
+ - Added support for clients which use IAC GA to define their prompts.
+   This, along with the previous 'tush' command is toggled by an argument to
+   the 'prompt' command - See the help page. (Suggested by Winzlo)
+ - 'prompt' with no arguments no longer resets your prompt to the default
+   but rather shows your current settings. Use 'prompt -default' for the old
+   behaviour.
+ - Added a 'cpuser' command	(Suggested by ElDavid)
+ - Fixed 'delete_user' to also remove the mailbox.
+ - It was possible (although extremely unlikely) that while a jlm was being
+   processed, it could have been removed from memory by the dead_child
+   signal handler, so causing a crash. (This happened to The Orchard..)
+ - Changes to the colour parser. It is now possible to specify any foreground
+   colour together with any background. In an 'attr', you can just tag the
+   options together (Example: !~Mg  - Bold, blinking, green on magenta)
+   In prompts, you must use separate %c cookies
+   (Same example: %c!~M%cg)
+
+1.1.27
+ - Added support for the remote notification client (see the new rnclient/
+   directory).		(This one suggested by Santa)
+ - Fixed colour reset codes in termcap.
+ - Small changes to network code.
+ - Removed the two sleep() calls in erqd.c
+ - Added a generic UDP socket datatype which is used by the intermud systems
+   and rnclient.
+
+1.1.28
+ - Hopefully fixed a bug in the prompt handling code.
+ - It is no longer possible to have both IACGA and IACEOR prompt options set
+   simultaneously.
+ - Several changes to the erqd code. Changed some parts to be more RFC 1413
+   compliant.
+
+1.1.29
+ - Another attempt at repairing colour support.
+ - Fixed small (*cough*) security hole.. If a user had access to any command
+   via sudo, then that user could execute arbitrary commands.
+
+1.1.30
+ - Unecessary colour reset codes are no longer sent.
+ - Colour cookies now require a full-stop (.) as a terminator.
+   Eg: before:   %cWr
+       now:      %cWr.
+   Terminator is optional for %cd or %cz
+ - New colour cookie modifier, @ == normal.
+   Eg: write %c!r.Bright red %c@.normal red %cz
+ - Changed colour reset code for vt100 and xterm terminals.
+ - New terminal type, broken_colvt100 for those vt100 emulators which don't
+   recognise a full reset when they see one. JL will send colour codes for
+   white on black, no attributes.
+ - Added TELOPT_SGA processing to the telnet codes parser. Fixed bug relating
+   to TELOPT_EOR parsing.   See RFCs: 858 & 885
+ - New command, 'gwho' - suggested by ElDavid.
+ - Added Solaris and Irix extra libraries to the rnclient Makefile.
+ - Wrote a new help page 'intermud' which gives an overview of the three
+   intermud systems used by JeamLand. It will hopefully clear up people's
+   misunderstandings.
+ - rnclient should now compile under Solaris.
+ - If you type a line into the editor which exceeds your screenwidth, the
+   editor will now insert line breaks at appropriate points.
+ - Added some function traces to i3_update_host() and subsids to try and track
+   the crash bug in there.
+
+1.1.31
+ - Fixed login problem where users could possibly end up stuck in the void.
+ - 'help intermud' is now 'help intermud_sys'
+
+1.1.32
+ - Made CHANGES and CHANGES.all available for the 'sendme' command. 
+   Usage of this command is now logged.
+ - New version of rnclient, 1.2. Brief details of the protocol specification
+   are included in the distribution (rnspec)
+ - rnclient can now keep an eye on several talkers at once.
+ - 'make rn' will now create the file lib/help/sendme/rnclient for people
+   to email to themselves.
+ - Increased the number of simultaneous rnclient connections to 20.
+ - Rnclient now ensures that it only accepts packets from the host on which
+   the talker runs. Previously it would have believed any incoming packet
+   was from the talker.
+
+1.1.33
+ - Rnclient protocol upgraded to 1.3. New status of 3 for already logged in
+   user.
+ - Earmuffs option for rnclient messages.
+
+1.1.34
+ - Fixed the 'E' flag processing - if a user sets an email address then the
+   flag is now removed.
+ - Fixed rnotify - whenever a new client connected, initialisation messages
+   were being sent to all current clients.
+ - Editor linewrap - now wraps at 70 characters.
+ - Rnotify pings can now have a status of 2 which is for a resync request.
+ - Rntab command can now be used by admin to send messages to rnclients.
+ - On startup, rnclient will now be told which connection it has acquired.
+
+1.1.35
+ - More fixes to RNClient resync.
+
+1.1.36
+ - Users can now choose whether they want auto linewrap in the editor.
+   (This defaults to on, to turn it off you need to type '~o noautowrap'
+   while inside the editor.)
+ - Amended service port code to make proper use of the blocking tcpsocks.
+   If a large who listing is to be written, for example, none of it will
+   now be lost.
+ - Erqd will now make two attempts at resolving each ip number/name -
+   currently 3 seconds apart.
+ - If the I3-router connection is dodgy, the repeated lost connections /
+   reconnects will no longer be logged in syslog.
+ - No user at any host may have more than two concurrent Rnclient sessions.
+ - No rnclient may now send pings more frequently than once / two minutes.
+   If a[n] rnclient does, it will be shut down.
+ - Unix Rnclient changes (now version 1.4)
+   - If a ping doesn't get through (i.e. an error is returned by the
+     UDP sub-system) then that talker is removed from the rnclient's list.
+   - Format of incoming talker messages changed.
+   - Removed absolute value of 4 for sizeof(unsigned long) !
+   - Protocol version is now 14 (see rnspec for more details - 'sendme rnspec')
+ - Fixed the IACGA saveflag!.. It was sharing a bit with the NOEMAIL flag
+   and so tending not to stay set.
+ - Upgraded the rnclient protocol version to 0x14.
+   If a client connects using protocol 0x13, it will work fine *grin Dreamer*.
+   0x14 adds an extra field to all packets leaving the talker and sends each
+   outgoing packet three times, at five second intervals.
+   A client using protocol 0x14 will probably never miss out on a packet and
+   will often receive a packet more than once.
+   Status messages are now strings and not integers. 0 becomes -login,
+   1 becomes +login etc. See protocol description for more info.
+ - the 'rntab' command now triggers a rnclient connection cleanup - purging
+   those clients which have timed out. The only other time this happens is
+   when a user logs in or out.
+ - If a client cannot connect due to the rnclient table being full, the
+   connected rnclient list will be scanned for expired entries which may be
+   removed before rejecting the connection.
+ - Changed inetd to use unsigned long type packet ids.. Previously used
+   just int which would have caused something interesting to happen after
+   a while (when the int overflowed).
+ - Took an unecessary one-second sleep out of the shutdown routine.
+ - rntab arguments are now only useable by an overseer.
+ - Fixed bug whereby a resident using sudo would suddenly become a visitor.
+   (Spotted by Sweep).
+ - Broken_colvt100 termtype is now slightly more insistant on performing
+   a full reset. (Hopefully will fix Pandroid's background problems)
+ - You can now set up a user attribute to be used as the default.
+   (attr -user -default <col>)   - For Pandroid.
+
+1.1.37
+ - Fixed imud3 debugging - debug log on Orchard was being filled up.
+ - New earmuffs option - i3_notify.
+ - Fixed crash bug in the v.13 RnClient handler.
+
+1.1.38
+ - Rnclient packet retransmit is now 3 seconds and not 5.
+ - Removed a surplus memcpy() call from erqd.
+ - New rnclient user packet: "+startupafk"
+ - Various small changes to the rnclient server.
+ - Doing a 'rntab <client> die' now also removes the client from the current
+   list of connections.
+ - Unix rnclient upgraded to version 1.5
+
+1.1.39
+ - Made user colour attributes more consistent. emote was not making use of
+   these attrs although memote was (!). Also, if a user set a colour for
+   him/herself, then it would only show up for feelings.
+ - Restructured user logout/lost connection notification. All of these now
+   use a common function - no matter what causes a user to disconnect, the
+   rnclients will be notified (previously, many of these were missed - boot,
+   idle out ...)
+ - mail line limit increased to 1000 in all places - there were places where
+   it was still set to 50! - Added a global define.
+ - New command, 'sig' for handling user .signatures.
+ - RNClient version number changed to 1.42 - all versions of the RNClient
+   which support protocol 1.4 will have version number 1.4x .. etc.
+ - Cron emulation support added. JeamLand can be configured to run certain
+   system commands at certain times. See doc/cron for more info.
+ - Started to implement timezone support. Users can specify an adjustment
+   in hours and half hours to be made to the talker's clock.
+   So far, this is supported by:
+	The %t cookie.
+	'finger', 'date', 'events', 'last', '[jl|c]hosts', 'ls', 'valemail -p'
+	Board and mail messages.
+   If I have missed anywhere, please let me know.
+   Command for this is 'tzadjust'
+
+1.1.40
+ - Small changes to the rnserver.
+ - Rnclient now version 1.43 and supports a .rc file.
+
+1.1.41
+ - Rnclient protocol is now version 15.
+ - Unix RNclient now at version 1.50
+ - Rnclient has a new command line option. If it is started with a -c flag,
+   then it will not start up if there is already an RNClient running as this
+   user. 		(Requested by PAndroid)
+ - Fixed small bug in backend.c. If the talker could not exec to set
+   its proctitle then a fatal error would result.
+ - Fixed bug in stack handling where a long integer could be truncated to a
+   normal integer.
+ - Added new stack type, UNUMBER - an unsigned long integer.
+ - Rewrote siteban code from scratch. It is now much more flexible using
+   ip numbers and netmasks to filter allowed sites.
+
+1.1.42
+ - Fixed user colour attributes for the 'to' command.
+ - Changes to grupe parsing. The order of grupe elements, specifically grupe
+   exclusions, is no longer important - as a result, grupes can now be
+   sorted alphabetically, and are. The algorithm is much improved. When
+   scanning your personal grupes if, after however many levels of recursion,
+   the grupe is not found, then scanning will switch to the system grupes.
+ - User colour attributes can now be set to grupes. Example:
+	attr -user #overseer ~m
+
+1.1.43
+ - The 'siteban' command will now internally translate wildcard ip numbers.
+	(example: siteban 123.124.*.* will now work)
+
+1.1.44
+ - Signature will now be appended when following up a board note.
+
+1.1.45
+ - Fixed bug in scan_tcpsock whereby some character mode clients could
+   not backspace.
+ - Some clients automatically send a SGA request at startup. JL would then
+   display a message to the user such as "IAC GA rejected by client" which
+   should not be shown unless that user has selected "prompt -iacga".
+ - New command 'cron' if the talker is compiled with JL_CRON defined.
+
+1.1.46
+ - Added new alias functions *() and /().
+
+1.1.47
+ - Speedups in the tcp socket handling with a character mode client.
+ - "jlm reload" is now "jlm -reload" to fit in with other commands.
+   Similarly, "jlm add" is "jlm -add" and "jlm remove " is "jlm -remove"
+ - JLMs can now be attached to three types of places.
+	Rooms	As before, a jlm in a room is accessible to all users in
+		that room.
+	Users	The jlm is only accessible to that user.
+		(No support for remembering about jlms after a user logs off)
+	Global	A global jlm is accessible from throughout the talker.
+		(For convenience, global jlms are stored in the Dummy user -
+		 the messages may confuse. )
+   The syntax of 'jlm' command has changed slightly (the existing syntax was
+   not very good anyway)
+ - Fixed jlm library bug which was causing jlms to respond slowly.
+ - 'commands' command now shows and commands added by jlms.
+ - Jlm commands will now be picked up by the 'which' command.
+
+1.1.48
+ - rnclient is no longer distributed as part of JeamLand.
+ - Fixed 'commands' command - was missing off the last section.
+ - Fixed crash bug in single user mode shutdown.
+ - Changed messages in Makefile - changed "make sgi" to "make irix"
+   and "make solariscc" to "make solcc".
+ - Rnotify server no longer supports protocol version 13.
+ - An RNClient which is sending startup pings too frequently will now be sent
+   a "die" packet. (UnixJLRN no longer does this ;-)
+
+1.1.49
+ - jlm command messages now also go to consuls.
+ - Intermud channels now support . prefixed feelings.
+
+1.1.50
+ - Added a 'freebsd' argument to the Makefile.
+ - Changed object type macros to avoid an incompatibility with FreeBSD header
+   files.
+ - Fixed FreeBSD crypt incompatibility.
+ - Added support to interpret a ^U character from a character mode client
+   as "erase to start of line".
+ - Users can now type "who" at the login prompt to get a who listing.
+ - New option to mbs.... "mbs -R" is reply-to-sender-by-email.
+ - New option to followup... "followup -e" is reply-to-sender-by-email.
+					(Suggested by Dreamer)
+
+1.1.51
+ - 'attr' command now shows a sample of the selected colours when listing
+   attributes.		(Suggested by Winzlo)
+ - Fixed a bug in the editor with the ~r command. It wasn't removing the
+   associated dead_ed file.
+ - Added support to interpret a ^D character as a logout request.
+ - Continued modifications to enable compilation on FreeBSD.
+ - Some fixes to eliminate warnings when compiling on Solaris with cc
+   ( make solcc ).
+ - Changes to the 'banish' code - contents of the etc/banish file is shown
+   to banished logins.
+
+1.1.52
+ - The conditions of use are now passed through the pager.
+ - After accepting the conditions, if the file etc/newuser exists, the
+   contents will be displayed to the new user.
+ - Added configuration option REQUIRE_REGISTRATION. If this is defined, then
+   new users can only log on as 'guest' (they will be allocated a guest number
+   and currently it is possible to have up to 100 guests on at once) and will
+   also be automatically supersnooped (if SUPER_SNOOP is defined).
+   If a new user attempts to log on as anything else, then they will be
+   shown the contents of etc/unreg.
+   In addition, this removes the 'validate' command.
+ - More fixes for FreeBSD.
+ - Siteban command has a new -v option which will show full information for
+   that ban rule, including the message shown to attempted logins.
+ - Added support to enable JeamLand to grab a set number of file
+   descriptors at boot time. Currently only tested on Linux.
+ - Change to the COPYRIGHT under which JeamLand is distributed. This version
+   of JL (1.1.x) may not be used for commercial purposes without explicit
+   prior permission.
+ - do_backups script rewritten. New options, -logs, -snoops, -q and -nomail.
+ - The who command now accepts a list of users and grupes as an argument.
+   eg:	who -a #warden+,!root,guest1
+ - Fixed error in the makefile rule for cmd.table.h generation using sed.
+
+1.1.53
+ - Small fix to remove a warning on solaris with cc.
+ - Board commands changed so that options are prefixed with a -.
+ - Changed the 'board -reload' command to actually do something useful..
+ - Added protection to the 'board -limit' command to avoid clobbering
+   existing messages.
+ - New board option. 'board -followup' can be used to redirect followup
+   messages to another board. (Suggested by Dreamer)
+ - 'objects' command now shows object creation times.
+ - 'netstat' command now shows time of connection for each socket.
+ - 'finger' output will now also show where mail is forwarded to, if it
+   is forwarded.
+ - A range (used in the editor and mailer) can now be open-ended at both ends.
+   i.e., previously it would accept 1-5 and 1- but not -5 or just -. These
+   last two are now supported.
+
+1.1.54
+ - Fixed the intermud who command.
+ - If a user creates a room and then does nothing with it, it is not saved to
+   disk.
+ - New config option, NEWBIE_TUNEOUT. If set, new users will be tuned out of
+   the intermud channels by default.
+ - Moved some of the intermud channels around.. intermud and intercode are
+   now resident level.
+ - More FreeBSD fixes (valid_email enumeration).
+ - Changed the 'gwho' command to 'swho' for 'Short-who'
+ - Changed the format of the 'last' log file.
+ - Removed the confusing messages concerning jlms inside the DUMMY user.
+   They are still stored there, but this is no longer displayed in any log or
+   notify messages.
+ - Major restructure of jlms. An attached jlm now talks to the talker via a
+   unix domain socket. The main advantage of this is that each jlm now only
+   uses one file descriptor (previously it was two) - freeing up more fd's for
+   other things (e.g. users!). Some unix systems may have problems with this,
+   Linux-1.2.x in particular has a hard limit in the kernel of 128 unix
+   domain sockets in total. This means that assuming no other running
+   processes were using any unix domain sockets, you could have a maximum of
+   only 64 jlms attached. (64 sockets needed in the talker, one in each jlm).
+   For this reason, if the talker can not obtain a unix domain socket,
+   it will fall back to using two uni-directional pipes as before.
+   [ Out of interest, tested JL with 200 jlms attached.. no problems,
+     no obvious reduction in talker speed ]
+   If this new behaviour is not wanted, or does not work properly, it can be
+   turned off by defining BROKEN_SOCKETPAIR in config.h
+ - Configure script changes, added help text. Changes to trap errors and
+   hopefully work on more different systems.
+
+1.1.55
+ - Changed the exit(-1) calls to exit(1) in the utilities.
+ - FreeBSD fixes, seems to work fine now although the meminfo command gives
+   very limited information.
+ - Changes to process_sockets(), combined user processing into one loop which
+   should speed up user socket processing by a factor of three.
+ - Backtrace markers added to socket code to track crash bug.
+ - Changes to Configure - hopefully will work fine under IRIX now.
+
+1.1.56
+ - Fixed a bug in 1.1.55 which caused compilation to fail!
+
+1.1.57
+ - Moved attributes for intermud channels to resident level (in line with
+   the channels)
+ - Chanblock now only allows users to block channels which they can receive.
+ - Added more debug lines to i3 hashing - there is something wrong in there.
+ - Fixed the colour code routine. If a user set no terminal type and was then
+   shown a coloured message, the . cookie terminators would still be shown.
+ - Fixed problems which prevented compiling without all three intermud systems.
+   It is now possible to compile with no intermud support, support for any one
+   protocol, support for any two protocols or with total support.
+
+1.1.58
+ - termcap changes - full reset codes added. 'fixscreen' will now do a full
+   terminal reset. The 'termcap' command now also displays a description of
+   each terminal type.
+ - A visitor selecting 'full colour' at login, will now get any resident
+   attributes added too.
+ - Small changes to socket code following a (puzzling) crash on Future.
+ - Removed the 'sudo' variable from user, replaced it with a runtime flag.
+   NB: This means a full recompile is necessary as the size of struct user has
+       changed!
+ - Fixed 'myrooms' command to handle rooms with a . in the filename.
+ - Changes to the jlm library - fixed small memory leak (which most likely
+   never manifested itself) and reduced the size of some static buffers.
+
+1.1.59
+ - It is now possible to display selected parts of the output of 'date' by
+   passing arguments to the command (see the help page).
+ - 'remote' is now just a special case of 'tell'. This means that you can
+   remote to several users/groups etc. at once and that you can reply to
+   a remote. The syntax for 'reply' is now:
+	reply message		Reply as a tell
+	reply :message		Reply as a remote
+	reply .feeling		Reply with a feeling [ Suggested by Dreamer ]
+ - If sending mail to a user who didn't have a current mailbox, the mail
+   would not be encrypted straight away - fixed.     [ Noticed by Sweep ]
+ - When replying to a message, the subject was set to 'Re: <old subj>'
+   and if the message was again replied to, the subject was left unchanged.
+   Now, the first message will be, as before, titled 'Re: <old subj>' and
+   subsequent messages will be titled 'Re[2]: <old subj>' etc.
+   e.g.:   1: This is a test              (JBloggs     Mon Jul 28 13:52)
+	   2: Re: This is a test          (JSmith      Mon Jul 28 13:52)
+	   3: Re[2]: This is a test       (JBloggs     Mon Jul 28 13:52)
+	   4: Re[3]: This is a test       (JSmith      Mon Jul 28 13:52)
+
+1.1.60
+ Don't know what happened to this one...
+
+1.1.61
+ - The sudoers file structure has undergone a fairly major change although,
+   almost unbelievably, it is backwards compatible in all regards but one;
+   while it used to be possible to specify more than one line per user,
+   this will now cause an error.
+   See the supplied 'sudoers' file for example entries.
+ - The 'sudo' command alone will now list the accesses which you have.
+ - The 'attr' command no longer puts the 'sample' text quite as near the
+   right margin - was causing problems with Winzlo's client! (5 spaces less)
+ - Added multiple start room support. The system searches at boot time for
+   rooms which start with the text in the ENTRANCE_PREFIX define. E.g. if you
+   have two rooms _Entry and _Entry2 and ENTRANCE_PREFIX is defined as _Entry
+   then these two rooms will be used as entrances.
+   The method in which users are allocated to rooms is defined in config.h,
+   the default is to use a room until it has 20 people in it then use another;
+   where all rooms have more than 20 users, then the one with the lowest number
+   will be selected.
+ - To speed up the above, every internal object now maintains a count of the
+   number of items in its inventory.. This does cause a slight anomoly where
+   an entrance room contains jlms, as these count towards the 20 user limit -
+   however, as the the aim is to balance load anyway, this is a good thing.
+ - New argument to the 'rooms' command. Using 'rooms -reload' will cause the
+   list of entrance rooms to be updated.
+ - Added a config option to cause the talker to automatically engage
+   'afk' if a user is idle for a set amount of time. This is set to 30 minutes
+   in the distribution.
+ - Added more signal explanations to the why-did-my-jlm-crash code.
+ - Fixed colour bug - even with 'termtype off', some colours would still get
+   through!  		[ Spotted by Dreamer on Future ]
+ - Changed several user struct variables to type 'unsigned int'
+
+1.1.62
+ - Dropped 'intermud' and 'intercode' to resident level - they could see the
+   channels but not talk on them.
+ - Moved 'ilocate' to resident level.
+ - Fixed indentation with 'sudo'.
+ - Some hosts on intermud 3 have started up with names which appear to be
+   non printable binary (?). The intermud 3 system will now just ignore
+   any packets referencing these hosts. [ Spotted by Winzlo ]
+ - Fixed bug in alias expansion where an element of a multi-command alias
+   was a 'sudo' command (during which aliases are inhibited). Everything
+   following the 'sudo' was being ignored.
+ - Rewrote the service port code. Originally the service port was a
+   one-command, one-response entity and could not support multiple line
+   service requests. This restriction is no longer present and, in addition,
+   the code is a lot more flexible now.
+ - Added an 'email' service to the service port for external programs to use
+   to deliver email to a talker user.
+ - Rewrote 'rquery' to support multiple line service requests. Rquery can
+   now also take its input from a file.
+ - The release date of the talker version is now shown via the 'version'
+   command, and at login.
+ - Fixed the 'autoafk' feature. Previously, it was something of a mystery
+   as to how long a user needed to be idle until it was engaged.
+ - New 'mailbug' script. If the talker crashes, then the administrator need
+   only type 'scripts/mailbug' to send the relevant logs to me.
+
+1.1.63
+ - Added new command 'next', which shows the next message on a board in the
+   current room. A user can repeatedly use 'next' to read the entire board.
+ - Updated mkspod script a little.
+ - Added a couple of new alias examples to the end of alias.tutorial
+ - Fixed a bug in the new debug part of write_tcpsock().
+ - Fixed bug in the mailbug script.
+
+1.1.64
+ - Added cyclic log checking to the angel (UPRECORD log file).
+ - Configure script changes. Better 'space' checking.
+ - Added new command, 'grep' for searching files for substrings.
+ - Changed a debug message in process_tcpsock to log in 'error' instead of
+   'syslog' and also to produce a backtrace when it happens. Should help me
+   find out why this is happening.
+ - The msg/ directory is no more. The files which were in there have been
+   moved to either the etc/ or help/ directories (which is where they should
+   have been all along)
+ - Added the ~L command to the editor.
+ - Fixed the ~l command in the editor, it is now possible to do as documented
+   and list particular lines in the editor buffer (e.g. ~l25,30 to show lines
+   between 25 and 30). As before, ~l25 will show a page of lines starting at
+   line 25 and ~l will show the last page of the file.
+   ( Given that this was never reported, I wonder how many people know about
+     this feature...! )
+ - Added the ~p command to the editor as an alias for ~l. This is what some
+   people are used to.
+ - If the file 'etc/valinfo' exists, it will be emailed to all new users.
+   Useful if you want to send a 'newbie' guide.
+   (A new user is someone who is setting their email address for the first
+    time, or any user created with 'mkuser')
+ - Tidied up the hash table routines a little - Changed all of the debug
+   messages to a uniform format, rewrote the insert_hash() function.
+   Turned on hash debugging for the imud3 hash table - something is amiss
+   there and this should help track the problem down.
+ - Changed some things in src/imud3.c, have hopefully fixed the imud3 hash
+   problems.
+ - Wardens will now get error messages too.
+ - Added some code to estimate the memory required for a line listing in the
+   editor before constructing the pager buffer. This eliminates a lot of calls
+   to xrealloc(), so speeding the whole thing up. (This will help even with
+   small files).
+ - Added a warning message if a user tries to edit a file of over 1000 lines.
+
+1.1.65
+ - The angel now records how long the talker was up for at each reboot.
+ - The shutdown log also records this information.
+ - Changes to replace_interactive(). Fixed the crash bug related to a user
+   changing connection (reported by Dreamer) and the more subtle one relating
+   to a user changing connection with blocked output (reported by Gamma).
+ - The talker will now shut down cleanly in response to an interrupt signal.
+   (This means you can now do ^C on the console to cause a clean shutdown)
+ - Changes to the ip table functions. If a lookup fails because it is not
+   found in the cache, then a request is sent to the erqd. This should stop
+   problems of /lost/ ip names when a user is on for a long time while many
+   others from different ip's come and go.
+ - Several clean-up's ready for 1.2.0
+
+1.1.66
+ - Added three new hash table sizes, rewrote i3 hash function.
+   (There are getting to be a silly number of hosts on i3..)
+
+1.1.67
+ - Added new editor flag 'prompt' to allow users to switch the prompt off.
+ - Updated the ew2 alias profile to include more ew2-friendly commands.
+ - Better handling of socket errors during tcpsock flushes.
+ - Added handling of write errors over intermud-III.
+
+1.1.68
+ - Logged talker version in 'idea' and 'sysbug'.
+ - Fixed bug in 'force' causing sync loss.
+ - Changed the MAX_INET_ADDR define after seeing a 35 character ip name!
+

@@ -1,7 +1,12 @@
 NAME		followup
-SYNTAX		followup <note number>
+SYNTAX		followup [-e] <note number>
 DESCRIPTION	Followup a board note. The subject of your new note is
 		set to 'Re: ' plus the subject of the note you are following
 		up and the note body is copied and quoted.
+
+		If the -e argument is supplied, your reply will be sent to
+		the original poster via email, rather than being posted to
+		the board.
+
 		Excessive quoting is discouraged, quote relevant parts only.
 SEE ALSO	post, epost, quotechar

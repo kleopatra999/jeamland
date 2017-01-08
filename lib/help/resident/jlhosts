@@ -1,5 +1,6 @@
 NAME		jlhosts
-SYNTAX		jlhosts [startup | reload | dump]
+SYNTAX		jlhosts [-startup | -reload | -dump]
+		jlhosts -l
 DESCRIPTION	Lists the JeamLand hosts on the intermud network along with an
 		indication of whether that host is up. The arguments can only
 		be used by admin.

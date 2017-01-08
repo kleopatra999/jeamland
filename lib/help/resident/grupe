@@ -38,3 +38,16 @@ DESCRIPTION	Grupe is the grupe administration command.
 		Grupes are currently useable in 'tell' and 'mail' commands.
 		(Open to suggestions ;-)
 SEE ALSO	finger, mail, tell
+
+SPECIAL GRUPES	The following grupe names are special
+		_preferred This grupe contains a list of the users which you
+			   would like to be returned even if a search returns
+			   multiple matches. Example: If you do:
+				tell al hello
+			   and the name 'al' matches both 'alfred' and 'albert'
+			   and 'alfred' is in your _preferred grupe, then the
+			   tell message will go to alfred.
+			   It is possible, as with all grupes, to include other
+			   grupes in your _preferred grupe, including level
+			   grupes.
+

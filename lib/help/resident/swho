@@ -1,0 +1,6 @@
+NAME		swho
+SYNTAX		swho <user|grupe>[,<user|grupe>]...
+DESCRIPTION	Swho shows which members of a list of users are currently
+		logged on. The argument is a comma-delimited list of users
+		and grupes.
+SEE ALSO	grupe, last

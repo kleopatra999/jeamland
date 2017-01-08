@@ -1,14 +1,16 @@
-# This line is needed on some machines
-MAKE=make
-
 SRCS=	erqd.c angel.c sign.c rquery.c sortsnoops.c
 OBJS=	$(SRCS:.c=.o)
 INCS=	../include/erq.h
 CFLAGS=${MFLAGS} ${DEFS}
 
+def:
+	@echo
+	@echo "Run make from the top level JeamLand directory."
+	@echo
+
 # If you want sortsnoops or rquery, add them to the following line.
-#all: erqd angel sign rquery sortsnoops
-all: erqd angel sign
+#utils: erqd angel sign rquery sortsnoops
+utils: erqd angel sign
 
 aclean:
 	@echo "Cleaning directory util.."

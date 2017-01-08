@@ -4,3 +4,4 @@ DESCRIPTION	Leave the talker.
 		If you have been validated but have not yet set both your
 		email address and your password, you will not be allowed to
 		quit. If you really want to leave, use the 'Quit' command.
+AKA		A shortcut for quit is to press <Control> and D together.

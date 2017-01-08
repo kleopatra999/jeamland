@@ -1,0 +1,5 @@
+NAME		chanblock
+SYNTAX		chanblock [channel name]
+DESCRIPTION	Used to block or unblock intermud channels. With the
+		introduction of intermud-III support, channel names may
+		be now arbitrary.

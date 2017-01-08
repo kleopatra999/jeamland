@@ -14,6 +14,7 @@ max_time_on=0
 for user in `find $LIB/users -type f -name \*.o -print`
 do
 	result=`awk '
+					# Convert to hours
 		$1 == "time_on"		{ time_on = $2 / 86400 }
 		$1 == "num_logins"	{ logins = $2 }
 		END 			{
@@ -27,6 +28,14 @@ do
 		max_time_on=$time_on
 	fi
 done
+
+if [ $max_logins -lt 1 ]; then
+	max_logins=1
+fi
+
+if [ $max_time_on -lt 1 ]; then
+	max_time_on=1
+fi
 
 for user in `find $LIB/users -type f -name \*.o -print`
 do
@@ -45,8 +54,9 @@ do
 			}' $user
 # Sort by spod quotient and snip off anything after the first twenty lines.
 done | sort -nr +3 | sed 20q | awk '
-BEGIN	{ printf("%4s   %-20s %-10s %-10s %-10s\n", "Rank", "Name", "Logins", \
-		"Time On", "Spod Rating") }
+BEGIN	{ print "Last updated: ", strftime("%c")
+	  printf("%4s   %-20s %-10s %-10s %-10s\n", "Rank", "Name", "Logins", \
+		"Days On", "Spod Rating") }
 	{ if ($4 > 100) $4 = 100
 	  printf("%4d   %-20s %-10d %-10d %3d %%\n", NR, $1, $2, $3, $4) }' \
 > ${LIB}/help/spod

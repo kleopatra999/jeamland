@@ -5,16 +5,16 @@
 #
 # **********************************************************************
 # Use the -mail flag of do_backups if you want your backups sent offsite
-# automatically; eg:
+# automatically; (they will also be kept locally) eg:
 # do_backups -mail email@address.here -lib
 # **********************************************************************
 #
-# Backup files at 1am Sunday, Monday and Tuesday.
+# Backup files at 1am-ish Sunday, Monday and Tuesday.
 0 1 * * 0 /home/talker/jeamland/scripts/do_backups -room -board
-0 1 * * 1 /home/talker/jeamland/scripts/do_backups -user -mail
-0 1 * * 2 /home/talker/jeamland/scripts/do_backups -audit
+5 1 * * 1 /home/talker/jeamland/scripts/do_backups -user -mail
+10 1 * * 2 /home/talker/jeamland/scripts/do_backups -audit -logs -snoops
 #
 # On the first of each month, backup the entire lib and delete backups older
 # than 60 days. The names of the old backups which are deleted will be
 # output due to the -v flag.
-0 1 1 * * /home/talker/jeamland/scripts/do_backups -lib -v -del_old 60
+0 2 1 * * /home/talker/jeamland/scripts/do_backups -lib -v -del_old 60

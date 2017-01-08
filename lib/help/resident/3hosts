@@ -1,0 +1,4 @@
+NAME		3hosts
+SYNTAX		3hosts [host]
+DESCRIPTION	Display a list of intermud-III hosts or view detailed
+		information on a particular host.

@@ -6,6 +6,30 @@
 BACKUPS=$HOME/jeamland/backups
 LIB=$HOME/jeamland/lib
 
+usage() 
+{
+	cat << EOF
+Recognised arguments are:
+	-v			Verbose
+	-q			Verbose off
+	-mail <email address>	Send backup offsite to <email address>
+	-nomail			Turn off offsite email.
+
+	-audit			Backup and erase audit directory.
+	-logs			Backup the logfiles.
+	-snoops			Backup supersnoop logs.
+	-user			Backup user files.
+	-mbox			Backup mailboxes.
+	-room			Backup room files.
+	-board			Backup board files.
+	-all   or   -lib	Backup all files in lib.
+	-del_old <days>		Delete backup files over <days> days old.
+
+	These arguments can be combined.
+	Example: do_backups -v -mail user@host -user -q -nomail -room
+EOF
+}
+
 # mailto <filename>
 mailto()
 {
@@ -16,69 +40,31 @@ mailto()
 	fi
 }
 
-usage() 
+# backup(backup filename, directory)
+backup()
 {
-	cat << EOF
-Recognised arguments are:
-	-v			Verbose
-	-mail <email address>	Send backup offsite to <email address>
+	cd $LIB/..
 
-	-audit			Backup and erase audit directory.
-	-user			Backup user files.
-	-mbox			Backup mailboxes.
-	-room			Backup room files.
-	-board			Backup board files.
-	-all   or   -lib	Backup all files in lib.
-	-del_old <days>		Delete files over <days> days old.
+	fname=${BACKUPS}/$1.${NOW}.gz
 
-	These arguments can be combined.
-	Example: do_backups -user -v -room
-	         Is valid and verbose will only be active for the room backup.
-EOF
+	tar -c${verbose}f - $2 | gzip -9${verbose} > $fname
+	mailto $fname
 }
 
 backup_audit()
 {
 	cd $LIB/..
 
-	tar -zc${verbose}f $BACKUPS/audit.$NOW.gz lib/secure/audit
-	mailto $BACKUPS/audit.$NOW.gz
+	backup audit lib/secure/audit
 	rm -f lib/secure/audit/*
 }
 
-backup_user()
+backup_snoops()
 {
 	cd $LIB/..
-	tar -zc${verbose}f $BACKUPS/user.$NOW.gz lib/users
-	mailto $BACKUPS/user.$NOW.gz
-}
 
-backup_mail()
-{
-	cd $LIB/..
-	tar -zc${verbose}f $BACKUPS/mail.$NOW.gz lib/mail
-	mailto $BACKUPS/mail.$NOW.gz
-}
-
-backup_board()
-{
-	cd $LIB/..
-	tar -zc${verbose}f $BACKUPS/board.$NOW.gz lib/board
-	mailto $BACKUPS/board.$NOW.gz
-}
-
-backup_room()
-{
-	cd $LIB/..
-	tar -zc${verbose}f $BACKUPS/room.$NOW.gz lib/room
-	mailto $BACKUPS/room.$NOW.gz
-}
-
-backup_lib()
-{
-	cd $LIB/..
-	tar -zc${verbose}f $BACKUPS/lib.$NOW.gz lib
-	mailto $BACKUPS/lib.$NOW.gz
+	backup snoops lib/secure/snoops
+	rm -f lib/secure/snoops/guest*
 }
 
 delete_old()
@@ -125,26 +111,38 @@ while [ $# -gt 0 ]; do
 		mailto=1
 		shift
 		shift
+	elif [ $1 = "-nomail" ]; then
+		mailto=0
+		shift
 	elif [ $1 = "-v" ]; then
 		verbose=v
+		shift
+	elif [ $1 = "-q" ]; then
+		verbose=
 		shift
 	elif [ $1 = "-audit" ]; then
 		backup_audit
 		shift
+	elif [ $1 = "-logs" ]; then
+		backup logs lib/log
+		shift
+	elif [ $1 = "-snoops" ]; then
+		backup_snoops
+		shift
 	elif [ $1 = "-user" ]; then
-		backup_user
+		backup user lib/users
 		shift
 	elif [ $1 = "-mbox" ]; then
-		backup_mail
+		backup mail lib/mail
 		shift
 	elif [ $1 = "-room" ]; then
-		backup_room
+		backup room lib/room
 		shift
 	elif [ $1 = "-board" ]; then
-		backup_board
+		backup board lib/board
 		shift
 	elif [ $1 = "-all" -o $1 = "-lib" ]; then
-		backup_lib
+		backup lib lib
 		shift
 	elif [ $1 = "-del_old" ]; then
 		if [ $# -lt 2 ]; then

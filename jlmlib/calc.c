@@ -1,6 +1,6 @@
 /* An example calculator module written using the jlm library.
  * (c) Andy Fiddaman 1996.
- * Standard JeamLand copyright applies.
+ * JeamLand copyright applies.
  */
 #include <stdio.h>
 #include <string.h>
@@ -11,7 +11,7 @@ main()
 {
 	struct line *l;
 
-	register_ident("Calculator module in C (c) A. Fiddaman");
+	register_ident("Calculator jlm (c) A. Fiddaman");
 	claim_command("calc");
 
 	for(;;)
@@ -33,14 +33,14 @@ main()
 
 		if (l->text == (char *)NULL)
 		{
-			write_user(l->user, "Syntax: calc <sum>.\n");
+			write_user(l->user, "Syntax: calc <sum>.");
 			free_line(l);
 			continue;
 		}
 
 		if (strlen(l->text) > sizeof(buf) - 1)
 		{
-			write_user(l->user, "Sum too long!.\n");
+			write_user(l->user, "Sum too long!.");
 			free_line(l);
 			continue;
 		}
@@ -48,16 +48,17 @@ main()
 		sprintf(buf, "echo '%s' | bc", l->text);
 		if ((fp = popen(buf, "r")) == (FILE *)NULL)
 		{
-			write_user(l->user, "Cannot run bc.\n");
+			write_user(l->user, "Cannot run bc.");
 			free_line(l);
 			continue;
 		}
 
 		fgets(buf, sizeof(buf), fp);
 		pclose(fp);
-		chattr(l->user, "bold");
+
+		chattr(l->user, "d");
 		write_user(l->user, "C calculator tells you: %s", buf);
-		chattr(l->user, "reset");
+		chattr(l->user, "z");
 		free_line(l);
 	}
 	return 0;

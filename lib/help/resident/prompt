@@ -1,10 +1,22 @@
 NAME		prompt
 SYNTAX		prompt [string]
-DESCRIPTION	Sets your prompt to [string] or, if used without arguments,
-		back to the default '%p '. To include a space at the end of the
-		prompt, escape it with a \. eg. 'prompt Jeamland>\ '
+		prompt -iaceor
+		prompt -iacga
+DESCRIPTION	Sets your prompt to [string].
+		To include a space at the end of the prompt, escape it with
+		a \. eg. 'prompt Jeamland>\ '
 		[string] can include cookies and escape codes.
+
+		Prompt without arguments lists your current settings.
+
+		The last two forms of the command are used to toggle prompt
+		compatibility modes used with common telnet clients.
+		TUsh uses the 'iaceor' method, tf can use either.
+		The best approach is probably to experiment.
+
 EXAMPLES	'prompt [%t] %n\% (%!)\ '
+		or with colour,
+		'prompt %cc.[%t] %n\% (%!) %cz'
 		and, for status line freaks....
 		'prompt %i[%t] %N %r%b%n\% (%!)\ '
-SEE ALSO	cookies, escapes
+SEE ALSO	cookies, escapes, colour

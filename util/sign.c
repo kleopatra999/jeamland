@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	sign.c
  * Function:	Displays a message on a port
@@ -31,7 +31,7 @@
 #define FD_CAST (fd_set *)
 #endif /* HPUX */
 
-#define TRY(xx, yy) if ((xx) == -1) { perror(yy); exit(-1); }
+#define TRY(xx, yy) if ((xx) == -1) { perror(yy); exit(1); }
 
 #ifdef BUGGY_INET_NTOA
 #define MAX_INET_ADDR 30
@@ -79,7 +79,7 @@ prepare_ipc(int port)
 	if ((hp = gethostbyname(hostname)) == (struct hostent *)NULL)
 	{
 		perror("gethostbyname");
-		exit(-1);
+		exit(1);
 	}
 	memset((char *)&sin, '\0', sizeof(sin));
 	memcpy((char *)&sin.sin_addr, hp->h_addr, hp->h_length);
@@ -108,19 +108,19 @@ read_file(char *fname)
 	if (stat(fname, &st) == -1)
 	{
 		fprintf(stderr, "%s: file not found.\n", fname);
-		exit(-1);
+		exit(1);
 	}
 	if ((fp = fopen(fname, "r")) == (FILE *)NULL)
 	{
 		perror("fopen");
 		fprintf(stderr, "%s: cannot read file.\n", fname);
-		exit(-1);
+		exit(1);
 	}
 	/* This is an overestimate.. */
 	if ((msg = (char *)malloc(st.st_size * 2 + 1)) == (char *)NULL)
 	{
 		fprintf(stderr, "Out of memory!\n");
-		exit(-1);
+		exit(1);
 	}
 	msg[0] = '\0';
 
@@ -171,7 +171,7 @@ process_socket(int fd)
 		    FD_CAST NULL, (struct timeval *)NULL) < 0)
 		{
 			perror("select");
-			exit(-1);
+			exit(1);
 		}
 		if (FD_ISSET(fd, &readfds))
 			return new_connection(fd);
@@ -247,7 +247,7 @@ main(int argc, char **argv)
 		{
 		    case -1:
 			perror("fork");
-			exit(-1);
+			exit(1);
 		    case 0:
 			break;
 		    default:
@@ -260,7 +260,7 @@ main(int argc, char **argv)
 	if ((port = atoi(argv[1])) < 1024 || port > 65535)
 	{
 		fprintf(stderr, "Bad port number, %d\n", port);
-		exit(-1);
+		exit(1);
 	}
 	msg = read_file(argv[2]);
 	fd = prepare_ipc(port);

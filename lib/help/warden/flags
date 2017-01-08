@@ -8,3 +8,4 @@ User flags are as follows:
         S       Nosnoop flag set.
 	I	No idle-out flag set.
 	K	No shutdown kick flag set. (See help shutdown)
+	E	No-email address flag set.

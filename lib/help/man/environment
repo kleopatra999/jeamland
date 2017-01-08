@@ -1,0 +1,4 @@
+NAME		environment
+SYNTAX		environment(user)
+DESCRIPTION	Find the filename of the room containing 'user'.
+RETURN VALUE	Returns the filename.

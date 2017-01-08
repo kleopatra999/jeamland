@@ -1,9 +1,9 @@
 capname "Root"
 title "of all evil."
-prompt "[%t] %n# (%!) "
+prompt "%cc.[%t] %n# (%!) %cz"
 level 5
 saveflags 32768
-medopts 3
+medopts 70
 terminal 0
 screenwidth 80
 morelen 22

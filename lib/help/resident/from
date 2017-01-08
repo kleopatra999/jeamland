@@ -1,0 +1,8 @@
+NAME		from
+SYNTAX		from [-a]
+DESCRIPTION	Shows the headers from your mailbox. If you have the
+		only-new option set in your mail options, you will only see
+		unread messages, otherwise you will see all messages. To force
+		listing of all messages in any case, use the optional -a
+		argument.
+SEE ALSO	mail

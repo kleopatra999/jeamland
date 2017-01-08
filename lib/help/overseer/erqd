@@ -6,26 +6,26 @@ DESCRIPTION	Kills and restarts erqd.  Erqd is used to resolve host and
 		Message is of the format req:args
 		Requests are:
 
-ERQ_ERROR
+ERQ_ERROR (0)
 	<- error_message
-ERQ_DIE
+ERQ_DIE (1)
 	->
-ERQ_RESOLVE_NAME
+ERQ_RESOLVE_NAME (2)
 	-> ipname;
 	<- ipnum ipname;
-ERQ_RESOLVE_NUMBER
+ERQ_RESOLVE_NUMBER (3)
 	-> ipnum;
 	<- ipnum ipname;
-ERQ_IDENT
+ERQ_IDENT (4)
 	-> ipnum;local_port,remote_port
 	<- ipnum;local_port,remote_port;username;
-ERQ_RUSAGE
+ERQ_RUSAGE (5)
 	->
 	<- num:num:num:num:num:num:num:num:num:num:num:num:num:num:num:num
-ERQ_FAILED_RESOLVE
+ERQ_FAILED_RESOLVE (6)
 	<- ipnum;
 	<- ipname;
-ERQ_EMAIL
+ERQ_EMAIL (7)
 	-> sender;file;delete_after_flag;
 	<- sender;success_flag;
 

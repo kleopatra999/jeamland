@@ -1,0 +1,10 @@
+NAME		tzadjust
+SYNTAX		tzadjust [adjustment]
+DESCRIPTION	tzadjust is used to set up a timezone adjustment on a per
+		user basis. Without arguments, the command will show your
+		current adjustment, if any. The argument, if supplied, should
+		simply be the number of hours difference between your local
+		time and the talker's time.
+		This difference can be specified to the nearest half hour.
+EXAMPLE		tzadjust -6.5
+		tzadjust +9

@@ -1,0 +1,93 @@
+#!/bin/sh
+# Script to send an incoming email message to a user on the talker.
+#
+# This works for me using Gnu awk; no guarantee of portability.
+# (c) Andy Fiddaman, 1997
+#
+# This script is meant to be run from an email processor such as procmail with
+# a rule of the form:
+#
+# :0 : xemail
+# * ^X-jl-user:
+#         | $HOME/jeamland/scripts/xemail
+#
+# Again, this works for me.
+
+PASSWORD=put_password_here
+RQUERY=${HOME}/pub/rquery
+
+# To make sure nobody reads the email
+umask 077
+
+fname=jlxemail.$$
+
+if [ -f $fname ]; then
+	rm -f $fname
+fi
+
+awk -v password=$PASSWORD -v fname=$fname -F: '
+	BEGIN	{
+			inhead = 1
+			got = 0
+			body = ""
+		}
+	inhead && $1 == "X-jl-user" {
+			jluser = substr($2, 2)
+			got += 1
+		}
+	inhead && $1 == "Subject" {
+			jlsubj = substr($2, 2)
+			got += 100
+		}
+	inhead && $1 == "From" {
+			jlfrom = substr($2, 2)
+			got += 10000
+		}
+	inhead && $0 ~ /^$/ {
+			inhead = 0
+			next
+		}
+	!inhead	{
+			if ($0 == ".")
+				$0 = ".."
+			body = body $0 "\n"
+		}
+	END	{
+			if (got == 10101)
+			{
+				print "email", password > fname
+				print "email-to", jluser >> fname
+				print "email-from", jlfrom >> fname
+				print "email-subj", jlsubj >> fname
+				print "email-data" >> fname
+				print body >> fname
+				print "." >> fname
+			}
+		}'
+
+if [ -f $fname ]; then
+	result=`$RQUERY "@${fname}" 2>&1`
+	if (echo $result | grep 'OK') >> /dev/null; then
+		rm -f $fname
+	else
+		# failed... send rejection email
+		addr=`cat $fname | sed -n '/^email-from/ {
+		    P
+		    q
+			}' | cut -d\  -f2-`
+		echo 'Failure reason was:' >> $fname
+		echo $result >> $fname
+(
+cat << EOM
+--------
+Your email message was rejected by the JeamLand email gateway.
+Your message, and reason for rejection are below.
+-------
+EOM
+# Don't want the password line included in the email message
+# hence the 'sed'
+cat $fname | sed '1d'
+) | mail -s'JeamLand email failed' $addr
+	fi
+fi
+

@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	stack.c
  * Function:	Generic stack data type
@@ -46,7 +46,7 @@ push_malloced_string(struct stack *p, char *str)
 }
 
 void
-push_number(struct stack *p, int n)
+push_number(struct stack *p, long n)
 {
 #ifdef DEBUG
 	CHECK_STACK_INC(p);
@@ -54,6 +54,17 @@ push_number(struct stack *p, int n)
 	INC_STACK(p);
 	p->sp->type = T_NUMBER;
 	p->sp->u.number = n;
+}
+
+void
+push_unsigned(struct stack *p, unsigned long n)
+{
+#ifdef DEBUG
+	CHECK_STACK_INC(p);
+#endif
+	INC_STACK(p);
+	p->sp->type = T_UNUMBER;
+	p->sp->u.unumber = n;
 }
 
 void
@@ -137,5 +148,21 @@ stack_svalue(struct stack *p, int el)
 		fatal("stack_svalue: request for non-existant stack element.");
 #endif
 	return &p->stack[el - 1];
+}
+
+/* For debugging.. */
+void
+dump_stack(struct user *p, struct stack *s)
+{
+	struct svalue *sv;
+	int i;
+
+	for (i = 1; i <= s->el; i++)
+	{
+		sv = stack_svalue(s, i);
+		write_socket(p, "[%2d] ", i);
+		print_svalue(p, sv);
+		write_socket(p, "\n");
+	}
 }
 

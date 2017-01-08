@@ -3,6 +3,9 @@ in order for them to be able to communicate with the talker.
 
 Just type "make" for compile options.
 
+You may need to edit the Makefile to specify your compiler and warning
+options.
+
 Look at the mirror.c file for a simple example jlm.
 
 ---
@@ -33,8 +36,9 @@ send the following to its standard output:
 Of course, if you're writing the jlm in C, and are linking with the library in
 this directory, then you need only do:
 
-	write_user(user_name, "Hello there!\n");
+	write_user(user_name, "Hello there!");
 
 
-More explanation is beyond the scope of this document.
+More explanation is beyond the scope of this document, but look at the files
+mirror.c, calc.c and doom.c for examples.
 

@@ -1,0 +1,126 @@
+
+		JeamLand intermud systems, a brief overview
+		-------------------------------------------
+
+JeamLand supports three different intermud systems which I will call cdudp,
+inetd and imud3. These systems were originally designed to link together
+muds, and not talkers and so the word 'host' is used to cover both of these.
+
+Cdudp
+-----
+
+This is the first intermud system I knew about. It was implemented on muds
+based on the CD gamedriver and was then adopted by MudOS muds and enhanced
+a little.
+
+However, it suffers from the major drawback that it uses UDP packets to
+communicate with other hosts. UDP (User Datagram Protocol) packets
+get to their destination if they get there. In other words, there is no
+guarantee that a packet will get to where you sent it. In general, this
+causes few problems with general requests, such as 'who' and 'finger' because
+if a response is not received by a user on the originating host, then
+that user will just send another request. For the global intermud channels,
+however, this means that you often just see bits of any conversation.
+
+For 'tell' packets, the MudOS team added 'affirmation' packets to let the
+sender know that his tell message had been received. However, if the message
+was received but the affirmation was lost, then the sender would still not
+know that the message had arrived!
+
+
+Inetd
+-----
+
+Inetd is a new intermud protocol designed by Mark Lewis (Nostradamus) for
+Amylaar muds.
+
+While inetd still uses UDP packets, it is far more reliable due to its
+design. Every packet sent over inetd intermud needs a reply packet. If the
+reply is not received within a certain period, the packet is retransmitted.
+If the reply is not received after three transmissions, then the sender is
+informed that the request timed out, and the host is marked as being
+'down'.
+
+To address the problem of the reply packets being lost, the target
+host retains a list of the packet ids it has received from each host,
+and if it receives a duplicate packet, it returns a 'reply' packet
+but takes no further action. This means that a target user will not receive
+two duplicate 'tell' messages just because the reply packet to the first
+one went astray.
+
+Another advantage that inetd has over cdudp is the maximum packet size. To
+be safe, a host should not transmit a UDP packet of more than 1024
+characters. Inetd works around this limit by splitting packets up into
+chunks before sending them; the receiving host then reassembles the
+packet before parsing it.
+
+The inetd protocol is such that arbitrary fields may be added to the packets
+sent between hosts. Some additions to the protocol have been made
+by third parties; these include 'mail' and 'news'.
+
+Unfortunately, although channel messages require a reply packet to be sent,
+they are not subject to the timeout retransmission rules which apply to all
+other packets. I suspect this is something Mark was intending to address
+when he implemented the channel packet replies in his last release. To avoid
+duplicate channel messages, he must wait until all hosts are running the
+latest intermud before adding this feature.
+
+NOTA BENE: JeamLand channels (interjl, interjladmin) are an exception! These
+           channels _do_ use packet timeout and retransmission as of JL
+           version 1.1.26
+
+
+Intermud III
+------------
+
+Intermud III is a very recent development. It is completely different to both
+of the above systems in that it uses TCP for its communications.
+
+Every host on the intermud-III network connects and remains connected to an
+intermud-III router.
+This router then takes any packets sent by the host, and directs them to the
+target. This system may be slower, but any packet sent out by a host is
+guaranteed to reach its destination.
+
+Disadvantages of this protocol are that it is not possible to send free text
+'who' listings etc.
+
+For more information on Intermud-III see:
+	http://www.imaginary.com/
+
+
+
+JeamLand
+--------
+
+As mentioned, JeamLand supports all three of the above protocols. When asked
+to deliver a packet to another host then JeamLand will choose the best
+network to route the packet over.
+
+First, If the target is a JeamLand host, then inetd is used.
+Otherwise, if the target supports Imud3, then that is used.
+Otherwise, if the target supports Inetd, then that is used.
+Otherwise, if the target supports Cdudp, then that is used.
+Otherwise, the packet can not be delivered.
+
+You can force a packet to use a specific protocol by prefixing the target
+host name with a ^ character followed by a character indicating the protocol.
+For example:
+	who @orchard			Uses inetd as Orchard is a JL host.
+	who @^3orchard			Uses imud3.
+	who @^iorchard			Uses inetd.
+	who @^corchard			Uses cdudp.
+
+To list the hosts JeamLand knows about on a particular network:
+
+	jlhosts				Other JeamLand hosts on inetd.
+	hosts				Hosts on inetd.
+	chosts				Hosts on cdudp.
+	3hosts				Hosts on imud3.
+
+JeamLand supports channels on all three networks, these are as follows:
+
+CDUDP:	CREATOR, HUNGARY
+Inetd:	Intermud, interadmin, intertest, d-chat, intercode
+Imud3:	imud_gossip, imud_code, ... [ channels can be added at will ]
+

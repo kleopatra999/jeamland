@@ -1,0 +1,108 @@
+
+JEAMLAND V1.2.0 LIVE INTERNET TALK SYSTEM NOW AVAILABLE
+
+  It is with great pleasure that the release is announced of JeamLand v1.2.0.  
+  Over four years in the making, JeamLand is a high-performance, reliable
+  and full-featured system, developed with considerable input from its many
+  users, and has many unique advantages over its competitors.  In short,
+  installing JeamLand as your live talk server will enhance the on-line
+  experience for your users as never before!
+
+
+MAIN FEATURES
+
+  *  Compatible with most major versions of Unix, including Linux and FreeBSD
+
+  *  Very low CPU and memory resource requirements
+
+  *  Minimal network bandwidth requirements
+
+  *  High performance operation even on busy systems and networks
+
+  *  Asynchronous domain and username look-ups allowing smoother multi-tasking
+
+  *  Built in protocol handling for Intermud and other global chat channels
+     (including Intermud-III !)
+
+  *  Rich and easily-expandable command set and feelings database
+
+  *  Sophisticated bulletin board and user-to-user messaging system
+
+  *  Powerful yet secure scripting language for user and room aliases
+
+  *  Multiple user privilege levels with appropriate file-system and command 
+     security
+
+  *  Automatic e-mail address validation of new users
+
+  *  Dynamically loadable modules (JLM's) allowing the talker to be extended
+     without in-depth knowledge of JeamLand, re-compiling or even re-booting
+     your system
+
+  *  Ongoing development and support from a team of knowledgeable programming 
+     and administrational staff 
+
+
+CHANGES FROM VERSION 1.0.0
+
+  *  Many code updates and restructures, bug fixes and speedups
+
+  *  ANSI colour support
+
+  *  Support for the Intermud III network
+     (See http://www.imaginary.com/intermud/intermud3.html)
+     JeamLand now supports three different intermud network protocols
+
+  *  Support for FreeBSD machines
+
+  *  New commands: alconf, attr, as, chanblock, cpuser, cron, from, next,
+     import, showtail, sig, sticky, swho, tzadjust
+
+  *  The sudo command has been greatly enhanced
+
+  *  IAC GA / IAC EOR prompt support (as used by tf, TUsh, etc.)
+
+  *  Support for a Remote Notification Client, versions of which exist for
+     both UNIX and Windows 3.11/95/NT
+
+  *  Improved JLM interface requiring less resources. JLM's can now be
+     attached on a per-user or global basis
+
+  *  Many new functions and extensions to the alias scripting language
+
+  *  Ability to add alias scripts which are global and available to all
+     users.
+
+  *  Far more than it is possible to list here, please see
+         http://www.twikki.demon.co.uk/jeamland/whatsnew.html
+     for the full list of changes.
+
+
+EVALUATING JEAMLAND
+
+  To see JeamLand in action for yourself, please visit the Future talker on:-
+
+  *  telnet://talkers.skl.com:4321     (talker log-in)
+
+  *  http://talkers.skl.com/~future    (system information)
+
+
+DOWNLOADING
+
+  To download the system for evaluation, please visit one of the following 
+  official hosts:-
+
+  *  ftp://ftp.ccs.neu.edu/pub/mud/servers/misc/jeamland/jeamland.1.2.0.tar.gz
+
+  *  ftp://ftp.demon.net/.../jeamland.1.2.0.tar.gz
+
+  Please note that diffs are not provided as these are larger than the entire
+  distribution!
+
+
+REMOTE NOTIFICATION CLIENTS
+
+  The JeamLand Remote Notification Clients are available for download from:-
+
+  *  ftp://ftp.ccs.neu.edu/pub/mud/servers/misc/jeamland/rnclient/
+

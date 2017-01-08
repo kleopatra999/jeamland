@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	crash.c
  * Function:	Function tracing support.. for machines on which core dumps
@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <netinet/in.h>
@@ -18,9 +19,11 @@
 
 #ifdef CRASH_TRACE
 
-extern char *currently_executing;
+#undef CRASHTRACE_DEBUG
 
-#define FUNSTACK_SIZE	20
+extern time_t current_time;
+
+#define FUNSTACK_SIZE	40
 
 static struct func {
 	char *file;
@@ -32,28 +35,29 @@ static struct func {
 static int funptr = 0;
 
 void
-backtrace(int sig)
+backtrace(char *msg, int sig)
 {
 	extern struct utsname system_uname;
 	FILE *fp;
+	int i;
 
 	fp = fopen("log/backtrace", "a");
 
-	fprintf(fp, "\nVERSION: %s\n", VERSION);
+	fprintf(fp, "\n>>> %s : %s\n", nctime(&current_time), msg);
+	fprintf(fp, "VERSION: %s\n", VERSION);
 	fprintf(fp, "OS: %s %s %s.\n", system_uname.sysname,
 	    system_uname.release, system_uname.version);
 	fprintf(fp, "MACHINE: %s.\n", system_uname.machine);
 	if (sig)
 		fprintf(fp, "Sig: %d\n", sig);
 
-	while(funptr--)
-		fprintf(fp, "%s(%s) %s [%d] <%p>\n", functions[funptr].funid,
-		    functions[funptr].arg != (char *)NULL ?
-		    functions[funptr].arg : "",
-		    functions[funptr].file, functions[funptr].line,
-		    (unsigned long *)functions[funptr].addr);
-	if (currently_executing != (char *)NULL)
-		fprintf(fp, "EXECUTION: %s\n", currently_executing);
+	i = funptr;
+	while (i--)
+		fprintf(fp, "%s(%s) [%s %d] <%p>\n", functions[i].funid,
+		    functions[i].arg != (char *)NULL ?
+		    functions[i].arg : "",
+		    functions[i].file, functions[i].line,
+		    (unsigned long *)functions[i].addr);
 
 	fclose(fp);
 }
@@ -66,15 +70,22 @@ crash_handler(int sig)
 
 	signal(sig, SIG_DFL);
 
-	backtrace(sig);
+	backtrace("crash_handler", sig);
 
-	notify_level(L_VISITOR, "--- SOMETHING TERRIBLE HAS HAPPENED ---\n");
-	notify_level(L_WARDEN, "--- Crashing due to signal %d ---\n", sig);
+	notify_level(L_VISITOR, "--- SOMETHING TERRIBLE HAS HAPPENED ---");
+	notify_level(L_WARDEN, "--- Crashing due to signal %d ---", sig);
 
 	/* Have to at least attempt this.. */
 	closedown_jlms();
 	/* One way to make the angel log properly.. .*/
 	kill(getpid(), sig);
+}
+
+void
+check_fundepth(int dep)
+{
+	if (funptr != dep)
+		fatal("Crashtrace function depth != %d", dep);
 }
 
 void
@@ -85,6 +96,11 @@ add_function(char *funid, char *file, int line)
 	functions[funptr].arg = (char *)NULL;
 	functions[funptr].addr = (void (*)())NULL;
 	functions[funptr++].funid = funid;
+	if (funptr >= FUNSTACK_SIZE)
+		fatal("Crash function stack overflow.");
+#ifdef CRASHTRACE_DEBUG
+	backtrace("Crashtrace debug (add)", 0);
+#endif
 }
 
 void
@@ -109,6 +125,9 @@ void
 end_function()
 {
 	funptr--;
+#ifdef CRASHTRACE_DEBUG
+	backtrace("Crashtrace debug (end)", 0);
+#endif
 }
 
 void

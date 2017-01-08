@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	user.c
  * Function:	The user object type
@@ -25,6 +25,10 @@ extern struct room *rooms;
 extern int logons;
 extern int peak_users;
 extern time_t current_time;
+extern char *host_name, *host_ip;
+extern int port;
+extern unsigned long version_code;
+extern int num_users;
 
 int
 count_users(struct user *p)
@@ -32,11 +36,57 @@ count_users(struct user *p)
 	struct user *u;
 	int num = 0;
 
+	if (p == (struct user *)NULL)
+		return num_users;
+
 	for (u = users->next; u != (struct user *)NULL; u = u->next)
-		if (p == (struct user *)NULL || !(u->saveflags & U_INVIS) ||
-		    p->level >= u->level)
+		if (CAN_SEE(p, u))
 			num++;
 	return num;
+}
+
+char *
+who_text(int source)
+{
+	struct user *p;
+	int cnt = 0;
+	struct strbuf mm;
+
+	init_strbuf(&mm, 0, "who_text");
+
+	if (source == FINGER_LOCAL)
+		sadd_strbuf(&mm, "%s\n--------------------------\n",
+		    LOCAL_NAME);
+	else
+		sadd_strbuf(&mm, "%s (%s %d)\n--------------------------\n",
+		    LOCAL_NAME, host_name, port);
+
+	for (p = users->next; p != (struct user *)NULL; p = p->next)
+	{
+		if (IN_GAME(p) && !(p->saveflags & U_INVIS))
+		{
+			if (source == FINGER_SERVICE)
+				sadd_strbuf(&mm, "%-10s "
+				    "<a href=\"finger.cgi?%s\">%s</a> %s\n",
+				    level_name(p->level, 1),
+				/* Deliberately didn't use p->rlname here */
+				    lower_case(p->name), p->name,
+				    p->title != (char *)NULL ? p->title : "");
+			else
+				sadd_strbuf(&mm, "%-10s %s %s\n",
+				    level_name(p->level, 1),
+				    p->name, p->title !=
+				    (char *)NULL ? p->title : "");
+			cnt++;
+		}
+	}
+	if (!cnt)
+	{
+		add_strbuf(&mm, LOCAL_NAME);
+		add_strbuf(&mm, " is deserted at the moment.\n");
+	}
+	pop_strbuf(&mm);
+	return mm.str;
 }
 
 void
@@ -46,20 +96,28 @@ init_user_list()
 
 	/* Create a dummy user for the head of the users list */
 	init_user(users = create_user());
+
 	/* Used by the soul in some cases..
 	 * (when there is an error in the FEELINGS file) */
 	users->gender = G_MALE;
-	/* Dummy user should not allocate a 2K buffer! */
-	FREE(users->input_buffer);
+
+	/* Dummy user should not allocate a 2K buffer!
+	 * NB: This will cause problems if the dummy user is ever free'd.
+	 *     (This never happens at present)
+	 */
+	free_tcpsock(&users->socket);
+
 	/* Or a history array *;0) */
 	free_vector(users->history);
 	users->history = (struct vector *)NULL;
+
 	/* But should have a name set, just in case */
 	COPY(users->name, "<DUMMY>", "*dummy user name");
 	COPY(users->rlname, "<DUMMY>", "*dummy user name");
 	COPY(users->capname, "<DUMMY>", "*dummy user name");
+
 	ob = create_object();
-	ob->type = T_USER;
+	ob->type = OT_USER;
 	ob->m.user = users;
 	users->ob = ob;
 }
@@ -71,10 +129,12 @@ create_user()
 	    "user struct");
 
 	p->next = (struct user *)NULL;	/* For safety */
-	p->input_buffer = (char *)xalloc(USER_BUFSIZE, "Input buffer");
-	p->ib_offset = 0;
 	p->history = allocate_vector(HISTORY_SIZE, T_STRING,
 	    "user history vector");
+	init_tcpsock(&p->socket, USER_BUFSIZE);
+	/* For a user, parse special characters */
+	p->socket.flags |= TCPSOCK_SPECIAL;
+	p->socket.flags |= TCPSOCK_TELNET;
 	return p;
 }
 
@@ -112,6 +172,9 @@ restore_user(struct user *p, char *name)
 	got = 0;
 	while (fgets(buf, (int)st.st_size, fp) != (char *)NULL)
 	{
+		/* Talker version code */
+		if (sscanf(buf, "version %lx", &p->version))
+			continue;
 		/* Strings.. (need to be decoded.. ) */
 		if (!strncmp(buf, "password \"", 10))
 		{
@@ -154,6 +217,11 @@ restore_user(struct user *p, char *name)
 			DECODE(p->plan, "plan");
 			continue;
 		}
+		if (!strncmp(buf, "sig \"", 5))
+		{
+			DECODE(p->sig, ".sig");
+			continue;
+		}
 		if (!strncmp(buf, "startloc \"", 10))
 		{
 			DECODE(p->startloc, "startloc");
@@ -181,7 +249,7 @@ restore_user(struct user *p, char *name)
 		}
 		if (!strncmp(buf, "alias ", 6))
 		{
-			restore_alias(&p->alias, buf);
+			restore_alias(&p->alias, buf, "user", name);
 			continue;
 		}
 		if (!strncmp(buf, "mbs ", 4))
@@ -220,6 +288,54 @@ restore_user(struct user *p, char *name)
 			p->watch = decode_strlist(buf, SL_SORT);
 			continue;
 		}
+		if (!strncmp(buf, "chan_earmuff ", 13))
+		{
+			free_strlists(&p->chan_earmuff);
+			p->chan_earmuff = decode_strlist(buf, SL_SORT);
+			continue;
+		}
+		if (!strncmp(buf, "col_attr ", 9))
+		{
+			struct svalue *sv;
+
+			if ((sv = decode_one(buf, "decode_one col_attr")) ==
+			    (struct svalue *)NULL)
+				continue;
+			if (sv->type == T_MAPPING)
+			{
+				if (p->attr != (struct mapping *)NULL)
+					free_mapping(p->attr);
+				p->attr = sv->u.map;
+				/* Don't want the mapping freed */
+				sv->type = T_EMPTY;
+			}
+			else
+				log_file("error", "Error in attr line: ",
+				    "user: %s, line: %s", name, buf);
+			free_svalue(sv);
+			continue;
+		}
+		if (!strncmp(buf, "user_attr ", 10))
+		{
+			struct svalue *sv;
+
+			if ((sv = decode_one(buf, "decode_one user_attr")) ==
+			    (struct svalue *)NULL)
+				continue;
+			if (sv->type == T_MAPPING)
+			{
+				if (p->uattr != (struct mapping *)NULL)
+					free_mapping(p->uattr);
+				p->uattr = sv->u.map;
+				/* Don't want the mapping freed */
+				sv->type = T_EMPTY;
+			}
+			else
+				log_file("error", "Error in uattr line: ",
+				    "user: %s, line: %s", name, buf);
+			free_svalue(sv);
+			continue;
+		}
 		if (sscanf(buf, "level %d", &p->level))
 		{
 			got++;
@@ -227,13 +343,13 @@ restore_user(struct user *p, char *name)
 		}
 		if (sscanf(buf, "saveflags %ld", &p->saveflags))
 			continue;
-		if (sscanf(buf, "medopts %d", &p->medopts))
+		if (sscanf(buf, "medopts %u", &p->medopts))
 			continue;
-		if (sscanf(buf, "terminal %d", &p->terminal))
+		if (sscanf(buf, "terminal %u", &p->terminal))
 			continue;
-		if (sscanf(buf, "morelen %d", &p->morelen))
+		if (sscanf(buf, "morelen %u", &p->morelen))
 			continue;
-		if (sscanf(buf, "screenwidth %d", &p->screenwidth))
+		if (sscanf(buf, "screenwidth %u", &p->screenwidth))
 			continue;
 		if (sscanf(buf, "last_login %ld", (long *)&p->last_login))
 			continue;
@@ -243,17 +359,19 @@ restore_user(struct user *p, char *name)
 			continue;
 		if (sscanf(buf, "gender %d", &p->gender))
 			continue;
-		if (sscanf(buf, "earmuffs %d", &p->earmuffs))
+		if (sscanf(buf, "earmuffs %u", &p->earmuffs))
 			continue;
-		if (sscanf(buf, "bad_logins %d", &p->bad_logins))
+		if (sscanf(buf, "bad_logins %u", &p->bad_logins))
 			continue;
 		if (sscanf(buf, "alias_lim %d", &p->alias_lim))
 			continue;
 		if (sscanf(buf, "quote_char %c", &p->quote_char))
 			continue;
-		if (sscanf(buf, "postings %d", &p->postings))
+		if (sscanf(buf, "postings %u", &p->postings))
 			continue;
-		if (sscanf(buf, "num_logins %d", &p->num_logins))
+		if (sscanf(buf, "num_logins %u", &p->num_logins))
+			continue;
+		if (sscanf(buf, "tz_adjust %d", &p->tz_adjust))
 			continue;
 		if (sscanf(buf, "last_watch %ld", (long *)&p->last_watch))
 			continue;
@@ -279,16 +397,22 @@ save_user(struct user *p, int live, int force)
 	struct umbs *m;
 
 	if  (p->level < L_RESIDENT || p->passwd == (char *)NULL ||
-	    p->email == (char *)NULL || (!force && !IN_GAME(p)))
+	    (p->email == (char *)NULL && !(p->saveflags & U_NOEMAIL)) ||
+	    (!force && !IN_GAME(p)))
 		return 0;
 
 	sprintf(buf, "users/%c/%s.o", p->rlname[0], p->rlname);
 	if ((fp = fopen(buf, "w")) == (FILE *)NULL)
 		return 0;
+	fprintf(fp, "version %lx\n", version_code);
 	ENCODE(p->passwd);
 	fprintf(fp, "password \"%s\"\n", ptr);
-	ENCODE(p->email);
-	fprintf(fp, "email \"%s\"\n", ptr);
+	if (p->email != (char *)NULL)
+	{
+		ENCODE(p->email);
+		fprintf(fp, "email \"%s\"\n", ptr);
+		p->saveflags &= ~U_NOEMAIL;
+	}
 	ENCODE(p->capname);
 	fprintf(fp, "capname \"%s\"\n", ptr);
 	if (p->url != (char *)NULL)
@@ -310,6 +434,11 @@ save_user(struct user *p, int live, int force)
 	{
 		ENCODE(p->plan);
 		fprintf(fp, "plan \"%s\"\n", ptr);
+	}
+	if (p->sig != (char *)NULL)
+	{
+		ENCODE(p->sig);
+		fprintf(fp, "sig \"%s\"\n", ptr);
 	}
 	if (p->startloc != (char *)NULL)
 	{
@@ -352,18 +481,19 @@ save_user(struct user *p, int live, int force)
 	}
 	fprintf(fp, "level %d\n", p->level);
 	fprintf(fp, "saveflags %ld\n", p->saveflags);
-	fprintf(fp, "medopts %d\n", p->medopts);
-	fprintf(fp, "terminal %d\n", p->terminal);
-	fprintf(fp, "screenwidth %d\n", p->screenwidth);
-	fprintf(fp, "morelen %d\n", p->morelen);
+	fprintf(fp, "medopts %u\n", p->medopts);
+	fprintf(fp, "terminal %u\n", p->terminal);
+	fprintf(fp, "screenwidth %u\n", p->screenwidth);
+	fprintf(fp, "morelen %u\n", p->morelen);
 	fprintf(fp, "gender %d\n", p->gender);
-	fprintf(fp, "earmuffs %d\n", p->earmuffs);
+	fprintf(fp, "earmuffs %u\n", p->earmuffs);
 	fprintf(fp, "hibernate %ld\n", (long)p->hibernate);
-	fprintf(fp, "bad_logins %d\n", p->bad_logins);
+	fprintf(fp, "bad_logins %u\n", p->bad_logins);
 	fprintf(fp, "alias_lim %d\n", p->alias_lim);
 	fprintf(fp, "quote_char %c\n", p->quote_char);
-	fprintf(fp, "postings %d\n", p->postings);
-	fprintf(fp, "num_logins %d\n", p->num_logins);
+	fprintf(fp, "postings %u\n", p->postings);
+	fprintf(fp, "num_logins %u\n", p->num_logins);
+	fprintf(fp, "tz_adjust %d\n", p->tz_adjust);
 	for (a = p->alias; a != (struct alias *)NULL; a = a->next)
 	{
 		char *key, *fob;
@@ -385,6 +515,30 @@ save_user(struct user *p, int live, int force)
 	store_grupes(fp, p->grupes);
 	write_strlist(fp, "watch", p->watch);
 	fprintf(fp, "last_watch %ld\n", (long)p->last_watch);
+	write_strlist(fp, "chan_earmuff", p->chan_earmuff);
+	if (p->attr != (struct mapping *)NULL)
+	{
+		struct svalue sv;
+		char *str;
+
+		sv.type = T_MAPPING;
+		sv.u.map = p->attr;
+		str = svalue_to_string(&sv);
+		fprintf(fp, "col_attr %s\n", str);
+		xfree(str);
+	}
+	if (p->uattr != (struct mapping *)NULL)
+	{
+		struct svalue sv;
+		char *str;
+
+		sv.type = T_MAPPING;
+		sv.u.map = p->uattr;
+		str = svalue_to_string(&sv);
+		fprintf(fp, "user_attr %s\n", str);
+		xfree(str);
+	}
+
 	fclose(fp);
 	/* This extra free is important! */
 	FREE(ptr);
@@ -409,7 +563,7 @@ dead_copy(char *name)
 }
 
 struct user *
-with_user(struct user *u, char *who)
+with_user_common(struct user *u, char *who, struct strbuf *b)
 {
 	struct user *p, *last;
 	struct object *ob;
@@ -424,28 +578,88 @@ with_user(struct user *u, char *who)
 	for (ob = u->super->ob->contains; ob != (struct object *)NULL;
 	    ob = ob->next_contains)
 	{
-		if (ob->type != T_USER || !IN_GAME(ob->m.user))
+		if (ob->type != OT_USER || !IN_GAME(ob->m.user))
 			continue;
 		p = ob->m.user;
-		if (!strcasecmp(p->rlname, tmp))
+		if (!strcmp(p->rlname, tmp))
+		{
+			if (b != (struct strbuf *)NULL)
+				reinit_strbuf(b);
 			return p;
+		}
 		else if (!strncasecmp(p->rlname, tmp, strlen(tmp)))
 		{
+			if (b != (struct strbuf *)NULL)
+			{
+				if (b->offset)
+					add_strbuf(b, ", ");
+				add_strbuf(b, p->name);
+			}
+			/* Handle preferred grupe members */
+			if (u != (struct user *)NULL &&
+			    member_grupe(u->grupes, "_preferred",
+			    lower_case(p->name), 0, 0))
+			{
+				if (b != (struct strbuf *)NULL)
+					reinit_strbuf(b);
+				return p;
+			}
 			last = p;
 			flag++;
 		}
 	}
 	if (flag != 1)
 	{
-		if (!flag && !strcmp(tmp, "me"))
-			return u;
-		return (struct user *)NULL;
+		if (!flag)
+		{
+			if (!strcmp(tmp, "me"))
+				return u;
+			return (struct user *)NULL;
+		}
+		return (struct user *)1;
 	}
 	return last;
 }
 
 struct user *
-find_user(struct user *u, char *who)
+with_user(struct user *u, char *who)
+{
+	u = with_user_common(u, who, (struct strbuf *)NULL);
+	if (u == (struct user *)1)
+		return (struct user *)NULL;
+	return u;
+}
+
+struct user *
+with_user_msg(struct user *p, char *who)
+{
+	struct user *u;
+	struct strbuf b;
+
+#ifdef DEBUG
+	if (p == (struct user *)NULL)
+		fatal("with_user_msg with null user");
+#endif
+
+	init_strbuf(&b, 0, "with_user_msg");
+
+	u = with_user_common(p, who, &b);
+
+	if (u == (struct user *)1)
+	{
+		write_socket(p, "Ambiguous username, %s [%s]\n",
+		    capitalise(who), b.str);
+		u = (struct user *)NULL;
+	}
+	else if (u == (struct user *)NULL)
+		write_socket(p, "User not found, %s.\n", capitalise(who));
+
+	free_strbuf(&b);
+	return u;
+}
+
+struct user *
+find_user_common(struct user *u, char *who, struct strbuf *b)
 {
 	struct user *p, *last;
 	int flag = 0;
@@ -468,27 +682,113 @@ find_user(struct user *u, char *who)
 			return p;
 		if (!IN_GAME(p))
 			continue;
-		if (!strcasecmp(p->rlname, tmp))
+		if (!strcmp(p->rlname, tmp))
 		{
 			if (u != (struct user *)NULL && !CAN_SEE(u, p))
 				continue;
 			else
+			{
+				if (b != (struct strbuf *)NULL)
+					reinit_strbuf(b);
 				return p;
+			}
 		}
 		else if (!strncasecmp(p->rlname, tmp, strlen(tmp)) &&
 		    (u == (struct user *)NULL || CAN_SEE(u, p)))
 		{
+			if (b != (struct strbuf *)NULL)
+			{
+				if (b->offset)
+					add_strbuf(b, ", ");
+				add_strbuf(b, p->name);
+			}
+			/* Handle preferred grupe members */
+			if (u != (struct user *)NULL &&
+			    member_grupe(u->grupes, "_preferred",
+			    lower_case(p->name), 0, 0))
+			{
+				if (b != (struct strbuf *)NULL)
+					reinit_strbuf(b);
+				return p;
+			}
 			last = p;
 			flag++;
 		}
 	}
 	if (flag != 1)
 	{
-		if (!flag && !strcmp(tmp, "me"))
-			return u;
-		return (struct user *)NULL;
+		if (!flag)
+		{
+			if (!strcmp(tmp, "me"))
+				return u;
+			return (struct user *)NULL;
+		}
+		return (struct user *)1;
 	}
 	return last;
+}
+
+struct user *
+find_user_msg(struct user *p, char *who)
+{
+	struct user *u;
+	struct strbuf b;
+
+#ifdef DEBUG
+	if (p == (struct user *)NULL)
+		fatal("find_user_msg with null user");
+#endif
+
+	init_strbuf(&b, 0, "find_user_msg");
+
+	u = find_user_common(p, who, &b);
+
+	if (u == (struct user *)1)
+	{
+		write_socket(p, "Ambiguous username, %s [%s]\n",
+		    capitalise(who), b.str);
+		u = (struct user *)NULL;
+	}
+	else if (u == (struct user *)NULL)
+		write_socket(p, "User not found, %s.\n", capitalise(who));
+
+	free_strbuf(&b);
+	return u;
+}
+
+struct user *
+find_user(struct user *u, char *who)
+{
+	u = find_user_common(u, who, (struct strbuf *)NULL);
+	if (u == (struct user *)1)
+		return (struct user *)NULL;
+	return u;
+}
+
+struct user *
+find_user_absolute(struct user *u, char *who)
+{
+	struct user *p;
+	char *tmp;
+
+	if (who == (char *)NULL || !strlen(who))
+		return (struct user *)NULL;
+
+	tmp = lower_case(who);
+
+	for (p = users->next; p != (struct user *)NULL; p = p->next)
+	{
+		if (!IN_GAME(p))
+			continue;
+		if (!strcmp(p->rlname, tmp))
+		{
+			if (u != (struct user *)NULL && !CAN_SEE(u, p))
+				continue;
+			else
+				return p;
+		}
+	}
+	return (struct user *)NULL;
 }
 
 int
@@ -518,7 +818,14 @@ move_user(struct user *p, struct room *r)
 		return;
 	}	
 
-	if (p->flags & (U_SOCK_QUITTING | U_SOCK_CLOSING))
+	/* Hmm.. is this the right place for this ? ...
+	 * Possible to have another field in the user for
+	 * 'room in which last note was read' and update it in the
+	 * 'next' command code - maybe cleaner but more memory use.
+	 */
+	p->last_note = 0;
+
+	if (p->flags & U_SOCK_CLOSING)
 	{
 		/* Shhhhhh.. */
 		move_object(p->ob, r->ob);
@@ -581,7 +888,7 @@ newmail_check(struct user *p)
 {
 	struct board *b;
 
-	b = restore_board("mail", p->rlname);
+	b = restore_mailbox(p->rlname);
 	if (b->flags & B_NEWM)
 		write_socket(p, "\n%c%c%c\t*** YOU HAVE NEW MAIL ***\n",
 		    7, 7, 7);
@@ -589,14 +896,12 @@ newmail_check(struct user *p)
 		write_socket(p, "\n\t*** You have mail ***\n");
 	if (b->limit != -1)
 	{
-		int i = count_messages(b);
-
-		if (b->limit != -1 && i >= b->limit)
+		if (b->limit != -1 && b->num >= b->limit)
 			write_socket(p,
 			    "\n\t*** WARNING: Your mailbox is full. ***\n"
 			    "\t*** You are currently unable to receive new "
 			    "mail. ***\n");
-		else if (b->limit != -1 && i >= b->limit * 3 / 4)
+		else if (b->limit != -1 && b->num >= b->limit * 3 / 4)
 			write_socket(p, "%s",
 			    "\n\t*** WARNING: Your mailbox is over 75% full"
 			    " ***\n");
@@ -621,6 +926,7 @@ dead_ed_check(struct user *p)
 static void
 login_user2(struct user *p, int partial)
 {
+	FUN_START("login_user2");
 #ifdef STARTUP_ALIAS
 	if (find_alias(p->alias, STARTUP_ALIAS) != (struct alias *)NULL)
 	{
@@ -632,14 +938,18 @@ login_user2(struct user *p, int partial)
 		xfree(cmd);
 	}
 #endif
+	FUN_LINE;
 
-	/* Are they required to change their password ? */
+	/* Are they required to change their password ?
+	 * This comes after everything else as it just jumps into the
+	 * normal password setting routine.
+	 */
 	if (!partial && (p->saveflags & U_FPC))
 	{
 		extern void new_passwd(struct user *, char *);
 
 		write_socket(p,
-		    "\nYou are required to choose a new password.\n");
+		    "You are required to choose a new password.\n");
 		noecho(p);
 		/* First one doesn't always seem to work.. why ? */
 		noecho(p);
@@ -647,23 +957,34 @@ login_user2(struct user *p, int partial)
 		p->input_to = new_passwd;
 		p->flags |= U_LOOP_PASSWD;
 	}
+	FUN_END;
 }
 
 static void
-login_user_gender(struct user *p, char *c)
+sticky_check_ret(struct user *p)
 {
-	int g;
-
-	if ((g = gender_number(c, 1)) == -1)
-	{
-		write_socket(p, "Invalid choice, please select again: ");
-		return;
-	}
-	p->input_to = NULL_INPUT_TO;
-	p->gender = g;
-	g = p->stack.sp->u.number;
+	int g = p->stack.sp->u.number;
+	reset(p);
+	write_socket(p, "\n");
 	dec_stack(&p->stack);
 	login_user2(p, g);
+}
+
+static void
+sticky_check(struct user *p)
+{
+	char *f;
+	char fname[MAXPATHLEN + 1];
+
+	sprintf(fname, "mail/%s#sticky", p->rlname);
+	if ((f = read_file(fname)) == (char *)NULL)
+		sticky_check_ret(p);
+	else
+	{
+		write_socket(p, "\n");
+		attr_colour(p, "notify");
+		more_start(p, f, sticky_check_ret);
+	}
 }
 
 void
@@ -674,10 +995,24 @@ login_user(struct user *p, int partial)
 	int us;
 	extern time_t mail_time(char *);
 	extern int check_supersnooped(char *);
+	extern void newbie_tuneout(struct user *);
+
+	FUN_START("login_user");
+
+	reset_eval_depth();
+
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT) || defined(IMUD3_SUPPORT)
+#ifdef NEWBIE_TUNEOUT
+	if (!p->num_logins && p->chan_earmuff == (struct strlist *)NULL)
+		newbie_tuneout(p);
+#endif
+#endif
 
 	if (!partial)
 	{
 		logons++;
+
+		FUN_LINE;
 
 		/* Disregard this login if it is less than 30 minutes since
 		 * this user last logged in. */
@@ -699,11 +1034,11 @@ login_user(struct user *p, int partial)
 		    	    (!(p->saveflags & U_SLY_LOGIN) ||
 			    ptr->level >= p->level))
 			{
-				yellow(ptr);
+				attr_colour(ptr, "notify");
 				if (ptr->level >= A_SEE_UNAME)
 					write_socket(ptr,
 					    "[ %s [%s] (%s@%s) has "
-					    "connected. ]\n",
+					    "connected. ]",
 					    p->capname,
 					    capfirst(level_name(p->level, 0)),
 					    p->uname == (char *)NULL ?
@@ -711,17 +1046,24 @@ login_user(struct user *p, int partial)
 					    lookup_ip_name(p));
 				else
 					write_socket(ptr,
-					    "[ %s [%s] has connected. ]\n",
+					    "[ %s [%s] has connected. ]",
 					    p->capname,
 					    capfirst(level_name(p->level, 0)));
 				reset(ptr);
+				write_socket(ptr, "\n");
 				if (ptr->saveflags & U_BEEP_LOGIN)
 					write_socket(ptr, "%c%c", 7, 7);
 			}
 
+#ifdef REMOTE_NOTIFY
+		send_rnotify(p, "+login");
+#endif
+
 		if (!(p->flags & U_LOGGING_IN))
 			fatal("Login_user on logged in user!");
 		p->flags ^= U_LOGGING_IN;
+
+		FUN_LINE;
 				    
 		if (p->saveflags & U_SLY_LOGIN)
 			/* To the void */
@@ -749,6 +1091,7 @@ login_user(struct user *p, int partial)
 				move_user(p, r);
 		}
 	}
+	FUN_LINE;
 	if (p->saveflags & U_INVIS)
 	{
 		/*COPY(p->name, "Someone", "name");*/
@@ -759,18 +1102,22 @@ login_user(struct user *p, int partial)
 		    "\n\t*** YOU HAVE SLY LOGIN MODE TURNED ON ***\n");
 	if (p->last_login != (time_t)0 && p->last_ip != (char *)NULL)
 		write_socket(p, "\nLast login: %s from %s\n", 
-	    	    nctime(&p->last_login), p->last_ip);
+	    	    nctime(user_time(p, p->last_login)), p->last_ip);
 	if (p->bad_logins)
 	{
-		bold(p);
+		attr_colour(p, "notify");
 		write_socket(p,
 		    "\n\t*** %d unsuccessful login attempt%s since last "
-		    "login. ***\n",
+		    "login. ***",
 		    p->bad_logins, p->bad_logins == 1 ? "" : "s");
 		p->bad_logins = 0;
 		reset(p);
+		write_socket(p, "\n");
 	}
-	if ((r = get_entrance_room()) != rooms)
+
+	FUN_LINE;
+
+	if (p->version && (r = get_entrance_room()) != rooms)
 	{
 		struct mbs *m;
 
@@ -779,14 +1126,26 @@ login_user(struct user *p, int partial)
 			write_socket(p, "\n\t*** New note(s) on the "
 			    "entrance room board. ***\n");
 	}
+	if (p->version && version_code > p->version)
+	{
+		write_socket(p, "\n"
+		    "\t*** A NEW VERSION OF JEAMLAND HAS BEEN INSTALLED ***\n"
+		    "\t***           PLEASE READ 'help CHANGES'         ***\n");
+
+	}
 
 	write_socket(p, "\n");
 
-	/* If we are a tush user, handle that */
-	if (p->saveflags & U_TUSH)
+	/* If we use a client, handle telnet codes. */
+	if (p->saveflags & U_IACEOR)
 	{
 		write_socket(p, "%c%c%c", IAC, WILL, TELOPT_EOR);
-		p->telnet.expect |= TN_EXPECT_EOR;
+		p->socket.telnet.expect |= TN_EXPECT_EOR;
+	}
+	if (p->saveflags & U_IACGA)
+	{
+		write_socket(p, "%c%c%c", IAC, WONT, TELOPT_SGA);
+		p->socket.telnet.expect |= TN_EXPECT_SGA;
 	}
 		
 	newmail_check(p);
@@ -806,20 +1165,18 @@ login_user(struct user *p, int partial)
 		peak_users = us;
 
 #ifdef SUPER_SNOOP
-	p->snoop_fd = check_supersnooped(p->rlname);
+	if (p->snoop_fd == -1)
+		p->snoop_fd = check_supersnooped(p->rlname);
 #endif
+
+	FUN_LINE;
+
 	reposition(p);
 
-	/* Are they required to set their gender ? */
-	if (!partial && p->gender == G_UNSET)
-	{
-		write_socket(p, "\nAvailable genders are: %s\n"
-		    "Please select a gender: ", gender_list());
-		push_number(&p->stack, partial);
-		p->input_to = login_user_gender;
-	}
-	else
-		login_user2(p, partial);
+	push_number(&p->stack, partial);
+	sticky_check(p);
+
+	FUN_END;
 }
 	
 void
@@ -868,6 +1225,7 @@ init_user(struct user *p)
 	int i;
 
 	/* This initialisation is not pretty... */
+	p->version = 0;
 	/* Free.. */
 	p->name = (char *)NULL;
 	p->capname = (char *)NULL;
@@ -880,6 +1238,7 @@ init_user(struct user *p)
 	p->prompt = (char *)NULL;
 	p->uname = (char *)NULL;
 	p->plan = (char *)NULL;
+	p->sig = (char *)NULL;
 	p->startloc = (char *)NULL;
 	p->validator = (char *)NULL;
 	p->reply_to = (char *)NULL;
@@ -897,15 +1256,13 @@ init_user(struct user *p)
 	p->quote_char = DEFAULT_QUOTE_CHAR;
 	p->history_ptr = 1;
 	p->col = 0;
-	p->fd = -1;
 	p->last_command = current_time;
-	p->sendq = p->recvq = 0;
 	p->snoop_fd = -1;
 	p->flags = 0;
 	p->saveflags = 0;
-	p->medopts = U_EDOPT_AUTOLIST | U_EDOPT_RULER;
+	p->medopts = U_EDOPT_AUTOLIST | U_EDOPT_RULER | U_EDOPT_WRAP |
+	    U_EDOPT_PROMPT;
 	p->terminal = 0;
-	p->sudo = 0;
 	p->gender = G_NEUTER;
 	p->earmuffs = 0;
 	p->screenwidth = DEFAULT_SCREENWIDTH;
@@ -917,10 +1274,12 @@ init_user(struct user *p)
 	p->bad_logins = 0;
 	p->postings = 0;
 	p->num_logins = 0;
+	p->tz_adjust = 0;
 	p->last_command = 0;
 	p->alias_lim = ALIAS_LIMIT;
 	p->alias_indent = 0;
 	p->last_watch = 0;
+	p->last_note = 0;
 
 	p->snooping = p->snooped_by = (struct user *)NULL;
 	p->super = (struct room *)NULL;
@@ -933,6 +1292,9 @@ init_user(struct user *p)
 	p->ed = (struct ed_buffer *)NULL;
 	p->more = (struct more_buf *)NULL;
 	p->mailbox = (struct board *)NULL;
+	p->chan_earmuff = (struct strlist *)NULL;
+	p->attr = (struct mapping *)NULL;
+	p->uattr = (struct mapping *)NULL;
 
 	/* Other.. */
 	for (i = NUM_JOBS; i--; )
@@ -959,6 +1321,7 @@ free_user(struct user *p)
 	FREE(p->prompt);
 	FREE(p->uname);
 	FREE(p->plan);
+	FREE(p->sig);
 	FREE(p->startloc);
 	FREE(p->validator);
 	FREE(p->reply_to);
@@ -971,6 +1334,13 @@ free_user(struct user *p)
 	free_umbses(p);
 	free_grupes(&p->grupes);
 	free_strlists(&p->watch);
+	free_strlists(&p->chan_earmuff);
+	if (p->attr != (struct mapping *)NULL)
+		free_mapping(p->attr);
+	p->attr = (struct mapping *)NULL;
+	if (p->uattr != (struct mapping *)NULL)
+		free_mapping(p->uattr);
+	p->uattr = (struct mapping *)NULL;
 	if (p->more != (struct more_buf *)NULL)
 		tfree_more(p);
 	if (p->mailbox != (struct board *)NULL)
@@ -982,7 +1352,7 @@ void
 tfree_user(struct user *p)
 {
 	free_user(p);
-	FREE(p->input_buffer);
+	free_tcpsock(&p->socket);
 	free_vector(p->history);
 	clean_stack(&p->stack);
 	clean_stack(&p->alias_stack);
@@ -1014,15 +1384,17 @@ forward_mail_message(char *addr, char *to, char *from, char *subj, char *msg,
 	strcat(c, msg);
 
 	/* Need to identify what type of forward this is.. */
-	switch(*addr)
+	switch (*addr)
 	{
 	    case '!':	/* Real email */
 		send_email(from, addr + 1, (char *)NULL, subj, 1, "%s", c);
 		break;
 
+#ifdef INETD_SUPPORT
 	    case '@':	/* Intermud email */
 		inetd_mail(from, addr + 1, subj, c, ++rec);
 		break;
+#endif
 
 	    default:	/* Internal mail */
 		deliver_mail(addr, from, subj, c, cc, ++rec, 0);
@@ -1053,7 +1425,7 @@ deliver_mail(char *to, char *from, char *subject, char *data, char *cc,
 
 	/* If they are on, be careful to update their LOADED copy
 	 * of the mailbox, if loaded; and notify of new mail. */
-	who = find_user((struct user *)NULL, to);
+	who = find_user_absolute((struct user *)NULL, to);
 	if (who != (struct user *)NULL && who->mailbox !=
 	    (struct board *)NULL)
 	{
@@ -1061,14 +1433,33 @@ deliver_mail(char *to, char *from, char *subject, char *data, char *cc,
 		live++;
 	}
 	else
-		b = restore_board("mail", to);
+		b = restore_mailbox(to);
 
 	if (!force && b->archive != (char *)NULL)
 		forward_mail_message(b->archive, to, from, subject, data,
 		    cc, rec);
 
-	if (b->limit != -1 && count_messages(b) >= b->limit)
+	if (b->limit != -1 && b->num >= b->limit)
 	{
+		/* Cannot deliver to a full mailbox. */
+		char fname[MAXPATHLEN + 1];
+		char s[BUFFER_SIZE];
+
+		sprintf(fname, "mail/%s#sticky", to);
+		sprintf(s, "[ %s : <Mail system> ]\n"
+		    "Mail to you from %s failed (your mailbox is full).\n",
+		    nctime(&current_time), capitalise(from));
+		append_file(fname, s);
+
+		if (who)
+		{
+			attr_colour(who, "notify");
+			write_socket(who,
+			    "[ Mail to you from %s failed (mailbox full) ]",
+			    capitalise(from));
+			reset(who);
+			write_socket(who, "\n");
+		}
 		if (!live)
 			free_board(b);
 		return 0;
@@ -1086,10 +1477,11 @@ deliver_mail(char *to, char *from, char *subject, char *data, char *cc,
 	store_board(b);
 	if (who != (struct user *)NULL)
 	{
-		yellow(who);
-		write_socket(who, "[ You have new mail from %s ]\n",
+		attr_colour(who, "notify");
+		write_socket(who, "[ You have new mail from %s ]",
 		    capitalise(from));
 		reset(who);
+		write_socket(who, "\n");
 	}
 
 	if (!live)
@@ -1211,7 +1603,6 @@ finger_text(struct user *p, char *user, int source)
 	struct user *u;
 	int tmp;
 	time_t tmptim, on_time;
-	int inetd = 0;
 	struct strbuf text;
 	char buf[MAXPATHLEN + 1];
 	extern time_t mail_time(char *);
@@ -1219,15 +1610,13 @@ finger_text(struct user *p, char *user, int source)
 	/* This is to support queries coming from the inetd */
 	if (p == (struct user *)NULL)
 	{
-		init_user(p = create_user());
-		p->level = L_VISITOR;
-		inetd = 1;
+		users->level = L_VISITOR;
+		users->tz_adjust = 0;
+		p = users;
 	}
 
 	if ((u = doa_start(p, user)) == (struct user *)NULL)
 	{
-		if (inetd)
-			tfree_user(p);
 		sprintf(buf, "No such user, %s.\n", capitalise(user));
 		return string_copy(buf, "finger_text nouser");
 	}
@@ -1286,7 +1675,8 @@ finger_text(struct user *p, char *user, int source)
 			add_strbuf(&text, conv_time(on_time / u->num_logins));
 		cadd_strbuf(&text, '\n');
 
-		sadd_strbuf(&text, "\tOn since:   %s", nctime(&u->login_time));
+		sadd_strbuf(&text, "\tOn since:   %s",
+		    nctime(user_time(p, u->login_time)));
 		if (p->level >= A_SEE_IP)
 		{
 			add_strbuf(&text, "  From: ");
@@ -1319,7 +1709,7 @@ finger_text(struct user *p, char *user, int source)
 		if (u->last_login)
 		{
 			sadd_strbuf(&text, "Last login:         %s",
-			    nctime(&u->last_login));
+			    nctime(user_time(p, u->last_login)));
 			if (p->level >= A_SEE_IP && u->last_ip != (char *)NULL)
 				sadd_strbuf(&text, "  From: %s\n",
 				    u->last_ip);
@@ -1336,7 +1726,7 @@ finger_text(struct user *p, char *user, int source)
 		    (tmptim = file_time(buf)) != -1)
 		{
 			sadd_strbuf(&text, "Last mod:           %s",
-			    ctime(&tmptim));
+			    ctime(user_time(p, tmptim)));
 			sadd_strbuf(&text, "        Elapsed:    %s.\n",
 			    conv_time(current_time - tmptim));
 		}
@@ -1347,7 +1737,7 @@ finger_text(struct user *p, char *user, int source)
 	if (p->level >= A_SEE_EXINFO)
 	{
 		sadd_strbuf(&text, "Startloc: %-15s ", u->startloc !=
-		    (char *)NULL ? u->startloc : "_Entry");
+		    (char *)NULL ? u->startloc : ENTRANCE_PREFIX);
 		sadd_strbuf(&text, "Termtype: %d       ", u->terminal);
 		sadd_strbuf(&text, "Flags: %s\n", flags(u));
 		if (u->comment != (char *)NULL)
@@ -1355,18 +1745,25 @@ finger_text(struct user *p, char *user, int source)
 		FINGER_BANNER;
 	}
 
-	if (!(u->saveflags & U_EMAIL_PRIVATE) || p->level >= A_SEE_HEMAIL ||
-	    p == u)
-		sadd_strbuf(&text, "Email: %s %s\n", u->email == (char *)NULL ?
-		    "<None set.>" : u->email, u->saveflags & U_EMAIL_PRIVATE ?
-		    "(hidden)" : "");
+	if (u->email != (char *)NULL &&
+	    (!(u->saveflags & U_EMAIL_PRIVATE) || p->level >= A_SEE_HEMAIL ||
+	    p == u))
+	{
+		if (source == FINGER_SERVICE)
+			sadd_strbuf(&text,
+			    "Email: <a href=\"mailto:%s\">%s</a>\n", u->email,
+			    u->email);
+		else
+			sadd_strbuf(&text, "Email: %s %s\n", u->email,
+			    u->saveflags & U_EMAIL_PRIVATE ?  "(hidden)" : "");
+	}
 
 	if (u->url != (char *)NULL)
 	{
 		/* Different responses depending on where the finger request
 		 * originated. */
 		if (source == FINGER_SERVICE)
-			sadd_strbuf(&text, "Url: <a href=\"%s\"> %s</a>\n",
+			sadd_strbuf(&text, "Url: <a href=\"%s\">%s</a>\n",
 			    u->url, u->url);
 		else
 			sadd_strbuf(&text, "Url:   %s\n", u->url);
@@ -1378,14 +1775,39 @@ finger_text(struct user *p, char *user, int source)
 		add_strbuf(&text, "Mail currently being read.\n");
 	else if ((tmptim = mail_time(u->rlname)) != -1)
 	{
-		u->mailbox = restore_board("mail", u->rlname);
+		u->mailbox = restore_mailbox(u->rlname);
+
+		if (u->mailbox->archive != (char *)NULL)
+		{
+			char *t = u->mailbox->archive;
+
+			switch (*t)
+			{
+			    case '!':
+				if ((u->saveflags & U_EMAIL_PRIVATE) &&
+				    p->level < A_SEE_HEMAIL && p != u)
+				{
+					add_strbuf(&text,
+					    "Mail forwarded via email.\n");
+					break;
+				}
+				/* FALLTHROUGH */
+			    case '@':
+				t++;
+				/* FALLTHROUGH */
+			    default:
+				sadd_strbuf(&text, "Mail forwarded to: %s\n",
+				    t);
+			}
+		}
+
 		if (u->mailbox->messages != (struct message *)NULL)
 		{
 			if (u->mailbox->flags & B_NEWM)
 				add_strbuf(&text, "New mail received: ");
 			else
 				add_strbuf(&text, "Mail last read: ");
-			add_strbuf(&text, ctime(&tmptim));
+			add_strbuf(&text, ctime(user_time(p, tmptim)));
 		}
 		free_board(u->mailbox);
 		u->mailbox = (struct board *)NULL;
@@ -1400,8 +1822,6 @@ finger_text(struct user *p, char *user, int source)
 		add_strbuf(&text, u->plan);
 	}
 
-	if (inetd)
-		tfree_user(p);
 	doa_end(u, 0);
 	pop_strbuf(&text);
 	return text.str;
@@ -1447,12 +1867,14 @@ void
 lastlog(struct user *p)
 {
 	time_t time_on;
+	char buf[7];
 
+	strcpy(buf, vshnctime(&p->login_time));
 	time_on = (current_time - p->login_time) / 60;
 
-	log_file("secure/last", "%3d: %-10s [%4d] (%02d:%02d) %s",
-	    p->fd, p->capname, p->history_ptr, time_on / 60, time_on % 60,
-	    lookup_ip_name(p));
+	log_file("secure/last", "%s-%s (%02d:%02d) %s@%s",
+	    buf, vshnctime(&current_time),
+	    time_on / 60, time_on % 60, p->capname, lookup_ip_name(p));
 }
 
 char *
@@ -1474,6 +1896,7 @@ flags(struct user *p)
 	{ U_NOSNOOP,		'S' },
 	{ U_NO_IDLEOUT,		'I' },
 	{ U_SHUTDOWN_NOKICK,	'K' },
+	{ U_NOEMAIL,		'E' },
 	{ 0,			'\0' } };
 
 	for (i = 0; flagtab[i].flag; i++)
@@ -1514,8 +1937,7 @@ doa_start(struct user *p, char *name)
 	if (i < 0)
 		fatal("doa_start: doa stack overflow.");
 
-	if ((u = find_user(p, name)) != (struct user *)NULL &&
-	    !strcmp(u->rlname, name))
+	if ((u = find_user_absolute(p, name)) != (struct user *)NULL)
 	{
 		doa_stack[i].user = u;
 		doa_stack[i].live = 1;
@@ -1548,5 +1970,15 @@ doa_end(struct user *u, int save)
 		tfree_user(u);
 
 	doa_stack[i].user = (struct user *)NULL;
+}
+
+time_t *
+user_time(struct user *p, time_t t)
+{
+	static time_t tm;
+
+	/* tz_adjust is already multiplied by 10. */
+	tm = t + p->tz_adjust * 360;
+	return &tm;
 }
 

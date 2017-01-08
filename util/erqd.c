@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	erqd.c
  * Function:	External Request Daemon. Handles ip and user ident
@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -57,11 +58,35 @@
 #define FD_CAST (fd_set *)
 #endif
 
-#define IDENT_TIMEOUT 15
+/* Wait 15 seconds for conenction to ident server...
+ * This is so that we don't completely block if we try to contact a PC
+ * which does not return ICMP properly */
+#define IDENT_TIMEOUT	15
+#define IDENT_PORT	113
+
 #define REPLY_ERROR(xx) printf("%d,%d:%s\n", ERQ_ERROR, id, xx); fflush(stdout)
 
-char 	user_name[0x100];
+char 	user_name[0x200];
 int 	failed;
+
+#ifdef BUGGY_INET_NTOA
+char *
+inet_ntoa(struct in_addr ad)
+{
+        unsigned long s_ad, a, b, c, d;
+        static char addr[MAX_INET_ADDR];
+
+        s_ad = ad.s_addr;
+        d = s_ad % 256;
+        s_ad /= 256;
+        c = s_ad % 256;
+        s_ad /= 256;
+        b = s_ad % 256;
+        a = s_ad / 256;
+        sprintf(addr, "%d.%d.%d.%d", a, b, c, d);
+        return addr;
+}
+#endif
 
 static int
 nonblock(int fd)
@@ -81,26 +106,37 @@ nonblock(int fd)
 	return 1;
 }
 
+void
+alarm_trap(int sig)
+{
+	failed = 1;
+}
+
 char *
-ident(int remote, int local_port, int remote_port)
+ident(unsigned long remote, unsigned int local_port, unsigned int remote_port)
 {
     	struct sockaddr_in addr;
     	int s;
-    	char buf[0x100];
+	/* RFC 1413 says that the client should feel free to abort
+	 * identification if it receives 1000 characters
+	 * without a newline */
+    	char buf[0x400], *p;
     	int buflen;
     	unsigned int i;
     	struct timeval timeout;
     	fd_set fs;
 
-	failed = 0;
-
     	if ((s = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 		return "";
     	memset((char *)&addr, '\0', sizeof(addr));
     	addr.sin_family = AF_INET;
-    	addr.sin_port = htons(113);
+    	addr.sin_port = htons(IDENT_PORT);
     	addr.sin_addr.s_addr = remote;
+
+	failed = 0;
+	signal(SIGALRM, alarm_trap);
 	alarm((unsigned)IDENT_TIMEOUT);
+
     	if (connect(s, (struct sockaddr *)&addr, sizeof(addr)) == -1)
     	{
 		close(s);
@@ -118,11 +154,13 @@ ident(int remote, int local_port, int remote_port)
 		return "";
 	}
 
-    	sprintf(buf, "%u , %u\r\n", remote_port, local_port);
+    	sprintf(buf, "%u,%u\r\n", remote_port, local_port);
     	buflen = strlen(buf);
 
     	FD_ZERO(&fs);
     	FD_SET(s, &fs);
+
+	/* Wait until we are allowed to write to the socket. */
     	timeout.tv_sec = 5;
     	timeout.tv_usec = 0;
     	if (select(s + 1, FD_CAST NULL, FD_CAST&fs, FD_CAST NULL,
@@ -131,6 +169,8 @@ ident(int remote, int local_port, int remote_port)
 		close(s);
 		return "";
     	}
+
+	/* Submit request. */
     	if (write(s, buf, buflen) != buflen)
     	{
 		close(s);
@@ -138,10 +178,12 @@ ident(int remote, int local_port, int remote_port)
     	}
 
     	i = 0;
-    	buf[0] = 0;
+    	buf[0] = '\0';
     	FD_ZERO(&fs);
     	FD_SET(s, &fs);
-    	timeout.tv_sec = 10;
+	/* From RFC 1413
+	 * Wait 30 seconds for response from server. */
+    	timeout.tv_sec = 30;
     	timeout.tv_usec = 0;
     	if (select(s + 1, FD_CAST&fs, FD_CAST NULL, FD_CAST NULL,
 	    (struct timeval *)&timeout) == 0 ||
@@ -155,7 +197,7 @@ ident(int remote, int local_port, int remote_port)
     	{
 		FD_ZERO(&fs);
 		FD_SET(s, &fs);
-		timeout.tv_sec = 1;
+		timeout.tv_sec = 5;
 		timeout.tv_usec = 0;
 		if (select(s + 1, FD_CAST&fs, FD_CAST NULL, FD_CAST NULL,
 		    (struct timeval *)&timeout) == 0 ||
@@ -165,24 +207,29 @@ ident(int remote, int local_port, int remote_port)
 		if (read(s, buf + i, 1) != 1)
 	    		break;
 
-		if (buf[i] != ' ' && buf[i] != '\t' && buf[i] != '\r')
+		/* Skip whitespace and \r characters. */
+		if (!isspace(buf[i]) && buf[i] != '\r')
 	    		i++;
     	} while (buf[i - 1] != '\n' && i < sizeof(buf));
     	buf[i] = '\0';
     	close(s);
     
     	if (sscanf(buf, "%*d,%*d: USERID :%*[^:]:%s", user_name) != 1)
-		return "";
-    	else
-		return user_name;
+	{
+		strcpy(user_name, "!");
+		if (sscanf(buf, "%*d,%*d: ERROR : %s", user_name + 1) != 1)
+			return "";
+		strcat(user_name, "!");
+	}
+
+	/* RFC 1413: returned user identifier need not be printable!!! */
+	for (p = user_name; *p != '\0'; p++)
+		if (!isprint(*p))
+			*p = '.';
+
+	return user_name;
 }
 
-void
-alarm_trap(int sig)
-{
-	signal(sig, alarm_trap);
-	failed++;
-}
 
 #define EMAIL_REPLY(xx)	printf("%d,%d:%s;%d;\n", ERQ_EMAIL, id, sender, xx)
 
@@ -212,8 +259,6 @@ main()
 	signal(SIGPOLL, SIG_IGN);
 #endif
 
-	signal(SIGALRM, alarm_trap);
-
 	/* Let's tell the main server who we are.. */
 	printf("%d,0:External request daemon v.%s\n",
 	    ERQ_IDENTIFY, ERQD_VERSION);
@@ -225,7 +270,8 @@ main()
 		if (getppid() == (pid_t)1)
 			exit(0);
 
-		if (gets(buf) == (char *)NULL)
+		/* fgets used to get one line at a time.. */
+		if (fgets(buf, sizeof(buf), stdin) == (char *)NULL)
 			continue;
 
 		if (sscanf(buf, "%d,%d", &request, &id) != 2)
@@ -249,18 +295,13 @@ main()
 			char ipnum[0x100];
 			unsigned long addr;
 			struct hostent *hp;
-			struct in_addr saddr;
 
 			if (!sscanf(cmd, "%[^;]", ipnum))
 				break;
 			if ((addr = inet_addr(ipnum)) == -1)
 				break;
-	    		hp = gethostbyaddr((char *)&addr, 4, AF_INET);
-	    		if (hp == (struct hostent *)NULL) 
-			{
-				sleep(5);
-	        		hp = gethostbyaddr((char *)&addr, 4, AF_INET);
-	    		}
+	    		hp = gethostbyaddr((char *)&addr, sizeof(addr),
+			    AF_INET);
 	    		if (hp == (struct hostent *)NULL) 
 			{
 				printf("%d,%d:%s;\n", ERQ_FAILED_RESOLVE, id,
@@ -268,9 +309,12 @@ main()
 				fflush(stdout);
 				break;
 			}
-			memmove(&(saddr.s_addr), hp->h_addr, 4);
-			printf("%d,%d:%s %s;\n", ERQ_RESOLVE_NUMBER, id,
-			    ipnum, hp->h_name);
+			if (strlen(hp->h_name) >= MAX_INET_ADDR)
+				printf("%d,%d:%s <IPNAME.TOO.LONG>;\n",
+				    ERQ_RESOLVE_NUMBER, id, ipnum);
+			else
+				printf("%d,%d:%s %s;\n", ERQ_RESOLVE_NUMBER,
+				    id, ipnum, hp->h_name);
 			fflush(stdout);
 			break;
 		    }
@@ -285,17 +329,13 @@ main()
 	    		hp = gethostbyname(ipname);
 	    		if (hp == (struct hostent *)NULL) 
 			{
-				sleep(5);
-	        		hp = gethostbyname(ipname);
-	    		}
-	    		if (hp == (struct hostent *)NULL) 
-			{
 				printf("%d,%d:%s;\n", ERQ_FAILED_RESOLVE, id,
 				    ipname);
 				fflush(stdout);
 				break;
 			}
-			memmove(&(saddr.s_addr), hp->h_addr, 4);
+			memmove(&(saddr.s_addr), hp->h_addr,
+			    sizeof(saddr.s_addr));
 			printf("%d,%d:%s %s;\n", ERQ_RESOLVE_NAME, id,
 			    inet_ntoa(saddr), hp->h_name);
 			fflush(stdout);
@@ -380,6 +420,14 @@ main()
 			    &delete_after) != 3)
 				break;
 
+			/* Security check.. */
+			if (strpbrk(file, "/.") != (char *)NULL)
+			{
+				EMAIL_REPLY(0);
+				REPLY_ERROR("Illegal email filename.");
+				break;
+			}
+
 			sprintf(realfile, LIB_PATH "/" F_EMAILD "%s",
 			    file);
 
@@ -404,7 +452,7 @@ main()
 				break;
 			}
 			while (fgets(buff, sizeof(buff), smi) != (char *)NULL)
-				fprintf(sm, buff);
+				fprintf(sm, "%s", buff);
 			fclose(smi);
 			pclose(sm);
 			if (delete_after)

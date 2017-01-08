@@ -1,0 +1,10 @@
+NAME		grep
+SYNTAX		grep [-i] <substring> <filename>
+DESCRIPTION	A very simple implementation of the unix 'grep' command.
+		With this command, you can search a file in the library for
+		a particular one word substring. Prefixing the substring with
+		the -i option will cause the command to ignore differences in
+		case when searching.
+		The command will prefix each line found with the line number
+                in [ ].
+SEE ALSO	more, cat, tail, head

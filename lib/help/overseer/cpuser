@@ -1,0 +1,5 @@
+NAME		cpuser
+SYNTAX		cpuser <old name> <new name>
+DESCRIPTION	Copies a user. Can be used in conjunction with 'rmuser' to
+		rename a user. The user's mailbox, if any, is also copied.
+SEE ALSO	rmuser

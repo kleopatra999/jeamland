@@ -1,6 +1,6 @@
 #/**********************************************************************
-# * The JeamLand talker system
-# * (c) Andy Fiddaman, 1994-96
+# * The JeamLand talker system v.1.2.0
+# * (c) Andy Fiddaman, 1993-97
 # *
 # * File:	mkcmdprot.awk
 # * Function:	Generates prototypes for command functions.
@@ -24,7 +24,7 @@
 		if (in_c)
 			printf("\n%s\n", $0);
 	}
-	/f_[a-z_]*/ {
+	/f_[0-9a-z_]*/ {
 		if (in_c)
 		{
 			fname = substr($2, index($2, "f_"));

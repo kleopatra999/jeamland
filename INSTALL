@@ -3,7 +3,7 @@ A first attempt at documenting: How to install JeamLand
 
 I am really a little too close to JeamLand to write this document, but I'll
 give it a go and then amend it in response to any comments I receive!
-Comments to: A.Fiddaman@twikki.demon.co.uk please!
+Comments to: JeamLand@twikki.demon.co.uk please!
 
 
 1. Extracting the JeamLand directory tree.
@@ -14,13 +14,13 @@ Comments to: A.Fiddaman@twikki.demon.co.uk please!
    JeamLand is distributed as a gzipped tar file and needs to be uncompressed
    and untarred. If you have gnu tar, then all you need to type is:
 
-	tar -zxvf jeamland.1.0.0.tar.gz
+	tar -zxvf jeamland.1.2.0.tar.gz
 
-   where 1.0.0 is the version number of this distribution.
+   where 1.2.0 is the version number of this distribution.
 
    If you do not have gnu tar, then the required command is:
 
-	gzip -dc jeamland.1.0.0.tar.gz | tar -xf -
+	gzip -dc jeamland.1.2.0.tar.gz | tar -xf -
 
    If you do not have gzip (?!) you can try downloading the distribution as
    an unzipped tar by ftp'ing it down again omitting the .gz extension
@@ -29,12 +29,12 @@ Comments to: A.Fiddaman@twikki.demon.co.uk please!
    If you do not have tar, then you're stuck unless you can persuade another
    program, such as cpio, to extract the files for you.
 
-   You should now have a directory called something like jeamland.1.0.0
+   You should now have a directory called something like jeamland.1.2.0
    (depending on the version you have.)
 
 
 2. You now need to configure your distribution.
-   First, change into the jeamland.1.0.0 directory then either:
+   First, change into the jeamland.1.2.0 directory then either:
 
      i)  Run the Configure program and answer the questions.
    or
@@ -113,6 +113,8 @@ Comments to: A.Fiddaman@twikki.demon.co.uk please!
    typing:
 
 	make aclean
+
+8. Please now read the README file.
 
 
 Enjoy!

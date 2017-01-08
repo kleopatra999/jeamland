@@ -1,0 +1,6 @@
+NAME		rntab
+SYNTAX		rntab
+		rntab <client number> <message>
+DESCRIPTION	Show the list of connected RNClients or, with the second form,
+		send a message to a connected RNClient.
+		The second form may only be used by an overseer.

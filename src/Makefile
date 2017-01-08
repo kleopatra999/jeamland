@@ -1,6 +1,3 @@
-# This line is needed on some machines
-MAKE=make
-
 SRCS=	access.c \
 	alias.c \
 	backend.c \
@@ -20,9 +17,12 @@ SRCS=	access.c \
 	file.c \
 	grupe.c \
 	hash.c \
+	imud.c \
+	imud3.c \
 	inetd.c \
 	jlm.c \
 	login.c \
+	mapping.c \
 	master.c \
 	mbs.c \
 	more.c \
@@ -50,16 +50,20 @@ INCS=	../include/access.h \
 	../include/files.h \
 	../include/grupe.h \
 	../include/hash.h \
+	../include/imud.h \
+	../include/imud3.h \
 	../include/inetd.h \
 	../include/jeamland.h \
 	../include/jlm.h \
 	../include/lint.h \
 	../include/macro.h \
+	../include/mapping.h \
 	../include/master.h \
 	../include/mbs.h \
 	../include/object.h \
 	../include/room.h \
 	../include/sent.h \
+	../include/socket.h \
 	../include/soul.h \
 	../include/jlstring.h \
 	../include/system.h \
@@ -68,7 +72,10 @@ INCS=	../include/access.h \
 
 CFLAGS=${MFLAGS} ${DEFS}
 
-all: jeamland
+def:
+	@echo
+	@echo "Run make from the top level JeamLand directory."
+	@echo
 
 # Test stuff
 lint:
@@ -77,14 +84,18 @@ lint:
 
 aclean:
 	@echo "Cleaning directory jeamland."
-	@rm -f ${OBJS} core
-	@rm -f mkcmdprot.c mkcmdprot cmd.table.h lex.yy.c
+	@touch core
+	@rm -f ${OBJS} core jeamland~
+	@touch core
+	@rm -f mkcmdprot.c mkcmdprot cmd.table.h lex.yy.c core
 
 clean: aclean
-	@rm -f jeamland
+	@rm -f jeamland jeamland~
 
 jeamland: ${OBJS}
 	@echo "Linking jeamland."
+	@-touch $@
+	@-mv $@ $@~
 	@${CC} -o $@ ${OBJS} ${LIBS}
 	@echo "Done.."
 
@@ -101,7 +112,7 @@ backend.o: $(GLOBAL) ../include/user.h ../include/room.h ../include/event.h \
 board.o: $(GLOBAL) ../include/board.h ../include/user.h
 cmd.visitor.o: $(CMD_GLOBAL) ../include/event.h ../include/command.h \
 	../include/alias.h  ../include/board.h ../include/termcap.h \
-	../include/soul.h
+	../include/soul.h ../include/config.h
 cmd.resident.o: $(CMD_GLOBAL) ../include/command.h ../include/alias.h \
 	../include/board.h ../include/mbs.h ../include/grupe.h
 cmd.citizen.o: $(CMD_GLOBAL)
@@ -116,6 +127,8 @@ ed.o: $(GLOBAL) ../include/ed.h ../include/user.h
 event.o: $(GLOBAL) ../include/event.h
 file.o: $(GLOBAL) ../include/user.h
 grupe.o: $(GLOBAL) ../include/grupe.h
+imud.c: $(GLOBAL) ../include/imud.h
+imud3.c: $(GLOBAL) ../include/imud3.h
 inetd.o: $(GLOBAL) ../include/inetd.h ../include/user.h ../include/event.h
 jlm.o: $(GLOBAL) ../include/jlm.h
 login.o: $(GLOBAL) ../include/access.h ../include/user.h
@@ -141,6 +154,14 @@ cmd.table.h: cmd.table.c
 
 cmd.table.o: cmd.table.h
 
+.c.o:
+	@echo "         $< -> $@"
+	@$(CC) $(CFLAGS) -c $<
+
+# The following comment lines are required as they are searched for by the
+# Configure script.
+
+#MKCMDPROT_LEX_BEGIN
 cmd.table.h: mkcmdprot
 	@echo "         Generating cmd.table.h (using lex)"
 	@./mkcmdprot < cmd.table.c > cmd.table.h
@@ -149,19 +170,17 @@ mkcmdprot: mkcmdprot.l
 	@echo "         mkcmdprot.l -> mkcmdprot"
 	@$(LEX) mkcmdprot.l
 	@$(CC) -o mkcmdprot lex.yy.c
+#MKCMDPROT_LEX_END
 
-# Example dependency to replace the above two if you want/have to use the awk
-# version of mkcmdprot.
+##MKCMDPROT_AWK_BEGIN
 #cmd.table.h: mkcmdprot.awk
 #	@echo "         Generating cmd.table.h (using awk)"
 #	@$(AWK) -fmkcmdprot.awk cmd.table.c > cmd.table.h
+##MKCMDPROT_AWK_END
 
-# Example dependency if you want/have to use the sed version of mkcmdprot
+##MKCMDPROT_SED_BEGIN
 #cmd.table.h: mkcmdprot.sed
 #	@echo "         Generating cmd.table.h (using sed)"
 #	@sed -n -fmkcmdprot.sed cmd.table.c > cmd.table.h
-
-.c.o:
-	@echo "         $< -> $@"
-	@$(CC) $(CFLAGS) -c $<
+##MKCMDPROT_SED_END
 

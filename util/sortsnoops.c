@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	sortsnoops.c
  * Function:	Small program to send snoop logs to an email address.
@@ -34,7 +34,7 @@ main(int argc, char **argv)
 	if (argc != 2)
 	{
 		fprintf(stderr, "Syntax: sortsnoops <email_address>\n");
-		exit(-1);
+		exit(1);
 	}
 
 	if ((fp = fopen(LIB_PATH "/" F_SNOOPED, "r")) == (FILE *)NULL)

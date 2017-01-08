@@ -1,4 +1,0 @@
-NAME		remote
-SYNTAX		remote <user> <message>
-DESCRIPTION	Emote remotely to someone.
-AKA		<

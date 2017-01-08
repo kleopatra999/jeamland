@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	rquery.c
  * Function:	Small program to retrieve text from JeamLand's service
@@ -33,6 +33,10 @@
 #define SERVICE_ADDR	"127.0.0.1"
 #define port DEFAULT_PORT
 
+#ifndef SERVICE_PORT
+#define SERVICE_PORT 79
+#endif
+
 static void
 nonblock(int fd)
 {
@@ -41,7 +45,7 @@ nonblock(int fd)
     	if (ioctl(fd, FIONBIO, &tmp) == -1)
     	{
 		perror("ioctl socket FIONBIO");
-		exit(-1);
+		exit(1);
     	}
 #else
 	fcntl(fd, F_SETOWN, getpid());
@@ -54,32 +58,85 @@ nonblock(int fd)
 	if (fcntl(fd, F_SETFL, tmp) == -1)
 	{
 		perror("fcntl socket FNDELAY");
-		exit(-1);
+		exit(1);
 	}
 #endif /* _AIX || HPUX */
+}
+
+int buflen;
+struct timeval timeout;
+fd_set fs;
+int i;
+
+int
+send_cmd(int s, char *cmd)
+{
+	char buf[0x100];
+	int retries = 0;
+
+	sprintf(buf, "%s\n", cmd);
+	buflen = strlen(buf);
+
+	/*
+	 * See if we may write.. 
+	 * If not, will try five times at two second intervals
+	 */
+	while (retries++ < 5)
+	{
+		FD_ZERO(&fs);
+		FD_SET(s, &fs);
+		timeout.tv_sec = 2;
+		timeout.tv_usec = 0;
+
+		if (select(s + 1, FD_CAST NULL, FD_CAST&fs, FD_CAST NULL,
+		    &timeout) == 0 || !FD_ISSET(s, &fs))
+			continue;	/* Try again */
+
+		if ((i = write(s, buf, buflen)) != buflen)
+		{
+			if (i == -1)
+				perror("write");
+			printf("Error writing to server.\n");
+			return 0;
+		}
+		return 1;
+	}
+	return 0;
 }
 
 int
 main(int argc, char **argv)
 {
     	struct sockaddr_in addr;
-    	int s;
-    	char buf[0x1000];
-    	int buflen;
-    	int i;
-    	struct timeval timeout;
-    	fd_set fs;
+	FILE *fp = (FILE *)NULL;
+	char buf[0x1000];
+    	int s, j;
 
 	if (argc < 2)
 	{
-		fprintf(stderr, "Syntax: %s <service>\n", *argv);
-		exit(-1);
+		printf("Syntax: %s <cmd> [cmd]... | @<file>\n",
+		    *argv);
+		exit(1);
 	}
+
+	if (argv[1][0] == '@')
+	{
+		argv[1]++;
+		if ((fp = fopen(argv[1], "r")) == (FILE *)NULL)
+		{
+			perror("fopen");
+			printf("Cannot open %s.\n", argv[1]);
+			exit(1);
+		}
+	}
+
+	/* Connect to remote host. */
 
     	if ((s = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
 		perror("socket");
-		exit(-1);
+		printf("Cannot create stream socket.\n");
+		exit(1);
 	}
 
     	memset((char *)&addr, '\0', sizeof(addr));
@@ -91,56 +148,75 @@ main(int argc, char **argv)
     	{
 		close(s);
 		perror("connect");
-		exit(-1);
+		printf("Cannot connect to server.\n");
+		exit(1);
     	}
 	nonblock(s);
 
-    	sprintf(buf, "%s\r\n", argv[1]);
-    	buflen = strlen(buf);
+	/* Send request */
 
-    	FD_ZERO(&fs);
-    	FD_SET(s, &fs);
-    	timeout.tv_sec = 5;
-    	timeout.tv_usec = 0;
-    	if (select(s + 1, FD_CAST NULL, FD_CAST&fs, FD_CAST NULL,
-	    (struct timeval *)&timeout) == 0 || !FD_ISSET(s, &fs))
-    	{
-		close(s);
-		fprintf(stderr, "Could not connect.\n");
-		exit(-1);
-    	}
-    	if ((i = write(s, buf, buflen)) != buflen)
-    	{
-		close(s);
-		if (i == -1)
-			perror("write");
-		fprintf(stderr, "Write error.\n");
-		exit(-1);
-    	}
+	if (fp == (FILE *)NULL)
+	{
+		while (argc > 1)
+		{
+			if (!send_cmd(s, argv[1]))
+			{
+				printf("Cannot send service command.\n");
+				close(s);
+				exit(1);
+			}
+			argc--, argv++;
+		}
+	}
+	else
+	{
+		while (fgets(buf, sizeof(buf), fp) != (char *)NULL)
+		{
+			char *p;
+
+			if ((p = strchr(buf, '\n')) != (char *)NULL)
+				*p = '\0';
+
+			if (!send_cmd(s, buf))
+			{
+				printf("Cannot send service command.\n");
+				fclose(fp);
+				close(s);
+				exit(1);
+			}
+		}
+		fclose(fp);
+	}
+
+	/* Read response */
 
     	i = 0;
-    	buf[0] = 0;
+    	buf[0] = '\0';
     	FD_ZERO(&fs);
     	FD_SET(s, &fs);
-    	timeout.tv_sec = 10;
+
+	/* Wait for 30 seconds... overkill ;-) */
+
+    	timeout.tv_sec = 30;
     	timeout.tv_usec = 0;
     	if (select(s + 1, FD_CAST&fs, FD_CAST NULL, FD_CAST NULL,
-	    (struct timeval *)&timeout) == 0 ||
+	    &timeout) == 0 ||
 	    !FD_ISSET(s, &fs))
     	{
 		close(s);
-		fprintf(stderr, "No response.\n");
-		exit(-1);
+		printf("No response from server.\n");
+		exit(1);
     	}
     
+	j = 0;
     	do
     	{
 		FD_ZERO(&fs);
 		FD_SET(s, &fs);
-		timeout.tv_sec = 1;
+		timeout.tv_sec = 5;
 		timeout.tv_usec = 0;
 		if (select(s + 1, FD_CAST&fs, FD_CAST NULL, FD_CAST NULL,
-		    (struct timeval *)&timeout) == 0 ||
+		    &timeout) == 0 ||
 	    	    !FD_ISSET(s, &fs))
 	    		break;
 	
@@ -149,10 +225,19 @@ main(int argc, char **argv)
 
 		if (buf[i] != '\r')
 	    		i++;
-    	} while ((unsigned int)i < sizeof(buf));
-    	buf[i] = '\0';
+		if (i >= sizeof(buf) - 1)
+		{
+			buf[i] = '\0';
+			printf("%s", buf);
+			i = 0;
+			buf[0] = '\0';
+			j++;
+		}
+    	} while (j < 5);
+
     	close(s);
-    
+
+	buf[i] = '\0';
 	printf("%s", buf);
 	exit(0);
 }

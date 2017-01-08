@@ -1,10 +1,18 @@
 #!/bin/sh
 # Quick configure script, for those who just can't wait!
 
-EMAIL=A.Fiddaman@twikki.demon.co.uk
+EMAIL=JeamLand@twikki.demon.co.uk
 
 # Disable globbing
 set -f
+
+# Verbose, for debugging
+#set -v
+
+# Some versions of sh need these defining at the top
+echotype=
+ans=
+sc=
 
 check_file()
 {
@@ -29,13 +37,13 @@ check_file()
 # readold var_name default
 readoldstring()
 {
-	old=`cat include/config.h | egrep "^#define $1" | cut -d\" -f2`
+	old=`cat include/config.h | grep "^#define $1" | cut -d\" -f2`
 	[ -z "$old" ] && old=$2
 }
 
 readoldint()
 {
-	old=`cat include/config.h | egrep "^#define $1" | awk '{print $3}'`
+	old=`cat include/config.h | grep "^#define $1" | awk '{print $3}'`
 	[ -z "$old" ] && old=$2
 }
 
@@ -56,6 +64,18 @@ check_result_file()
 replace_string_var()
 {
 	check_file
+
+	if [ $# -ne 2 ]; then
+		cat << EOM
+   +++
+   Something has gone wrong.
+   To configure your JeamLand setup, edit config.h with your favourite editor.
+
+   Please report this problem to JeamLand@twikki.demon.co.uk
+   +++
+EOM
+		exit 1
+	fi
 	
 	mv include/config.h include/.config.h
 	cat include/.config.h | sed '/#define '"$1"'/c\
@@ -68,6 +88,18 @@ replace_string_var()
 replace_int_var()
 {
 	check_file
+
+	if [ $# -ne 2 ]; then
+		cat << EOM
+   +++
+   Something has gone wrong.
+   To configure your JeamLand setup, edit config.h with your favourite editor.
+
+   Please report this problem to JeamLand@twikki.demon.co.uk
+   +++
+EOM
+		exit 1
+	fi
 
 	mv include/config.h include/.config.h
 	cat include/.config.h | sed '/#define '"$1"'/c\
@@ -103,20 +135,71 @@ atexit()
 {
 	if [ $? -ne 0 ]; then
 		mv include/.config.org include/config.h
+		if [ -f src/.Makefile.orig ]; then
+			mv src/.Makefile.orig src/Makefile
+		fi
 		echo
 		echo '#'
-		echo '# Error: Your original config.h file has been restored.'
+		echo '# Error: Your original config files have been restored.'
 		echo '#'
 	else
-		#rm include/.config.org
-		echo
 		echo '#'
 		echo "# That's it!"
-		echo '# Your config.h file has been updated.'
+		echo '# Your config files have been updated.'
 		echo '# Type 'make' to compile JeamLand.'
+		echo '#'
+		echo '# For finer tuning, you may wish to edit config.h manually'
 		echo '#'
 	fi
 }
+
+spacecheck()
+{
+	temp=`echo $1 | sed 's/[ 	]/X/g'`
+	if [ "x$temp" = "x$1" ]; then
+		sc=0
+	else
+		echo '! - Must not contain any spaces.'
+		sc=1
+	fi
+}
+
+input_ns()
+{
+	sc=1
+	while [ $sc -eq 1 ]; do
+		input "$1" "$2"
+		spacecheck "$ans"
+	done
+}
+
+echo_check()
+{
+	# How does our echo command work ?
+	if (echo "wibble\c"; echo fubar) | grep c > /dev/null
+	then
+		# Appending \c doesn't work... does a prefix of -n ?
+		if (echo -n wibble; echo fubar) | sed 's/-n/xn/' | \
+		    grep xn > /dev/null
+		then
+			# Prefixing -n doesn't work, do the best we can.
+			echotype=3
+		else
+			# Prefixing -n works.
+			echotype=1
+		fi
+	else
+		# Suffix of \c works.
+		echotype=2
+	fi
+}
+
+
+##############################################################################
+#
+#                    MAIN CONFIGURATION PROGRAM
+#
+##############################################################################
 
 # Starts here - error recovery
 check_file
@@ -128,22 +211,7 @@ trap atexit 0
 #             HUP INT QUIT KILL
 trap 'exit 1' 1   2   3    9
 
-# How does our echo command work ?
-if (echo "wibble\c"; echo fubar) | grep c > /dev/null
-then
-	# Appending \c doesn't work... does a prefix of -n ?
-	if (echo -n wibble; echo fubar) | sed 's/-n/xn/' | grep xn > /dev/null
-	then
-		# Prefixing -n doesn't work, ah well, do the best we can.
-		echotype=3
-	else
-		# Prefixing -n works.
-		echotype=1
-	fi
-else
-	# Suffix of \c works.
-	echotype=2
-fi
+echo_check
 
 cat << EOF
 
@@ -156,52 +224,79 @@ cat << EOF
     edit the config.h file by hand.
 
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
 EOF
 
 # Set local name
-cat << EOF
+cat << EOM
 
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 You must first choose a unique local name for your talker. This name is
-used for identification of your talker to the rest of the interhost network
-and there may be confusion if it is not unique.
+used for identification of your talker to the various intermud/talker
+systems and a non-unique name will cause confusion.
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+EOM
 
-EOF
-
+# Set the name of the talker.
 readoldstring LOCAL_NAME 'Unconfigured'
-
-ex=1
-while [ $ex -eq 1 ]; do
-	input 'Enter a name now' "$old"
-	ex=0
-	if echo $ans | sed 's/P/p/g' | sed 's/[ 	]/P/g' | \
-	     grep P > /dev/null
-	then
-		echo '! - Name must not contain any spaces.'
-		ex=1
-	fi
-done
+input_ns 'Enter a name now' "$old"
 replace_string_var LOCAL_NAME "$ans"
 
 # Set the directory
 echo 'Enter the directory in which JeamLand resides (no trailing /)'
-input '' `pwd`
+input_ns '' `pwd`
 replace_string_var TOP_DIR "$ans"
 
 # Set the port
 readoldint DEFAULT_PORT '4141'
-input 'Enter the port to listen on' "$old"
+input_ns 'Enter the port to listen on' "$old"
 replace_int_var DEFAULT_PORT "$ans"
 
 # Set the email
 readoldstring OVERSEER_EMAIL 'Jeamland@twikki.demon.co.uk'
-input "Enter the administrator's email address" "$old"
+input_ns "Enter the administrator's email address" "$old"
 replace_string_var OVERSEER_EMAIL "$ans"
 
 # Set an override host name.
 readoldstring OVERRIDE_HOST_NAME ''
-input "Enter an alias ip address (optional)" "$old"
+cat << EOM
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Define if JeamLand cannot work out the correct host name for the machine.
+This should only be necessary on some suns or when you wish to give an
+alias instead of major name.
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+EOM
+input_ns "Enter an alias ip address (optional)" "$old"
 if [ ! -z "$ans" ]; then
 	replace_string_var OVERRIDE_HOST_NAME "$ans"
 fi
+
+# Choose how cmd.table.h is constructed.
+cat << EOM
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+The cmd.table.h file contains prototype information for all of JeamLand's
+commands. It is built during compilation using either lex, awk or sed.
+Lex is the preferred method, but if for some reason this doesn't work, you
+have the option to use either awk or sed. The awk builder may work only with
+Gnu awk or nawk, the sed builder should always work.
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+EOM
+while [ "$ans" != 'LEX' ] && [ "$ans" != 'SED' ] && [ "$ans" != 'AWK' ]; do
+	input "Select a build method for cmd.table.h: lex/awk/sed", "lex"
+	if [ "x$ans" = "x" ]; then
+		ans=LEX
+	else
+		ans=`echo $ans | tr '[a-z]' '[A-Z]'`
+	fi
+	echo "Selected ${ans}."
+done
+
+# First deselect all methods..
+cp src/Makefile src/.Makefile.orig
+mv src/Makefile src/Makefile~
+cat src/Makefile~ | sed '/^#MKCMDPROT_[A-Z]*_BEGIN/,/^#MKCMDPROT_[A-Z]*_END/s/^/#/' > src/Makefile
+mv src/Makefile src/Makefile~
+cat src/Makefile~ | sed '/^##MKCMDPROT_'${ans}'_BEGIN/,/^##MKCMDPROT_'${ans}'_END/s/^#//' > src/Makefile
+rm -f src/Makefile~
 

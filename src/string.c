@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	string.c
  * Function:	Functions which manipulate strings
@@ -54,6 +54,24 @@ nctime(time_t *tm)
 	strcpy(tmbuf, ctime(tm));
 	*strchr(tmbuf, '\n') = '\0';
 	return tmbuf;
+}
+
+char *
+shnctime(time_t *tm)
+{
+        static char buf[9];
+
+        my_strncpy(buf, ctime(tm) + 11, 8);
+        return buf;
+}
+
+char *
+vshnctime(time_t *tm)
+{
+        static char buf[6];
+
+        my_strncpy(buf, ctime(tm) + 11, 5);
+        return buf;
 }
 
 char *
@@ -169,7 +187,7 @@ conv_time(time_t t)
 static int strbuf_total = 0;		/* Total string buffers */
 static int strbuf_current = 0;		/* ^ in memory now */
 static int strbuf_no_expand = 0;	/* How many didn't need expanding */
-#define STRBUF_STATS_LOTS 25
+#define STRBUF_STATS_LOTS 20
 static int strbuf_lots_expand = 0;	/* How many needed expanding a lot */
 
 void
@@ -192,7 +210,7 @@ strbuf_stats(struct user *p)
 void
 init_strbuf(struct strbuf *buf, int len, char *id)
 {
-	if (!len)
+	if (len < STRBUF_CHUNK)
 		len = STRBUF_CHUNK;
 
 	buf->offset = 0;
@@ -212,18 +230,19 @@ reinit_strbuf(struct strbuf *buf)
 	buf->str[0] = '\0';
 }
 
-#ifdef STRBUF_STATS
 void
 pop_strbuf(struct strbuf *buf)
 {
-	buf->offset = buf->len = 0;
+#ifdef STRBUF_STATS
 	strbuf_current--;
 	if (!buf->xpnd)
 		strbuf_no_expand++;
 	else if (buf->xpnd > STRBUF_STATS_LOTS)
 		strbuf_lots_expand++;
-}
+	buf->xpnd = 0;
 #endif
+	buf->offset = buf->len = 0;
+}
 
 void
 free_strbuf(struct strbuf *buf)
@@ -263,6 +282,19 @@ add_strbuf(struct strbuf *buf, char *str)
 }
 
 void
+binary_add_strbuf(struct strbuf *buf, char *str, int len)
+{
+	char *q = str;
+
+	if (buf->offset + len > buf->len)
+		expand_strbuf(buf, len);
+
+	while (len--)
+		buf->str[buf->offset++] = *q++;
+	buf->str[buf->offset] = '\0';
+}
+
+void
 cadd_strbuf(struct strbuf *buf, char ch)
 {
 	if (buf->offset >= buf->len)
@@ -293,7 +325,7 @@ sadd_strbuf(struct strbuf *sbuf, char *fmt, ...)
 void
 val2str(struct strbuf *buf, struct svalue *val)
 {
-	switch(val->type)
+	switch (val->type)
 	{
 	    case T_EMPTY:
 		add_strbuf(buf, "!!EMPTY!!");
@@ -302,15 +334,19 @@ val2str(struct strbuf *buf, struct svalue *val)
 	    case T_STRING:
 	    {
 		char *str = code_string(val->u.string);
-		add_strbuf(buf, "\"");
+		cadd_strbuf(buf, '"');
 		add_strbuf(buf, str);
-		add_strbuf(buf, "\"");
+		cadd_strbuf(buf, '"');
 		xfree(str);
 		break;
 	    }
 
 	    case T_NUMBER:
 		sadd_strbuf(buf, "%ld", val->u.number);
+		break;
+
+	    case T_UNUMBER:
+		sadd_strbuf(buf, "%ld", val->u.unumber);
 		break;
 
 	    case T_VECTOR:
@@ -321,9 +357,28 @@ val2str(struct strbuf *buf, struct svalue *val)
 		for (i = 0; i < val->u.vec->size; i++)
 		{
 			val2str(buf, &val->u.vec->items[i]);
-			add_strbuf(buf, ",");
+			cadd_strbuf(buf, ',');
 		}
 		add_strbuf(buf, "})");
+		break;
+	    }
+
+	    case T_MAPPING:
+	    {
+		int i;
+
+		add_strbuf(buf, "([");
+		for (i = 0; i < val->u.map->size; i++)
+		{
+			/* Empty elements are not stored */
+			if (val->u.map->indices->items[i].type == T_EMPTY)
+				continue;
+			val2str(buf, &val->u.map->indices->items[i]);
+			cadd_strbuf(buf, ':');
+			val2str(buf, &val->u.map->values->items[i]);
+			cadd_strbuf(buf, ',');
+		}
+		add_strbuf(buf, "])");
 		break;
 	    }
 
@@ -332,11 +387,11 @@ val2str(struct strbuf *buf, struct svalue *val)
 		break;
 
 	    case T_FPOINTER:
-		add_strbuf(buf, "!!Cannot represent function pointers!!");
+		add_strbuf(buf, "!!FUNCTION!!");
 		break;
 
 	    default:
-		fatal("Invalid value of svalue in val2str, %d", val->type);
+		fatal("Invalid type of svalue in val2str, %d", val->type);
 	}
 }
 
@@ -354,7 +409,7 @@ svalue_to_string(struct svalue *val)
 
 static int str2val(struct svalue *, char **, char *);
 
-struct vector *
+static struct vector *
 decode_vector(char **str, char *id)
 {
 	struct vecbuf v;
@@ -362,7 +417,7 @@ decode_vector(char **str, char *id)
 
 	init_vecbuf(&v, 0, id);
 
-    	for(;;)
+    	for (;;)
     	{
 		if (**str == '}')
 		{
@@ -387,16 +442,57 @@ decode_vector(char **str, char *id)
     	return 0;
 }
 
+static struct mapping *
+decode_mapping(char **str, char *id)
+{
+	struct mapping *map;
+
+	map = allocate_mapping(0, T_EMPTY, T_EMPTY, id);
+
+    	for (;;)
+    	{
+		if (**str == ']')
+		{
+	    		if (*++*str == ')')
+			{
+				++*str;
+				return map;
+			}
+			else
+				break;
+		}
+		else
+		{
+			int i;
+
+			expand_mapping(&map, 1);
+
+			i = map->size - 1;
+
+	    		if (!str2val(&map->indices->items[i], str, id))
+				break;
+	    		if (*(*str)++ != ':')
+				break;
+			if (!str2val(&map->values->items[i], str, id))
+				break;
+	    		if (*(*str)++ != ',')
+				break;
+		}
+    	}
+	free_mapping(map);
+    	return 0;
+}
+
 static int
 str2val(struct svalue *v, char **sp, char *id)
 {
     	char *q, *p, *s;
 
     	s = *sp;
-    	switch(*s)
+    	switch (*s)
 	{
     	    case '(':
-		switch(*++s)
+		switch (*++s)
 		{
 		    case '{':
 	    	    {
@@ -410,12 +506,27 @@ str2val(struct svalue *v, char **sp, char *id)
 			v->u.vec = vec;
 	    	 	break;
 	    	    }
+
+		    case '[':
+		    {
+			struct mapping *map;
+			s++;
+			map = decode_mapping(&s, id);
+			if (map == (struct mapping *)NULL)
+				return 0;
+			free_svalue(v);
+			v->type = T_MAPPING;
+			v->u.map = map;
+			break;
+		    }
+
 	   	    default:
 	    		return 0;
 		}
 		break;
+
     	    case '"':
-		for(p = s + 1, q = s; *p != '\0' && *p != '"'; p++) 
+		for (p = s + 1, q = s; *p != '\0' && *p != '"'; p++) 
 		{
 	    		if (*p == '\\')
 			{
@@ -440,14 +551,26 @@ str2val(struct svalue *v, char **sp, char *id)
 		v->u.string = string_copy(s, id);
 		s = p + 1;
 		break;
+
     	    default:
-		if (!isdigit(*s) && *s != '-')
-	    		return 0;
-		free_svalue(v);
-		v->type = T_NUMBER;
-		v->u.number = atol(s);
-		while(isdigit(*s) || *s == '-')
-	    	    s++;
+		if (*s == 'L')
+		{
+			free_svalue(v);
+			v->type = T_UNUMBER;
+			v->u.unumber = strtoul(++s, (char **)NULL, 16);
+			while (isxdigit(*s))
+				s++;
+		}
+		else
+		{
+			if (!isdigit(*s) && *s != '-')
+				return 0;
+			free_svalue(v);
+			v->type = T_NUMBER;
+			v->u.number = atol(s);
+			while (isdigit(*s) || *s == '-')
+				s++;
+		}
 		break;
     	}
     	*sp = s;
@@ -506,7 +629,7 @@ code_string(char *str)
 
 	for (p = str; *p != '\0'; p++)
 	{
-		switch(*p)
+		switch (*p)
 		{
 		    case '"':
 			add_strbuf(&buf, "\\\"");
@@ -540,7 +663,20 @@ parse_range(struct user *p, char *str, int max)
 
 	do
 	{
-		switch(sscanf(str, "%d - %d", &from, &to))
+		int res;
+
+		if (*str == '-')
+		{
+			from = 1;
+			to = atoi(str + 1);
+			res = 2;
+			if (!to)
+				to = max;
+		}
+		else
+			res = sscanf(str, "%d - %d", &from, &to);
+
+		switch (res)
 		{
 		    case 1:
 		    	if (str[strlen(str) - 1] == '-')
@@ -555,7 +691,7 @@ parse_range(struct user *p, char *str, int max)
 			/* Fallthrough */
 		    case 2:
 			if (to <= from)
-				write_socket(p, "Bad range: %s\n", str);
+				fwrite_socket(p, "Bad range: %s\n", str);
 			else
 			{
 				for ( ; from <= to; from++)
@@ -600,20 +736,27 @@ parse_range(struct user *p, char *str, int max)
 				continue
 
 void
-expand_user_list(struct user *p, char *str, struct vecbuf *v, int on)
+expand_user_list(struct user *p, char *str, struct vecbuf *v, int on, int lcl,
+    int verbose)
 {
 	struct user *who;
 	struct svalue sv;
 	int i;
 	char *c;
 
+	FUN_START("expand_user_list");
+	FUN_ARG(str);
+
 	if ((c = strtok(str, ",")) == (char *)NULL)
+	{
+		FUN_END;
 		return;
+	}
 	do
 	{
 		delheadtrail(&c);
 
-#ifdef UDP_SUPPORT
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 		if (p->level > L_VISITOR && strchr(c, '@') != (char *)NULL)
 		{
 			ADD_STRING(c, "expand_user_list strel");
@@ -634,7 +777,7 @@ expand_user_list(struct user *p, char *str, struct vecbuf *v, int on)
 			{
 				if (vec->items[j].type != T_STRING)
 					continue;
-#ifdef UDP_SUPPORT
+#if defined(INETD_SUPPORT) || defined(CDUDP_SUPPORT)
 				if (p->level > L_VISITOR &&
 				    strchr(vec->items[j].u.string,
 				    '@') != (char *)NULL)
@@ -647,9 +790,25 @@ expand_user_list(struct user *p, char *str, struct vecbuf *v, int on)
 #endif
 				if (on)
 				{
-					if ((who = find_user(p,
-					    vec->items[j].u.string)) ==
-					    (struct user *)NULL)
+					if (lcl)
+						if (verbose)
+							who = with_user_msg(p,
+							    vec->items[j].u.
+							    string);
+						else
+							who = with_user(p,
+							    vec->items[j].u.
+							    string);
+					else
+						if (verbose)
+							who = find_user_msg(p,
+							    vec->items[j].u.
+							    string);
+						else
+							who = find_user(p,
+							    vec->items[j].u.
+							    string);
+					if (who == (struct user *)NULL)
 						continue;
 					DUPL_POINTER(who);
 					ADD_POINTER(who);
@@ -685,8 +844,17 @@ expand_user_list(struct user *p, char *str, struct vecbuf *v, int on)
 
 			if (on)
 			{
-				if ((who = find_user(p, c)) ==
-				    (struct user *)NULL)
+				if (lcl)
+					if (verbose)
+						who = with_user_msg(p, c);
+					else
+						who = with_user(p, c);
+				else
+					if (verbose)
+						who = find_user_msg(p, c);
+					else
+						who = find_user(p, c);
+				if (who == (struct user *)NULL)
 					continue;
 				DUPL_POINTER(who);
 				ADD_POINTER(who);
@@ -698,6 +866,7 @@ expand_user_list(struct user *p, char *str, struct vecbuf *v, int on)
 			}
 		}
 	} while ((c = strtok((char *)NULL, ",")) != (char *)NULL);
+	FUN_END;
 }
 
 char *
@@ -779,6 +948,23 @@ parse_cookie(struct user *p, char *s)
 				    case 'b':	/* Newline */
 					cadd_strbuf(&buf, '\n');
 					break;
+				    case 'c':	/* Colour */
+				    {
+					int i;
+					/*
+					 * NOTE: Here, I assume that this
+					 *       cookie string is going to
+					 *       be written to the user..
+					 *       If it is not, then something
+					 *       strange will happen to the
+					 *       user's linewrapping.
+					 */
+					i = buf.offset;
+					s += parse_colour(p, s + 1, &buf);
+					if (p->saveflags & U_ANSI)
+						p->col -= buf.offset - i;
+					break;
+				    }
 				    case 'i':	/* Invis '*' */
 					add_strbuf(&buf,
 					    p->saveflags & U_INVIS ? "*" : " ");
@@ -809,7 +995,8 @@ parse_cookie(struct user *p, char *s)
 					break;
 				    case 't':	/* Time */
 				    {
-					char *t = nctime(&current_time) + 11;
+					char *t = nctime(user_time(p,
+					    current_time)) + 11;
 					t[5] = '\0';
 					add_strbuf(&buf, t);
 					break;
@@ -992,8 +1179,8 @@ decode_strlist(char *str, enum sl_mode mode)
 		s = create_strlist("decode_strlist");
 		s->str = sv->u.vec->items[i].u.string;
 		/* Just copy the pointer; don't want to waste time copying
-		 * it. To stop free_vector from freeing the string, change
-		 * the type to empty
+		 * the string. To stop free_vector from freeing the string,
+		 * change the type to empty
 		 */
 		TO_EMPTY(sv->u.vec->items[i]);
 		add_strlist(&list, s, mode);
@@ -1001,5 +1188,67 @@ decode_strlist(char *str, enum sl_mode mode)
 
 	free_svalue(sv);
 	return list;
+}
+
+int
+strlist_size(struct strlist *s)
+{
+	int n = 0;
+
+	while (s != (struct strlist *)NULL)
+	{
+		n++;
+		s = s->next;
+	}
+
+	return n;
+}
+
+void
+xcrypt(char *str)
+{
+	while (*str != '\0')
+	{
+		*str = (*str & 0xaa) >> 1 | (*str & 0x55) << 1;
+		str++;
+	}
+}
+
+char *
+xcrypted(char *str)
+{
+	xcrypt((str = string_copy(str, "xcrypted")));
+	return str;
+}
+
+static struct strbuf c_words_sb;
+
+void
+init_composite_words(struct strbuf *sb)
+{
+	init_strbuf(&c_words_sb, 50, "comp_words st sb");
+}
+
+void
+add_composite_word(struct strbuf *sb, char *word)
+{
+	if (c_words_sb.offset)
+	{
+		if (sb->offset)
+			add_strbuf(sb, ", ");
+		add_strbuf(sb, c_words_sb.str);
+		reinit_strbuf(&c_words_sb);
+	}
+	add_strbuf(&c_words_sb, word);
+}
+
+void
+end_composite_words(struct strbuf *sb)
+{
+	if (sb->offset)
+		sadd_strbuf(sb, " and ", c_words_sb.str);
+	if (c_words_sb.offset)
+		add_strbuf(sb, c_words_sb.str);
+	free_strbuf(&c_words_sb);
 }
 

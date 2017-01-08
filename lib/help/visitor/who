@@ -1,5 +1,34 @@
 NAME		who
-SYNTAX		who <-h> | <-opt> | @<host>
+SYNTAX		who [-opt] [@<host>] | [<user>|<#grupe>][,<user>|<#grupe>]
 DESCRIPTION	Show other users on the talker or on other talkers / muds.
-		who -h lists available options.
-EXAMPLE		who @enulal
+
+		The who command alone shows the list of logged in users.
+		The who command can be followed by a list of users/grupes
+		and the output will be restricted to those users.
+
+		Example:
+			who #consul+,wibble
+		will show all users of level consul and above, and user wibble.
+
+		The who command can also be used to list the users on a remote
+		mud or talker:
+
+		Example:
+			who @angalon
+
+		The available 'who' options are:
+
+			 -a     Show afk reasons.
+			 -g     Show genders.
+			 -i     Show idle times.
+			 -w     Show locations.
+		And, if you have access:
+			 -e     Show emails.
+			 -p     Show ip's.
+			 -s     Show snoopers.
+			 -c     Show last commands.
+
+		And in addition:
+
+			 -h	List available options.
+

@@ -3,7 +3,6 @@
 
 Type:
 	'help' followed by a command name in order to find help about it.
-	'help misc' to see a list of available miscellaneous help pages.
 	'commands' to get a listing of your available commands.
 	'assist' to ask admin for help - they may be hiding ;-)
 
@@ -15,5 +14,9 @@ Type:
 	snooped		Description of 'snooping'
 	cookies		A list of available cookies.
 	escapes		Help on constructing escape sequences.
+	intermud_sys	An overview of intermud wrt JeamLand.
+	rnspec		Specifiaction of the rnclient protocol.
 	copyright	JeamLand copyright.
+	CHANGES		Recent changes to the JeamLand system.
+	CHANGES.all	Full history of changes to JeamLand.
 

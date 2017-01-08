@@ -1,0 +1,7 @@
+NAME		alconf
+SYNTAX		alconf <talker name>
+DESCRIPTION	Load a default alias profile.
+		This is commonly used to allow users to quickly configure
+		their command set to emulate that on another type of talker.
+		The only profile supplied with JeamLand is 'ew2'. Simply
+		type 'alconf ew2' to set up some aliases.

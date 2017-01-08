@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	parse.c
  * Function:	The command parser (not including alias expansion)
@@ -15,65 +15,13 @@
 #include "jeamland.h"
 
 extern struct command commands[], partial_commands[];
+extern struct alias *galiases;
 extern int sysflags, eval_depth;
 
 int command_count;
-char *currently_executing = (char *)NULL;
-struct user *current_executor = (struct user *)NULL;
 #ifdef HASH_COMMANDS
 struct hash *chash;
 #endif
-
-/* Global aliases.. */
-static struct galias {
-	char *key;
-	char *fob;
-	int exact;
-	} galiases[] = {
-	{ "laugh down", "rofl",		1 },
-	{ "QUIT",	"quit",		1 },	/* For the TCZ users! */
-	{ "whoami",	"write %N",	1 },	/* For me ;) */
-#ifdef ALIAS_EXITS
-	{ "e", "east", 1 },
-	{ "w", "west", 1 },
-	{ "n", "north", 1 },
-	{ "s", "south", 1 },
-	{ "u", "up", 1 },
-	{ "d", "down", 1 },
-#endif
-	{ (char *)NULL, (char *)NULL, 0 },
-	};
-
-/* Used by the 'which' command */
-char *
-expand_galias(char *buff)
-{
-	int i;
-
-	for (i = 0; galiases[i].key != (char *)NULL; i++)
-		if (!strcmp(galiases[i].key, buff))
-			return galiases[i].fob;
-	return (char *)NULL;
-}
-
-struct alias *
-find_global_alias(char *buff)
-{
-	static struct alias alias;
-	int i, len;
-
-	for (i = 0; galiases[i].key != (char *)NULL; i++)
-		if (!galiases[i].exact && (!strcmp(galiases[i].key, buff)
-		    || (galiases[i].key[0] == '\\' &&
-		    (len = strlen(galiases[i].key)) > 1 &&
-		    !strncmp(galiases[i].key + 1, buff, len - 1))))
-		{
-			alias.key = galiases[i].key;
-			alias.fob = galiases[i].fob;
-			return &alias;
-		}
-	return (struct alias *)NULL;
-}
 
 #ifdef HASH_COMMANDS
 void
@@ -87,8 +35,8 @@ hash_commands()
 {
 	int i;
 
-	/* use prime3 - the commands table is larger than 79 entries ;-) */
-	chash = create_hash(2, "commands");
+	/* use prime4 - We know the commands table size in advance. */
+	chash = create_hash(3, "commands", NULL, 0);
 
 	for (i = 0; commands[i].command != (char *)NULL; i++)
 		insert_hash(&chash, (void *)&commands[i]);
@@ -232,7 +180,7 @@ check_cmd_table()
 			    || ((commands[l > m ? j : i].flags & CMD_PARTIAL) &&
 			    !strncmp(commands[i].command, commands[j].command,
 			    l > m ? m : l)))
-			fatal("Cmdtable integrity breached at '%s' vs. '%s'\n",
+			fatal("Cmdtable integrity breached at '%s' vs. '%s'",
 			    commands[l < m ? i : j].command,
 			    commands[l < m ? j : i].command);
 		}
@@ -253,6 +201,8 @@ modify_command(struct user *p, char **rbuff, char **buffer)
 		if (eval_depth == EVAL_DEPTH)
 			write_socket(p,
 			    "\n*** Evaluation too long, execution aborted.\n");
+		log_file("syslog", "Evaluation too long: %s (%s)",
+		    p->capname, buff);
 		FUN_END;
 		return 0;
 	}
@@ -424,13 +374,14 @@ modify_command(struct user *p, char **rbuff, char **buffer)
 void
 parse_command(struct user *p, char **buffer)
 {
-	int i, j;
+	int i, j, k;
 	int argc;
 	char **argv;
 	char *pargv[MAX_ARGV + 1];
 	char *buff = *buffer, *q;
 	struct command *cmd;
 	static int expanding_alias = 0;
+	unsigned long al_flags;
 	extern int parse_feeling(struct user *, int, char **);
 	extern void audit(char *, ...);
 
@@ -452,7 +403,7 @@ parse_command(struct user *p, char **buffer)
 		}
 		*q = '\0';
 	}
-	while(isspace(*buff))
+	while (isspace(*buff))
 		buff++;
 
 	if (!strlen(buff))
@@ -478,20 +429,6 @@ parse_command(struct user *p, char **buffer)
 
 	/*write_socket(p, "* Parser got command: [%s]\n", buff);*/
 
-	currently_executing = buff;
-	current_executor = p;
-
-	/* Global aliases.. */
-	for (i = 0; galiases[i].key != (char *)NULL; i++)
-	{
-		if (galiases[i].exact && !strcmp(galiases[i].key, buff))
-		{
-			COPY(*buffer, galiases[i].fob, "galiases");
-			buff = *buffer;
-			break;
-		}
-	}
-
 	argv = &pargv[1];
 
 	/* Personal aliases.. */
@@ -501,10 +438,13 @@ parse_command(struct user *p, char **buffer)
 		p->flags &= ~U_ALIAS_FB;
 		p->alias_indent = 0;
 	}
+
+	al_flags = p->flags & U_ALIAS_FB;
+
 	expanding_alias++;
 	do
 	{
-		j = 0;
+		j = k = 0;
 		/*write_socket(p, "* Expanding alias: [%s]\n", buff);*/
 		argv[0] = buff;
 		argc = 1;
@@ -515,27 +455,50 @@ parse_command(struct user *p, char **buffer)
 			*q = '\0';
 			do
 				argv[argc++] = ++q;
-			while((q = strchr(q, ' ')) != (char *)NULL && argc <
+			while ((q = strchr(q, ' ')) != (char *)NULL && argc <
 			    MAX_ARGV);
 		}
-	} while (!(p->flags & U_ALIAS_FB) && (
-	    (i = expand_alias(p, p->alias, argc, argv, &buff, buffer))
-	    == 1 || (i == 0 && (j = expand_alias(p, p->super->alias, argc,
-	    argv, &buff, buffer)) == 1)));
+
+		if (p->flags & U_INHIBIT_ALIASES)
+			p->flags |= U_ALIAS_FB;
+
+	/* I'm sure I understood this when I wrote it :-(.. 
+	 * Let's see..
+	 * expand_alias() returns:
+	 *	-1	Error.
+	 * 	 0	Couldn't expand alias.
+	 *	 1	Successfully expanded alias.
+	 *	 2	Further expansion overidden.
+	 *
+	 * So, as long as each expand_alias() returns 0, we try the next
+	 * type (user, room then global).
+	 * Loop will exit if:
+	 *	U_ALIAS_FB flag is set (Forced break).
+	 *	Any expand_alias() call returns 2 or -1.
+	 *	All expand_alias() calls return 0.
+	 */
+	} while (!(p->flags & U_ALIAS_FB) &&
+	    ((i = expand_alias(p, p->alias, argc, argv, &buff, buffer)) == 1 ||
+	    (i == 0 && (j = expand_alias(p, p->super->alias, argc, argv,
+	    &buff, buffer)) == 1) ||
+	    (i == 0 && j == 0 &&
+	    (k = expand_alias(p, galiases, argc, argv, &buff, buffer)) == 1)));
 
 	expanding_alias--;
 	if (!expanding_alias && !STACK_EMPTY(&p->alias_stack))
 		write_socket(p,
 		    "Warning: Elements remaining on alias stack.\n");
 
-	if (i == -1 || j == -1 || !strlen(buff))
+	if (!(p->flags & U_ALIAS_FB) &&
+	    (i == -1 || j == -1 || k == -1 || !strlen(buff)))
 	{
 		/* Error in alias expansion */
-		currently_executing = (char *)NULL;
-		current_executor = (struct user *)NULL;
 		FUN_END;
 		return;
 	}
+
+	if ((p->flags & U_ALIAS_FB) && !al_flags)
+		p->flags &= ~U_ALIAS_FB;
 
 	/* Allow sentences to override room exits */
 	if (!(p->flags & U_SKIP_SENTENCES) && sent_cmd(p, argv[0], argv[1]))
@@ -546,8 +509,6 @@ parse_command(struct user *p, char **buffer)
 
 	if (handle_exit(p, buff, 0))
 	{
-		currently_executing = (char *)NULL;
-		current_executor = (struct user *)NULL;
 		FUN_END;
 		return;
 	}
@@ -586,8 +547,6 @@ parse_command(struct user *p, char **buffer)
 				write_socket(p,
 				    "Insufficient arguments to '%s'.\n",
 				    cmd->command);
-			currently_executing = (char *)NULL;
-			current_executor = (struct user *)NULL;
 			FUN_END;
 			return;
 		}
@@ -621,8 +580,6 @@ parse_command(struct user *p, char **buffer)
 		else
 			write_socket(p, "Unknown command, %s.\n", buff);
 
-	currently_executing = (char *)NULL;
-	current_executor = (struct user *)NULL;
 	FUN_END;
 }
 

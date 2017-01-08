@@ -1,15 +1,70 @@
 NAME		siteban
-SYNTAX		siteban [<host> <level>]
-DESCRIPTION	Set a lockout on a particular host or group of hosts.
-		[host] can include an asterix ie.. to ban Leeds, use
-			siteban 129.11.* 1
-		or
-			siteban leeds 1
-		Available levels may change - to get the current list, just
-		type 'siteban levels'. At the time of writing, the levels
-		are:
-			    Ban all:           1
-			    Ban all but admin: 2
-			    Ban all newbies:   3
+SYNTAX		siteban
+		siteban <wildcard host>
+		siteban !<wildcard host>
+		siteban <host>[/netmask] [level]
+		siteban !<host>[/netmask]
+		siteban -r [!]<host>[/netmask]
+		siteban -v <entry number>
+DESCRIPTION	The siteban command is used to ban logins from certain sites.
+		There are currently three 'levels' of banishment:
+		    Ban all:           1
+		    Ban all but admin: 2
+		    Ban all new users: 3
+		with 'Ban all' being the default.
 
-		Siteban with no arguments just lists banned sites.
+		All addresses must be specified as ip numbers
+		    i.e. aaa.bbb.ccc.ddd
+
+		Some elements may be the character '*' in order to ban a
+		particular subnet, for example:
+		    123.124.*.*
+
+		Prefixing an address with a ! makes it an exclusion rule.
+		    i.e. logins ARE allowed from this host.
+
+		Using the argument of -r will remove a rule from the siteban
+		table.
+
+		Using the argument of -v will show full information for the
+		siteban rule including the message shown to attempted logins.
+
+		Siteban without arguments will list the current rules.
+
+
+		For advanced users:
+
+		All addresses may be followed by an optional netmask in either
+		dot form (as above) or as a subnet specifier
+		    i.e. number between 0 and 32
+		This gives more precise control over banishment.
+
+
+EXAMPLE	
+		To disallow logins from 123.124.125.126
+
+			siteban 123.124.125.126
+
+		To disallow logins from the hosts with ip numbers matching
+		123.124.xxx.xxx
+
+			siteban 123.124.*.*
+
+		or, in advanced form:
+			siteban 123.124.0.0/16
+		or
+			siteban 123.124.0.0/255.255.0.0
+
+		To disallow all logins other than those from hosts with ip
+		numbers matching 129.11.xxx.xxx
+
+			siteban *
+			siteban !129.11.*.*
+
+		or, in advanced form:
+			siteban 0.0.0.0/0.0.0.0
+			siteban !129.11.0.0/255.255.0.0
+		or
+			siteban 0/0
+			siteban !129.11.0.0/16
+

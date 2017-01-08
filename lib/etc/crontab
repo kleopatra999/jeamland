@@ -1,0 +1,26 @@
+# Example JeamLand crontab file.
+# Each line is as follows:
+#  hour:minute:day of month:day of week,command
+# where either day of month, day of week or both may be -1 to mean 'all'.
+#
+# **********************************************************************
+# Use the -mail flag of do_backups if you want your backups sent offsite
+# automatically; (they will also be kept locally) eg:
+# do_backups -mail email@address.here -lib
+# **********************************************************************
+#
+# Here are some example entries (they will not work unless JL_CRON is defined
+# in config.h)
+#
+# Remake the 'help spod' page every day
+00:00:-1:-1,mkspod
+#
+# Backup files at 1am-ish Sunday, Monday and Tuesday
+01:00:-1:0,do_backups -room -board
+01:05:-1:1,do_backups -user -mail
+01:10:-1:2,do_backups -audit -snoops -logs
+
+# On the first of each month, backup the entire lib and delete backups older
+# than 60 days.
+02:00:1:-1,do_backups -lib -del_old 60
+

@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	xalloc.c
  * Function:	Memory management wrapper.
@@ -126,7 +126,7 @@ malloc_init()
 #endif /* DEBUG_MALLOC */
 #endif /* MALLOC_STATS */
 
-#ifndef __linux__
+#if !defined(__linux__) && !defined(FREEBSD)
     	mallopt(M_MXFAST, 50);
     	mallopt(M_NLBLKS, 100);
     	mallopt(M_GRAIN, 8);
@@ -136,6 +136,11 @@ malloc_init()
 void
 dump_meminfo(struct user *p)
 {
+#ifdef FREEBSD
+	write_socket(p,
+	    "Sorry, malloc information not available for FreeBSD\n");
+#else
+
 #if !defined(__linux__) || defined(DEBUG_MALLOC)
 	int usage, tusage;
 #endif
@@ -209,6 +214,8 @@ dump_meminfo(struct user *p)
 	}
 	write_socket(p, "\nDebug malloc:      %10d\n", tusage);
 #endif /* DEBUG_MALLOC */
+
+#endif /* FREEBSD */
 }
 
 #ifdef DEBUG_MALLOC
@@ -358,7 +365,7 @@ xrealloc(void *old, size_t size)
 #endif
 
 	if (r == (void *)NULL)
-		fatal("Out of memory.\n");
+		fatal("Out of memory.");
 
 #ifdef DEBUG_MALLOC
 #ifdef DEBUG_MALLOC_FUDGE

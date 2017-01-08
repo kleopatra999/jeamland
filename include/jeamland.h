@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	jeamland.h
  * Function:	Combines all of the other include files.
@@ -13,12 +13,14 @@
 #include "jlstring.h"
 #include "system.h"
 #include "vector.h"
+#include "mapping.h"
 #include "stack.h"
 #include "alias.h"
 #include "ed.h"
 #include "more.h"
 #include "mbs.h"
 #include "grupe.h"
+#include "socket.h"
 #include "user.h"
 #include "jlm.h"
 #include "sent.h"
@@ -27,6 +29,8 @@
 #include "access.h"
 #include "macro.h"
 #include "inetd.h"
+#include "imud3.h"
+#include "imud.h"
 #include "erq.h"
 #include "event.h"
 #include "termcap.h"

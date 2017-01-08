@@ -1,12 +1,26 @@
 NAME		jlm
-SYNTAX		jlm
-		jlm add <module> <room>
-		jlm remove <module>
-		jlm reload
+SYNTAX		jlm [-v]
+		jlm -add <module> [<room> | @<user>]
+		jlm -remove <module> [<room> | @<user>]
+		jlm -reload
 DESCRIPTION	The jlm command manipulates JeamLand Loadable Modules.
 		Without arguments, it lists all loaded modules.
-		The command can also be used to add and remove modules
-		although to effect a permanent change, you will have to edit
+		With a sole argument of -v, lists all loaded modules and also
+		shows copyright messages.
+
+		You can add (and remove) modules to (from) a room, a user
+		or as a global modules (accessible from anywhere).
+
+		To add a module as global, just don't specify a location:
+		e.g.:	jlm -add calc
+		To add a module to a room, specify the filename:
+		e.g.:	jlm -add calc _Entry
+		To add a module to a user, specifiy the username after an @
+		sign.
+		e.g.:	jlm -add calc @fred
+
+		To affect a permanent change, you will have to edit
 		the file etc/modules.
-		Jlm reload forces a load of any jlms listed in etc/modules
-		which are not in memory.
+		Jlm -reload forces a load of any jlms listed in etc/modules
+		which are not in memory; it will also attempt to restart
+		erqd.

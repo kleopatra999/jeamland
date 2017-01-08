@@ -1,0 +1,4 @@
+NAME		next
+SYNTAX		next
+DESCRIPTION	Displays the next note on a board in your current room.
+SEE ALSO	headers, examine, look, read

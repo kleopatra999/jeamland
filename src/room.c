@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	room.c
  * Function:	Virtual room support
@@ -26,6 +26,8 @@ extern int rooms_created;
 struct room *rooms = (struct room *)NULL;
 int num_rooms = 0, peak_rooms = 0;
 
+struct vector *start_rooms = (struct vector *)NULL;
+
 void
 init_room_list()
 {
@@ -38,7 +40,7 @@ init_room_list()
 	COPY(rooms->owner, ROOT_USER, "*void owner");
 	COPY(rooms->fname, "<void>", "*void fname");
 	ob = create_object();
-	ob->type = T_ROOM;
+	ob->type = OT_ROOM;
 	ob->m.room = rooms;
 	rooms->ob = ob;
 }
@@ -89,6 +91,12 @@ void
 free_room(struct room *r)
 {
 	struct exit *e, *n;
+
+#ifdef DEBUG
+	if (r->inhibit_cleanup)
+		fatal("free_room(%s): inhibit_cleanup: %d", r->fname,
+		    r->inhibit_cleanup);
+#endif
 
 	for (e = r->exit; e != (struct exit *)NULL; e = n)
 	{
@@ -218,7 +226,7 @@ restore_room(char *name)
 		}
 		if (!strncmp(buf, "alias ", 6))
 		{
-			restore_alias(&r->alias, buf);
+			restore_alias(&r->alias, buf, "room", name);
 			continue;
 		}
 		if (sscanf(buf, "flags %d", &r->flags))
@@ -251,7 +259,7 @@ restore_room(char *name)
 		r->board = restore_board("board", r->fname);
 
 	ob = create_object();
-	ob->type = T_ROOM;
+	ob->type = OT_ROOM;
 	ob->m.room = r;
 	r->ob = ob;
 	return r;
@@ -324,7 +332,8 @@ new_room(char *name, char *owner)
 	COPY(r->fname, name, "room fname");
 	COPY(r->name, tmp, "room name");
 	COPY(r->owner, owner, "room owner");
-	store_room(r);
+	if (*name == '_')
+		store_room(r);
 	r->next = rooms->next;
 	rooms->next = r;
 	if (++num_rooms > peak_rooms)
@@ -332,7 +341,7 @@ new_room(char *name, char *owner)
 	if (sysflags & SYS_SHOWLOAD)
 		log_file("syslog", "Created room %s", r->fname);
 	rooms_created++;
-	ob->type = T_ROOM;
+	ob->type = OT_ROOM;
 	ob->m.room = r;
 	r->ob = ob;
 	return r;
@@ -370,17 +379,19 @@ destroy_room(struct room *r)
 	for (ob = r->ob->contains; ob != (struct object *)NULL;
 	    ob = ob->next_contains)
 	{
-		if (ob->type == T_USER)
+		if (ob->type == OT_USER)
 		{
 			write_socket(ob->m.user, "Moving you to safety.\n");
 			move_user(ob->m.user, safe_room);
 		}
-		else if (ob->type == T_JLM)
+		else if (ob->type == OT_JLM)
 		{
 			/* Remove from env, to be safe. */
 			move_object(ob, rooms->ob);
 			kill_jlm(ob->m.jlm);
 		}
+		else
+			fatal("None user/jlm object inside room.");
 	}
 		
 	for (ptr = rooms; ptr != (struct room *)NULL; ptr = ptr->next)
@@ -454,9 +465,8 @@ handle_exit(struct user *p, char *where, int barge)
 
 			FUN_LINE;
 
-			if (r->lock_grupe != (char *)NULL &&
-			    !member_sysgrupe(r->lock_grupe, p->rlname, 0) &&
-			    !ISROOT(p))
+			if (r->lock_grupe != (char *)NULL && !ISROOT(p) &&
+			    !member_sysgrupe(r->lock_grupe, p->rlname))
 			{
 				write_socket(p, "That room is locked.\n");
 				FUN_END;
@@ -471,17 +481,145 @@ handle_exit(struct user *p, char *where, int barge)
 	return 0;
 }
 
+void
+init_start_rooms()
+{
+	/* A start room is a room with a name prefix of ENTRANCE_PREFIX */
+	struct vector *v;
+	int i, c, l;
+
+#if defined(ENTRY_ALLOC_RROBIN) && defined(ENTRY_ALLOC_MAX)
+	fatal("Cannot define both ENTRY_ALLOC_xx methods at once.");
+#endif
+
+#if !defined(ENTRY_ALLOC_RROBIN) && !defined(ENTRY_ALLOC_MAX)
+	fatal("Must define an ENTRY_ALLOC_xx method.");
+#endif
+
+	if (start_rooms != (struct vector *)NULL)
+	{
+		free_vector(start_rooms);
+		start_rooms = (struct vector *)NULL;
+	}
+
+	if (ENTRANCE_PREFIX[0] != '_')
+		fatal("ENTRANCE_PREFIX is not a system room (prefix of _)");
+
+	if ((v = get_dir("room/_", 0)) == (struct vector *)NULL)
+		fatal("Can not get list of system rooms.");
+
+	l = strlen(ENTRANCE_PREFIX);
+
+	for (c = 0, i = v->size; i--; )
+	{
+		if (v->items[i].type != T_STRING)
+			continue;
+
+		if (!strncmp(v->items[i].u.string, ENTRANCE_PREFIX, l))
+			c++;
+	}
+
+	start_rooms = allocate_vector(c, T_STRING, "start_rooms");
+
+	for (c = i = 0; i < v->size; i++)
+	{
+		if (v->items[i].type != T_STRING)
+			continue;
+
+		if (!strncmp(v->items[i].u.string, ENTRANCE_PREFIX, l))
+		{
+			char *t;
+
+			/* Strip the .o */
+			if ((t = strrchr(v->items[i].u.string, '.')) !=
+			    (char *)NULL)
+				*t = '\0';
+
+			start_rooms->items[c].u.string =
+			    string_copy(v->items[i].u.string, "start room");
+
+			log_file("syslog", "Found start room: %s",
+			    start_rooms->items[c].u.string);
+			c++;
+		}
+	}
+	log_file("syslog", "Start rooms found: %d", c);
+#ifdef ENTRY_ALLOC_RROBIN
+	log_file("syslog", "Start rooms allocated on round-robin basis.");
+#endif
+#ifdef ENTRY_ALLOC_MAX
+	log_file("syslog", "Start rooms allocated on %d user basis.",
+	    ENTRY_ALLOC_MAX);
+#endif
+	free_vector(v);
+}
+
 struct room *
 get_entrance_room()
 {
 	struct room *r;
+	char *q;
 
-	if (!ROOM_POINTER(r, ENTRANCE_ROOM))
+#ifdef ENTRY_ALLOC_RROBIN
+	static int c = 0;
+
+	if (c >= start_rooms->size)
+		c = 0;
+
+	q = start_rooms->items[c++].u.string;
+
+	if (!ROOM_POINTER(r, q))
 	{
-		log_file("syslog", "Cannot find the entrance room!");
-		return rooms; /* Return the 'void' room */
+		log_file("syslog", "Cannot find entrance room: %s", q);
+		return rooms;
 	}
 	return r;
+#endif /* ENTRY_ALLOC_RROBIN */
+
+#ifdef ENTRY_ALLOC_MAX
+	int c;
+	unsigned int min, min_room;
+
+	min = min_room = 0;
+
+	for (c = 0; c < start_rooms->size; c++)
+	{
+		q = start_rooms->items[c].u.string;
+
+		if (!ROOM_POINTER(r, q))
+		{
+			log_file("syslog", "Cannot find entrance room: %s", q);
+			return rooms;
+		}
+
+		/* If within limit, use this room. */
+		if (r->ob->num_contains < ENTRY_ALLOC_MAX)
+			return r;
+
+		/* If lowest occupancy yet, store this room */
+		if (r->ob->num_contains < min)
+		{
+			min = r->ob->num_contains;
+			min_room = c;
+		}
+	}
+
+	/* Got to here, didn't find a room within max occupancy,
+	 * use the min room. */
+
+	q = start_rooms->items[min_room].u.string;
+
+	log_file("syslog", "get_entrance_room: no rooms within limit, "
+	    "using %s at %d", q, min);
+
+	if (!ROOM_POINTER(r, q))
+	{
+		log_file("syslog", "Cannot find entrance room: %s", q);
+		return rooms;
+	}
+
+	return r;
+#endif /* ENTRY_ALLOC_MAX */
 }
 
 void

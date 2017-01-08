@@ -7,12 +7,16 @@ cat << FOE
 JeamLand has finished compiling!
 
 If you saw any warnings in the above output then please send email to
-	Jeamland_bugs@twikki.demon.co.uk
+	JeamLand@twikki.demon.co.uk
 
 To boot your newly compiled code you can use one of:
 	bin/jeamland -S		For single user test mode.
 	bin/jeamland -CL	Multi-user with console login.
 	bin/angel		For normal running with auto-reboot.
+
+To remove object files left over from compilation, and strip the binaries
+(saves space) use:
+	make aclean
 
 *****
 

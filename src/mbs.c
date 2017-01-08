@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	mbs.c
  * Function:	The Multi Board System support functions.
@@ -333,6 +333,12 @@ mbs_get_first_unread(struct user *p, struct board *b, struct umbs *n, int *num)
 {
 	struct message *m;
 
+	/* Quick check first - if the last message is older than our last
+	 * reading, then there are no unread messages. */
+	if (b->last_msg == (struct message *)NULL ||
+	    b->last_msg->date <= n->last)
+		return (struct message *)NULL;
+
 	*num = 1;
 
 	for (m = b->messages; m != (struct message *)NULL;
@@ -345,14 +351,10 @@ mbs_get_first_unread(struct user *p, struct board *b, struct umbs *n, int *num)
 time_t
 mbs_get_last_note_time(struct board *b)
 {
-	struct message *m;
-
-	if (b->messages == (struct message *)NULL)
+	if (b->last_msg == (struct message *)NULL)
 		return 0;
 
-	for (m = b->messages; m->next != (struct message *)NULL; m = m->next)
-		;
-	return m->date;
+	return b->last_msg->date;
 }
 
 void
@@ -388,10 +390,11 @@ notify_mbs(char *rid)
 	for (p = users->next; p != (struct user *)NULL; p = p->next)
 		if (find_umbs(p, m->id, 0) != (struct umbs *)NULL)
 		{
-			yellow(p);
-			write_socket(p, "[ MBS: New note on board '%s' ]\n",
+			attr_colour(p, "notify");
+			write_socket(p, "[ MBS: New note on board '%s' ]",
 			    m->id);
 			reset(p);
+			write_socket(p, "\n");
 		}
 }
 

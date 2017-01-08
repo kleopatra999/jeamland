@@ -1,7 +1,7 @@
 %{
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system v.1.2.0
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	mkcmdprot.l
  * Function:	Generates prototypes for command functions.
@@ -39,7 +39,7 @@ void got_cmd();
 
 "/*"[A-Za-z	 ]+" commands ""*/"	printf("\n%s\n", yytext);
 
-"f_"[a-z_]+				got_cmd();
+"f_"[0-9a-z_]+				got_cmd();
 
 %%
 
@@ -74,6 +74,12 @@ got_cmd()
 		return;
 
 	p = yytext + 2;
+
+	if (strlen(p) > TAG_MAX)
+	{
+		fprintf(stderr, "Function tag too long! [%s]\n", p);
+		exit(-1);
+	}
 
 	/* Have we already prototyped this one ? */
 	for (i = history_cur; i--; )

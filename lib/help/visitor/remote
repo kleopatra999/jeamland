@@ -1,0 +1,14 @@
+NAME		remote
+SYNTAX		remote <user>[,<user>,<user>,.....] <message>
+DESCRIPTION	Send an emotion message to a user or list of users.
+		a 'user' can be:
+			A logged on user's name.
+			A user at another host on intermud (ie. user@host)
+			A grupe id (ie. #grupe)
+		Any members not currently logged on are ignored.
+
+		If <message> begins with a . character, then the message
+		is sent as a 'feeling'
+
+AKA		<
+SEE ALSO	grupe, tell, reply

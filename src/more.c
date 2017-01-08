@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	more.c
  * Function:	The pager.
@@ -51,7 +51,7 @@ more_text(struct user *p, char *c)
 	{
 	    case ' ':
 	    case 'n':
-		while (lines++ < p->morelen)
+		while ((unsigned int)lines++ < p->morelen)
 		{
 			if (!(len = more_line(p)))
 			{
@@ -84,7 +84,7 @@ do_head(struct user *p, char *text)
 	int lines;
 
 	for (lines = 0, c = text; *c != '\0'; c++)
-		if (*c == '\n' && ++lines > p->morelen)
+		if (*c == '\n' && (unsigned int)++lines > p->morelen)
 			break;
 	*c = '\0';
 	fwrite_socket(p, text);

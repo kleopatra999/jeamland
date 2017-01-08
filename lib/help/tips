@@ -9,7 +9,7 @@ to read all of the help pages! However, the rest of this file lists those
 features which I am aware of which are not often found or used.
 
 If you have any suggestions for additions to the following list, please feel
-free to contact me on A.Fiddaman@twikki.demon.co.uk or alcides@orchard via
+free to contact me on JeamLand@twikki.demon.co.uk or alcides@orchard via
 intertalker email.
 
 
@@ -34,6 +34,10 @@ intertalker email.
 	alias \: \\'$*
    Don't worry if you don't understand the last two!
 
+   This can be done even more easily with the 'abbr' command:
+	abbr ' emote
+	abbr : say
+
  - To create a personal room, type 'home'.
 
  - To make yourself go to your home room at login, go there and type 'start'
@@ -45,6 +49,13 @@ intertalker email.
    'last #foo'
 
  - To see a history for a particular channel, use '<channel_name> !'
+
+ - To set a prompt with a trailing space, prefix that space with a \
+   character. Example:
+	"prompt %n>\ "      Typed without the "
+
+   An interesting prompt is provided by:
+	prompt %cc.[%t] %n\% (%!) %cz
 
  - On a slow link:
 	- You can use the 'brief' command to stop the talker from

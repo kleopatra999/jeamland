@@ -1,6 +1,6 @@
 /**********************************************************************
- * The JeamLand talker system
- * (c) Andy Fiddaman, 1994-96
+ * The JeamLand talker system.
+ * (c) Andy Fiddaman, 1993-97
  *
  * File:	vector.c
  * Function:	Vector (general array) support including vecbuf datatype
@@ -21,13 +21,16 @@ allocate_vector(int size, int type, char *id)
 	    sizeof(struct svalue) * (size - 1), id);
 	v->size = size;
 	for (i = size; i--; )
-		switch(type)
+		switch (type)
 		{
 		    case T_STRING:
 			TO_STRING(v->items[i]);
 			break;
 		    case T_NUMBER:
 			TO_NUMBER(v->items[i]);
+			break;
+		    case T_UNUMBER:
+			TO_UNUMBER(v->items[i]);
 			break;
 		    case T_POINTER:
 			TO_POINTER(v->items[i]);
