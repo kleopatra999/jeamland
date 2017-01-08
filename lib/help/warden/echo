@@ -1,0 +1,4 @@
+NAME		echo
+SYNTAX		echo <message>
+DESCRIPTION	Display a message to the current room. The sender is only
+		shown to people of higher level.

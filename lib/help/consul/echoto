@@ -1,0 +1,4 @@
+NAME		echoto
+SYNTAX		echoto <user> <message>
+DESCRIPTION	Display a message on a user's screen with no indication of its
+		origin.

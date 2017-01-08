@@ -1,0 +1,5 @@
+NAME		assist
+SYNTAX		assist
+		assist <user>
+DESCRIPTION	Send a message to all connected admin asking for help.
+		With arguments, a message is sent to the user, offering help.

@@ -1,0 +1,19 @@
+
+                        << Jeamland Talker >>
+
+Type:
+	'help' followed by a command name in order to find help about it.
+	'help misc' to see a list of available miscellaneous help pages.
+	'commands' to get a listing of your available commands.
+	'assist' to ask admin for help - they may be hiding ;-)
+
+	The following help pages are also available:
+
+	reference	A quick reference guide to commands.
+	tips		A list of often missed features and tips.
+	faq		Frequently asked questions.
+	snooped		Description of 'snooping'
+	cookies		A list of available cookies.
+	escapes		Help on constructing escape sequences.
+	copyright	JeamLand copyright.
+

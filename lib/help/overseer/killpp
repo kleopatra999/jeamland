@@ -1,0 +1,6 @@
+NAME		killpp
+SYNTAX		killpp
+DESCRIPTION	Kill the parent process. If the angel is in use
+		this will be the angel process. Otherwise either the
+		command will fail or your shell will die ;-)
+		Only root can do this.

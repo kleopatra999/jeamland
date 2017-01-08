@@ -1,0 +1,5 @@
+NAME		post
+SYNTAX		post <title>
+DESCRIPTION	Post a note to the board in the current room. The title of
+		the note must be supplied.
+SEE ALSO	epost

@@ -1,0 +1,3 @@
+NAME		rooms
+SYNTAX		rooms
+DESCRIPTION	Show all loaded rooms (ie. rooms currently in memory).

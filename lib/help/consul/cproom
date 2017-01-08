@@ -1,0 +1,5 @@
+NAME		cproom
+SYNTAX		cproom <room filename> <new room filename>
+DESCRIPTION	Makes a copy of a room under a new filename; any board in the
+		room is also copied.
+NB		To move a room, use cproom followed by rmroom.

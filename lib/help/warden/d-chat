@@ -1,0 +1,3 @@
+NAME		d-chat
+SYNTAX		d-chat [:]<message>
+DESCRIPTION	Sends a message on the GERMAN LANGUAGE ONLY channel.

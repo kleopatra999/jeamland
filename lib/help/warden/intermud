@@ -1,0 +1,3 @@
+NAME		intermud
+SYNTAX		intermud [:]<message>
+DESCRIPTION	Send a message on the intermud channel.

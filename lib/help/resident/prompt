@@ -1,0 +1,10 @@
+NAME		prompt
+SYNTAX		prompt [string]
+DESCRIPTION	Sets your prompt to [string] or, if used without arguments,
+		back to the default '%p '. To include a space at the end of the
+		prompt, escape it with a \. eg. 'prompt Jeamland>\ '
+		[string] can include cookies and escape codes.
+EXAMPLES	'prompt [%t] %n\% (%!)\ '
+		and, for status line freaks....
+		'prompt %i[%t] %N %r%b%n\% (%!)\ '
+SEE ALSO	cookies, escapes

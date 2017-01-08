@@ -1,0 +1,3 @@
+NAME		warn
+SYNTAX		warn <user> <message>
+DESCRIPTION	Send a warning to a user. This is logged.

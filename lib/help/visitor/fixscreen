@@ -1,0 +1,8 @@
+NAME		fixscreen
+SYNTAX		fixscreen
+DESCRIPTION	Send reset signal to your terminal screen		
+		This sends '^[c' but you could alias it to send anything you
+		need by using the 'write' command. ie. the default fixscreen
+		command could equally be aliased as:
+			write ^[c
+SEE ALSO	write

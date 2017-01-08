@@ -1,0 +1,5 @@
+NAME		earmuffs
+SYNTAX		earmuffs [option]
+DESCRIPTION	Toggle blocking of a particular type of annoyance.
+		Earmuffs with no arguments lists possible arguments and
+		current settings.

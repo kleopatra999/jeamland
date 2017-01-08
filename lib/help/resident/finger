@@ -1,0 +1,5 @@
+NAME		finger
+SYNTAX		finger <user>
+		finger #<grupe>
+DESCRIPTION	Display information about a user or a grupe.
+SEE ALSO	grupe

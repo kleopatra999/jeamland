@@ -1,0 +1,4 @@
+NAME		say
+SYNTAX		say <message>
+DESCRIPTION	Say something in the current room.
+AKA		', "

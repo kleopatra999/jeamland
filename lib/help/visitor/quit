@@ -1,0 +1,6 @@
+NAME		quit
+SYNTAX		quit
+DESCRIPTION	Leave the talker.
+		If you have been validated but have not yet set both your
+		email address and your password, you will not be allowed to
+		quit. If you really want to leave, use the 'Quit' command.

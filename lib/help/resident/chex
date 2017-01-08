@@ -1,0 +1,3 @@
+NAME		chex
+SYNTAX		chex <old name> <new name>
+DESCRIPTION	Change the name of an exit in the current room.

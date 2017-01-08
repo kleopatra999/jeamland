@@ -1,0 +1,4 @@
+flags 0
+write_grupe "warden+"
+limit 20
+# poster, subject, time, flags, text

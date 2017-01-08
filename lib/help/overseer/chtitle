@@ -1,0 +1,4 @@
+NAME		chtitle
+SYNTAX		chtitle <user> <new title>
+DESCRIPTION	Changes a users title (NB: No checking is done for length or
+		embedded newlines cf. title).

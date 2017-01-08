@@ -1,0 +1,4 @@
+NAME		date
+SYNTAX		date
+DESCRIPTION 	Show the current time, start time and up time of the server,
+		along with a few usage statistics.

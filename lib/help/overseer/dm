@@ -1,0 +1,4 @@
+NAME		dm
+SYNTAX		dm [all]
+DESCRIPTION	Dump the malloc table to disk (for debugging use)
+		Only available when compiled with DEBUG_MALLOC

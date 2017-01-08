@@ -1,0 +1,8 @@
+NAME		converse
+SYNTAX		converse
+DESCRIPTION	Toggle converse mode. While in converse mode, you will
+		'say' everything which you type and if you wish to
+		specifically use a command, you must prefix it with a '.'
+		The :, ;, <, > and = commands are accepted without a
+		leading '.'
+

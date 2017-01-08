@@ -1,0 +1,44 @@
+NAME		mbs
+SYNTAX		See below.
+DESCRIPTION	mbs - the Multi Board System.
+		Mbs allows you to keep track of boards throughout the talker.
+		Whenever Mbs lists a set of boards, they are in the following
+		format:
+
+			>*board_id    board_description
+			^ This board is currently selected.
+			 ^ Board has new notes
+
+		The mbs options are as follows (the - is optional):
+
+		mbs <board>		Select a board; only enough of the
+					board id to make it unique need be
+					specified.
+		mbs			List boards containing unread notes.
+		mbs -n			 "     "         "       "        "
+		mbs -c			Catchup current board.
+		mbs -C			Catchup all subscribed boards.
+		mbs -d <number>		Delete a note on the current board.
+		mbs -e <number>		Edit a note on the current board.
+		mbs -f <number>		Follow up a note on the current board.
+		mbs -h			Show headers of unread notes on
+					current board.
+		mbs -H			Show all headers of current board.
+		mbs -l			List boards you are subscribed to.
+		mbs -L			List boards you are not subscribed to.
+		mbs -m <number>		Mail a note to your JeamLand mailbox.
+		mbs -p <subject>	Post a note to the current board.
+		mbs -r [note number]	Read a note on the current board
+					(or first unread note).
+		mbs -s <board>		Subscribe to a board.
+		mbs -u <board>		Unsubscribe from a board.
+		mbs -S			Subscribe to all boards.
+		mbs -U			Unsubscribe from all boards.
+
+ADMIN OPTIONS
+		mbs -A <board> <room> <board description>
+					Add a new board.
+		mbs -D <board>		Remove a board.
+		mbs -P			List all boards.
+		mbs -K			Check all boards for errors.
+

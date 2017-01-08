@@ -1,0 +1,3 @@
+NAME		ed
+SYNTAX		ed <file>
+DESCRIPTION	Edit a file or create a new file.

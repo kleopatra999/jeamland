@@ -1,0 +1,9 @@
+NAME		iping
+SYNTAX		iping <host>
+		iping [%]<host ip> <udp port>
+DESCRIPTION	Send a ping request to <host>.
+		The second form is only useable by Administrators and sends
+		a generic ping packet directly to a particular host and port.
+		The default is to send an inetd ping, but prefixing the ip
+		number with a % character sends a cdudp ping.
+

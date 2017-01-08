@@ -1,0 +1,26 @@
+
+Define prefixes already taken.
+------------------------------
+A_		Access levels.
+B_		Board flags.
+CMD_		Command flags.
+DUMP_		Arguments to dump_file()
+ED_		Editor flags.
+EDX_		Editor exit flags.
+ERQ_		Erq service values.
+F_		File names.
+FINGER_		Arguments to finger_text()
+G_		Gender tables.
+HASH_		Hash table defines.
+JLM_		Jlm flags.
+L_		User levels.
+M_		Message flags.
+PRIME_		Hash table primes.
+R_		Room Flags.
+S_		Feeling soul defines.
+SYS_		System flags.
+T_		Data type flags.
+TN_		Telnet protocol flags.
+U_		User flags.
+UDPM_		Intertalker mail.
+

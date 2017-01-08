@@ -1,0 +1,6 @@
+NAME		memote
+SYNTAX		memote <message>
+DESCRIPTION	Display a message to the current room. The message is a
+		possessive 'emotion' message.
+EXAMPLES	memote shoes have fallen off.
+AKA		;

@@ -1,0 +1,30 @@
+/=============================================================================\
+|                    JeamLand Talker Command Reference Card                   |
+|=============================================================================|
+| Communication Commands                                                      |
+|-----------------------------------------------------------------------------|
+| say <message>			Say something to all users in the room.       |
+| emote <message>		Express emotion, eg. "emote smiles"           |
+| memote <message>		Possessive emote, eg. "memote feet hurt"      |
+| whisper <user> <message>	Whisper to a user in the room.                |
+| tell <user> <message>         Private message to another logged in user.    |
+| reply <message>		Reply to a tell message.                      |
+| remote <user> <message>	Private emotion message to another user.      |
+| beep <user>			Try to get a user's attention!                |
+|-----------------------------------------------------------------------------|
+| Movement Commands                                                           |
+|-----------------------------------------------------------------------------|
+| join <user>			Go to the same room as a user.                |
+| home				Go to your own personal room.                 |
+| go <exit> | <room filename>	Follow an exit or go directly to a room.      |
+| out				Go back to the entrance room (from anywhere). |
+|-----------------------------------------------------------------------------|
+| Board Commands                                                              |
+|-----------------------------------------------------------------------------|
+| headers			Show a list of notes on the room's board.     |
+| exa board , look [at] board	As above.                                     |
+| read <note number>		Read a note on a board.                       |
+| post <subject>		Post a note to a board.                       |
+| remove <note number>          Remove a note from a board.                   |
+\-----------------------------------------------------------------------------/
+

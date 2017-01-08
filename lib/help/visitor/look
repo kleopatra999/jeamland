@@ -1,0 +1,6 @@
+NAME		look
+SYNTAX		look [[at] <object>]
+DESCRIPTION	Look at the current room or, with an argument, behave like
+		examine.
+AKA		l
+SEE ASO		examine

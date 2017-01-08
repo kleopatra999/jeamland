@@ -1,0 +1,5 @@
+NAME		jobs
+SYNTAX		jobs
+DESCRIPTION	Displays all jobs which you are currently running. A job
+		is an event started by an incidence of the 'sched' command.
+SEE ALSO	kill, sched

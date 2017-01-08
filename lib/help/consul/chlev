@@ -1,0 +1,4 @@
+NAME		chlev
+SYNTAX		chlev <user> <level>
+DESCRIPTION	Change a users level. <level> can be specified as a string
+		or as an integer.

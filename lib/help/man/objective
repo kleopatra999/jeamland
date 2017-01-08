@@ -1,0 +1,4 @@
+NAME		objective
+SYNTAX		objective(user)
+DESCRIPTION	Query the objective string based on a user's gender.
+RETURN VALUE	Returns the objective string.

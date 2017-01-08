@@ -1,0 +1,6 @@
+NAME		meminfo
+SYNTAX		meminfo
+DESCRIPTION	Displays information about Jeamland's use of memory resources.
+		For anyone who is interested, the top right value is the most
+		significant, showing the total memory usage in bytes. This is
+		the line headed 'Total Pages' (on Linux) or 'Sbrk requests'.

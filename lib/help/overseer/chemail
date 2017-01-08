@@ -1,0 +1,3 @@
+NAME		chemail
+SYNTAX		chemail <user> <address>
+DESCRIPTION	Change <user>'s email address to <address>.

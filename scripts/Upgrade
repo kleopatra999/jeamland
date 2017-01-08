@@ -1,0 +1,59 @@
+#!/bin/sh
+# Script to upgrade from a previous version of JeamLand
+# Leaves previous version intact!.
+
+nlecho() {
+	if [ $bash -eq 1 ]; then
+		echo -n "$*"
+	else
+		echo "${*}\\c"
+	fi
+}
+
+cpdir() {
+	# Cannot assume that cp -r is available.
+	if [ -d "$dir/$1" ]; then
+		nlecho "Copying existing $1 directory..."
+		( cd $dir; tar -cf - $1 | (cd $opwd; tar -x${v}f - ) ) \
+		    2>/dev/null
+		echo 'Done.'
+	else
+		echo "No existing $1 directory..."
+	fi
+}
+
+# Are we running bash ?
+if [ 'x'"$BASH_VERSION" = 'x' ]; then
+	bash=0
+else
+	bash=1
+fi
+
+opwd=`pwd`
+
+if [ 'x'"$1" = "x-v" ]; then
+	v="v"
+else
+	v=""
+fi
+
+nlecho 'Enter the directory holding the previous version: '
+read dir
+
+if [ ! -d $dir ]; then
+	echo "$dir: not a directory."
+	exit 1
+fi
+
+cpdir 'backups'
+cpdir 'lib/users'
+cpdir 'lib/room'
+cpdir 'lib/etc'
+cpdir 'lib/mail'
+cpdir 'lib/secure'
+cpdir 'lib/log'
+cpdir 'lib/board'
+cpdir 'lib/banish'
+cpdir 'lib/jlm'
+cpdir 'lib/dead_ed'
+

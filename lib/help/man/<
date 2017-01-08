@@ -1,0 +1,10 @@
+NAME		<
+SYNTAX		<(string)
+DESCRIPTION	Compares the argument with the last value pushed onto the
+		stack.
+
+		The comparison is an integer comparison if the arguments are
+		both integers, else it is a string comparison. To force a
+		string comparison, prefix one or both of the arguments with
+		a $ character.
+RETURN VALUE	Returns 1 if the argument is less than the stack, 0 otherwise.

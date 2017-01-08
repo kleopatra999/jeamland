@@ -1,0 +1,4 @@
+long_desc "Welcome to JeamLand\nThis is the entrance room of the JeamLand talker.\n"
+owner "root"
+name "the entrance"
+flags 2

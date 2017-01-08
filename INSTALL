@@ -1,0 +1,120 @@
+A first attempt at documenting: How to install JeamLand
+-------------------------------------------------------
+
+I am really a little too close to JeamLand to write this document, but I'll
+give it a go and then amend it in response to any comments I receive!
+Comments to: A.Fiddaman@twikki.demon.co.uk please!
+
+
+1. Extracting the JeamLand directory tree.
+
+   (Assuming that you haven't already done this
+    if not, how are you reading this file ? ;-).
+
+   JeamLand is distributed as a gzipped tar file and needs to be uncompressed
+   and untarred. If you have gnu tar, then all you need to type is:
+
+	tar -zxvf jeamland.1.0.0.tar.gz
+
+   where 1.0.0 is the version number of this distribution.
+
+   If you do not have gnu tar, then the required command is:
+
+	gzip -dc jeamland.1.0.0.tar.gz | tar -xf -
+
+   If you do not have gzip (?!) you can try downloading the distribution as
+   an unzipped tar by ftp'ing it down again omitting the .gz extension
+   (should work with wu-ftpd servers)
+
+   If you do not have tar, then you're stuck unless you can persuade another
+   program, such as cpio, to extract the files for you.
+
+   You should now have a directory called something like jeamland.1.0.0
+   (depending on the version you have.)
+
+
+2. You now need to configure your distribution.
+   First, change into the jeamland.1.0.0 directory then either:
+
+     i)  Run the Configure program and answer the questions.
+   or
+     ii) Edit the config.h file with your favourite editor.
+
+   After running the Configure program, you may want to browse the config.h
+   file to see if there is anything else you wish to change; the Configure
+   program only changes the bare minimum but having said that, the
+   distribution config.h file should be ok for most setups.
+
+
+3. Type 'make' which will show a list of operating systems under which
+   JeamLand has been compiled. If your system is listed, all well and good
+   simple type 'make <system name>' and go and make a cup of coffee.
+   If not, then use 'make cc' or 'make gcc' depending on which compiler you
+   have - it does no harm to try both.
+
+   JeamLand should compile with no errors or warnings. In general, warnings
+   can be safely ignored but I would appreciate being told of any which occur
+   so that they may be fixed in the next release.
+
+   If compilation does abort with an error, and you fix it, please tell me!
+   if you can't fix it, feel free to contact me for help.
+
+
+4. Now test the talker in single user mode. Just type:
+
+	bin/jeamland -S
+
+   If all goes well, you will be presented with a login prompt; log in as
+
+	root
+
+   You will be warned that root has no password, then asked to input one.
+   In order for the talker to save the root user, you must also set an
+   email address using the 'email' command.
+
+   At this point, you may want to create an admin user for yourself using
+   the 'mkuser' command.
+
+   When you've finished playing, shut the talker down by typing
+
+	shutdown now
+
+
+5. Start the talker either with the angel program:
+
+	bin/angel
+
+   or in background mode:
+
+	bin/jeamland -B
+
+   You should now be able to log in by telnetting to the port you set it up
+   to use.
+
+   The angel is a small program which boots the talker and then goes to sleep
+   until the talker either shuts down or crashes at which point it will
+   log some information and restart the talker. If the talker should crash
+   twice in quick succession, the angel will give up.
+
+   If you are running the talker under the angel, then trying to shut it down
+   will just result in another copy being booted. You need to issue the
+   "killpp" command from inside the talker to shutdown the angel.
+
+
+6. The messages shown at and just after login are located in the lib/etc
+   directory. You may want to look at all of the files in there - some of them
+   are system generated (eg. mailspool, mastersave.o) but the others are
+   editable by the administrator (eg. sudoers, motd, news)
+
+   The lib/ directory is the talker's database.
+
+
+7. If you are short of disk space, you can remove all unecessary files by
+   typing:
+
+	make aclean
+
+
+Enjoy!
+						Andy Fiddaman, June 1996
+

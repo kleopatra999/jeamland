@@ -1,0 +1,4 @@
+NAME		log
+SYNTAX		log [log filename]
+DESCRIPTION	Displays the specified log.
+		Without arguments, shows available logs.

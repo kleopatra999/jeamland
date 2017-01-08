@@ -1,0 +1,5 @@
+NAME		rmhost
+SYNTAX		rmhost [%]<host>
+DESCRIPTION	Delete a host from the hosts table.
+		If the host is prefixed with %, it will be explicitly removed
+		from the cdudp table.

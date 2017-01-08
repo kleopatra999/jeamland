@@ -1,0 +1,4 @@
+NAME		capitalise
+SYNTAX		capitalise(string)
+DESCRIPTION	The first character of the string argument is capitalised.
+RETURN VALUE	The capitalised argument.

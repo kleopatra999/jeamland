@@ -1,0 +1,6 @@
+NAME		feelings
+SYNTAX		feelings [feeling]
+		feelings <reload>
+DESCRIPTION	List all available feelings or information about a particular
+		feeling.
+		'feelings reload' will reload the feelings database from disk.

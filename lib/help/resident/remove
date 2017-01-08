@@ -1,0 +1,4 @@
+NAME		remove
+SYNTAX		remove <number>
+DESCRIPTION	Removes note <number> from the board in the current room.
+SEE ALSO	post, headers

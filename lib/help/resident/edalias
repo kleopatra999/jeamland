@@ -1,0 +1,6 @@
+NAME		edalias
+SYNTAX		edalias <key>
+DESCRIPTION	Edit or create a multi-part alias.
+		The alias will be loaded into the editor buffer, split around
+		; characters.
+SEE ALSO	alias, alias.tutorial

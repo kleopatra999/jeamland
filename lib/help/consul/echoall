@@ -1,0 +1,5 @@
+NAME		echoall
+SYNTAX		echoall <message>
+DESCRIPTION	Echos a message to all users, the sender is not shown to
+		people of a lower level than you.
+SEE ALSO	wall

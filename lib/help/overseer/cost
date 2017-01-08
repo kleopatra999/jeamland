@@ -1,0 +1,5 @@
+NAME		cost
+SYNTAX		cost <command>
+DESCRIPTION	Show how much CPU time a command uses. The values displayed
+		are for User-time, System-time (both in ms) and change in
+		Resident Set Size (in bytes).

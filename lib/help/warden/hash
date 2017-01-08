@@ -1,0 +1,12 @@
+NAME		hash
+SYNTAX		hash [-t] [table]
+DESCRIPTION	Shows statistics relating to the internal hash tables.
+		By default, the hash command will list summary information
+		on all hash tables. With the -t option, the output will also
+		include a schema dump of the tables.
+		You can restrict the output to one table only by providing the
+		table name as an argument; the tables available are:
+			command, feeling, alias and jlm
+NB		Not all tables may be listed as their existance is a compile
+		time option.
+

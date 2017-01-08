@@ -1,0 +1,3 @@
+NAME		forceall
+SYNTAX		forceall <action>
+DESCRIPTION	Force all users to do <action>

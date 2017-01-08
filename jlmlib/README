@@ -1,0 +1,40 @@
+This directory contains the library which is designed to be linked to jlm's
+in order for them to be able to communicate with the talker.
+
+Just type "make" for compile options.
+
+Look at the mirror.c file for a simple example jlm.
+
+---
+
+You don't have to use these libraries; in fact, you don't need to write a
+jlm in C.
+
+The protocol for communicating with the talker is as follows:
+
+
+	#!service_name		Start of service packet
+				Valid services are:
+					ident	Identify myself.
+					claim	Claim command.
+					func	Call function.
+	#!			End of service packet.
+	#!(arg)			Service argument packet.
+
+So, if your program wants to send a message to a particular user, it need only
+send the following to its standard output:
+
+	#!func
+	#!(write_user)
+	#!(user_name)
+	Hello there!
+	#!
+
+Of course, if you're writing the jlm in C, and are linking with the library in
+this directory, then you need only do:
+
+	write_user(user_name, "Hello there!\n");
+
+
+More explanation is beyond the scope of this document.
+

@@ -1,0 +1,7 @@
+NAME		entermsg
+SYNTAX		entermsg [message]
+DESCRIPTION	Allows you to customise the message displayed when you enter
+		a room. This message must contain at least one %N cookie but
+		if you omit this, it will be automatically prepended to your
+		given string.
+SEE ALSO	cookies, leavemsg

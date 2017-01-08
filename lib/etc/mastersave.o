@@ -1,0 +1,3 @@
+# user, level, level_setter
+user ({"root",5,"root",})
+grupe ({"admin",0,({"#overseer+","!root",}),})

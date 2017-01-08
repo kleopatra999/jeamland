@@ -1,0 +1,6 @@
+NAME		at
+SYNTAX		at <user> <command>
+DESCRIPTION	Execute a command in the same room as a user.
+EXAMPLES	at angellica hug angellica
+		alias rhug at @find_user($1) hug $1
+SEE ALSO	in

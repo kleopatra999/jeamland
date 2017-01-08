@@ -1,0 +1,97 @@
+#!/bin/sh
+# Script to patch JeamLand to a later version using a distributed diffs file.
+
+myecho()
+{
+        if [ $echotype -eq 1 ]; then
+                echo -n "$1"
+        else
+                if [ $echotype -eq 2 ]; then
+                        echo "$1\c"
+                else
+                        # *Sigh*
+                        echo "$1"'
+	'
+                fi
+        fi
+}
+
+cat << FOE
+
+******************************************************************************
+
+				J E A M L A N D
+			Patching JeamLand Directory Tree
+
+******************************************************************************
+
+FOE
+
+# Use jlmlib's existance as a test.. not brilliant but..
+if [ ! -d jlmlib ]
+then
+	echo 'Run this script from inside your JeamLand directory.'
+	exit 1
+fi
+
+# How does our echo command work ?
+if (echo "wibble\c"; echo fubar) | grep c > /dev/null
+then
+        # Appending \c doesn't work... does a prefix of -n ?
+        if (echo -n wibble; echo fubar) | sed 's/-n/xn/' | grep xn > /dev/null
+        then
+                # Prefixing -n doesn't work, ah well, do the best we can.
+                echotype=3
+        else
+                # Prefixing -n works.
+                echotype=1
+        fi
+else
+        # Suffix of \c works.
+        echotype=2
+fi
+
+myecho 'Enter location of diffs file: '
+read diffs
+
+if [ ! -r $diffs ]
+then
+	echo "Cannot read diffs file: $diffs"
+	exit 1
+fi
+
+# Do the patch!
+patch -p1 -E < "$diffs"
+
+if [ $? -ne 0 ]
+then
+	echo ''
+	echo ''
+	echo 'Patch reports a problem somewhere. Reject files are:'
+	find . -name \*.rej -print
+
+	myecho 'Ok to remove backup files and run install script ? '\
+	    '(^C to abort)'
+	read a
+	if [ "x$a" = "xn" ] || [ "x$a" = "xN" ]; then
+		exit 0
+	fi
+fi
+
+# Remove backup files.
+echo ''
+myecho 'Patch succeeded... Removing backup files... '
+find . -name \*.orig -exec rm {} \;
+
+if [ -e install.sh ]
+then
+	echo ''
+	echo 'Post-installation script found... Running..'
+	chmod 700 install.sh
+	./install.sh
+	echo 'Removing post-installation script...'
+	rm -f install.sh
+fi
+echo ''
+echo 'Patch Complete.'
+

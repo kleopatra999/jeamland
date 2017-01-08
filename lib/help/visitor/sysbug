@@ -1,0 +1,5 @@
+NAME		sysbug
+SYNTAX		sysbug [bug]
+DESCRIPTION	Lets you log any bugs you find on Jeamland.		
+		If invoked without arguments, the editor will be started.
+SEE ALSO	idea

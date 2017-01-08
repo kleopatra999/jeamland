@@ -1,0 +1,16 @@
+It is possible to show a list of users currently logged on to the talker, or
+to finger a particular user from another application (commonly a www cgi
+script).
+
+[ Try: http://orchard.imaginary.com/cgi/who.cgi
+       http://orchard.imaginary.com/cgi/finger.cgi?alcides ]
+
+To do this, you will first have to compile the "rquery" utility.
+
+To do this, edit the file util/Makefile and add rquery to the all: line; then
+recompile.
+
+There are some example cgi scripts in the "html" directory.
+
+(I will get around to improving this documentation at some point.. )
+

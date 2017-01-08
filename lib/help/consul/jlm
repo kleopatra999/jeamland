@@ -1,0 +1,12 @@
+NAME		jlm
+SYNTAX		jlm
+		jlm add <module> <room>
+		jlm remove <module>
+		jlm reload
+DESCRIPTION	The jlm command manipulates JeamLand Loadable Modules.
+		Without arguments, it lists all loaded modules.
+		The command can also be used to add and remove modules
+		although to effect a permanent change, you will have to edit
+		the file etc/modules.
+		Jlm reload forces a load of any jlms listed in etc/modules
+		which are not in memory.

@@ -1,0 +1,4 @@
+NAME		morelen
+SYNTAX		morelen [number]
+DESCRIPTION	Set your more length to <number>. This is the number of lines
+		the pager will display per page.

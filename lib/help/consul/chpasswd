@@ -1,0 +1,4 @@
+NAME		chpasswd
+SYNTAX		chpasswd <user>
+DESCRIPTION	Change <user>'s password. You will be prompted for the new
+		password.

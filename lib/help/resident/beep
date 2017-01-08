@@ -1,0 +1,3 @@
+NAME		beep
+SYNTAX		beep <user>
+DESCRIPTION	Beep a users terminal to attract their attention.

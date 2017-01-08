@@ -1,0 +1,4 @@
+NAME		to
+SYNTAX		to <user> <message>
+DESCRIPTION	Like 'say' but directs your message to a particular user
+		although everyone in the room will still see it.

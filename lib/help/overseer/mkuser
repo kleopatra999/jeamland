@@ -1,0 +1,4 @@
+NAME		mkuser
+SYNTAX		mkuser <name>
+DESCRIPTION	Create a user with the given name. You will be prompted for
+		further information.

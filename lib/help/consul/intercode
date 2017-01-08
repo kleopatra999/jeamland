@@ -1,0 +1,6 @@
+
+
+NAME		intercode
+SYNTAX		intercode [:]<message>
+DESCRIPTION	Send a message on the intercode channel. This is for LPC coding
+		questions only.

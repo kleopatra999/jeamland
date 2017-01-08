@@ -1,0 +1,7 @@
+NAME		copy
+SYNTAX		copy(n)
+DESCRIPTION	Copies the top value of the stack onto the stack n times.
+RETURN VALUE	copy() returns the value it has just copied.
+		@copy(1) can be used to retrieve the top stack value without
+		popping it. (Well, you're actually copying the top stack value
+		and then popping it because of the @)

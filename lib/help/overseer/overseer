@@ -1,0 +1,12 @@
+NAME            overseer
+SYNTAX          overseer [:|;|.]<message>
+                overseer !
+DESCRIPTION     Chat on the overseer channel.
+                Prefix the message with: 
+                        : to emote.
+                        ; to memote.
+                        . to use a feeling command.
+                "overseer !" shows a history for the channel.
+EXAMPLES        overseer :grins
+                overseer .bop all
+                overseer ;feet hurt!

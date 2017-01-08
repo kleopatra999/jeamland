@@ -1,0 +1,4 @@
+NAME		beeplogin
+SYNTAX		beeplogin
+DESCRIPTION	Toggles whether your terminal is beeped whenever a user logs
+		in.

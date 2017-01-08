@@ -1,0 +1,5 @@
+NAME		events
+SYNTAX		events
+DESCRIPTION	List all pending events.
+		An event is an episode of asynchronous execution scheduled
+		for some time in the future.

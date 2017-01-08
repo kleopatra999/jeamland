@@ -1,0 +1,6 @@
+NAME		mailnote
+SYNTAX		mailnote <note number>
+DESCRIPTION	Takes a note on the notice board in your current room and
+		sends it to your JeamLand mailbox. This allows you to forward
+		it to another user, another user on another talker or to your
+		validated email address.

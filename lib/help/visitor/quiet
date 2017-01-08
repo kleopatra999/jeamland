@@ -1,0 +1,4 @@
+NAME		quiet
+SYNTAX		quiet <command>
+DESCRIPTION	Executes a command without you seeing any output which would
+		otherwise have been written to you.

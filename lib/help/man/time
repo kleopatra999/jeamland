@@ -1,0 +1,5 @@
+NAME		time
+SYNTAX		time(hour)
+		time(min)
+DESCRIPTION	Query current time.
+RETURN VALUE	Returns the current hour or minute - depending on the argument.

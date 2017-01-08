@@ -1,0 +1,5 @@
+NAME		plan
+SYNTAX		plan [-r]
+DESCRIPTION	Sets your plan which can be viewed using examine, exa or
+		finger.
+		With -r argument, removes any existing plan.

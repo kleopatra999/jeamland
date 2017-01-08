@@ -1,0 +1,4 @@
+NAME		join
+SYNTAX		join <user>
+DESCRIPTION	Moves you to the current location of the specified user, unless
+		the room they are in is locked.

@@ -1,0 +1,20 @@
+# Example crontab for a jeamland setup.
+#
+# Boot Jeamland talker if it is not already up, every 15 minutes.
+0,15,30,45 * * * * /home/talker/jeamland/scripts/ifangel
+#
+# **********************************************************************
+# Use the -mail flag of do_backups if you want your backups sent offsite
+# automatically; eg:
+# do_backups -mail email@address.here -lib
+# **********************************************************************
+#
+# Backup files at 1am Sunday, Monday and Tuesday.
+0 1 * * 0 /home/talker/jeamland/scripts/do_backups -room -board
+0 1 * * 1 /home/talker/jeamland/scripts/do_backups -user -mail
+0 1 * * 2 /home/talker/jeamland/scripts/do_backups -audit
+#
+# On the first of each month, backup the entire lib and delete backups older
+# than 60 days. The names of the old backups which are deleted will be
+# output due to the -v flag.
+0 1 1 * * /home/talker/jeamland/scripts/do_backups -lib -v -del_old 60

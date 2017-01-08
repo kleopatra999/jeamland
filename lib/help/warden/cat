@@ -1,0 +1,3 @@
+NAME		cat
+SYNTAX		cat <file>
+DESCRIPTION	Cat a file in the lib directory. cf. UNIX

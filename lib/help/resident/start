@@ -1,0 +1,4 @@
+NAME		start
+SYNTAX		start [room]
+DESCRIPTION	Sets your starting location to the current room.
+		Administrators can specify a room as an argument.

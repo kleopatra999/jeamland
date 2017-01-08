@@ -1,0 +1,12 @@
+NAME		warden
+SYNTAX		warden [:|;|.]<message>
+		warden !
+DESCRIPTION	Chat on the warden channel.
+		Prefix the message with:
+			: to emote.
+			; to memote.
+			. to use a feeling command.
+		"warden !" shows a history for the channel.
+EXAMPLES	warden :grins
+		warden .bop all
+		warden ;feet hurt!

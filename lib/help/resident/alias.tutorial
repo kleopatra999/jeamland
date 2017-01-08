@@ -1,0 +1,527 @@
+
+			!!! JeamLand Alias Tutorial !!!
+			-------------------------------
+
+As I seemed to be the only person with a complete understanding of JeamLand
+aliases, I wrote this tutorial. Please feel free to mail me with comments /
+suggestions and additions. I would also like to receive any 'nice' examples
+to add to the bottom section. If you have any questions at all, or if
+anything is unclear and would benefit from a rewrite(!), please feel
+free to send me email at: A.Fiddaman@twikki.demon.co.uk
+
+
+::: NOTATION :::
+
+	Within this tutorial, there is a need for examples to illustrate
+	certain principles. For these, I have used the following:
+
+		<string1> -> <string2>
+
+	to indicate that typing string1, acts as if you had typed string2.
+
+
+::: SIMPLE ALIASES :::
+
+	The simplest alias is of the following form:
+
+		alias g grin
+
+	Then, typing 'g' at a prompt will act as if you had typed 'grin'.
+
+		g -> grin
+
+	One drawback of this type of alias is that you can not supply
+	arguments to the new command;
+
+		g wibble -> grin
+
+	This is probably not what was intended.
+
+
+::: ALIASES USING SUPPLIED ARGUMENTS :::
+
+	To get around the problem described above, it is possible to use
+	the arguments supplied to your alias in the expansion. The supplied
+	arguments are referred to as 'words'.
+
+	To refer to a word in the alias expansion, a $-expression is used; the
+	simplest being '$*' meaning 'all supplied words, or blank if there were
+	none'. Our grin alias can therefore be enhanced as:
+
+		alias g grin $*
+
+	Now:
+
+		g 			-> grin
+		g wibble		-> grin wibble
+		g happily wibble	-> grin happily wibble
+
+	It is also possible to just use specific words in your expansion using
+	$-expressions of the form $n where n is an integer between 1 and 9
+	inclusive. This leads to aliases like:
+
+		alias g grin $1
+
+	Now:
+
+		g			-> <Yields an error>
+		g wibble		-> grin wibble
+		g happily wibble	-> grin happily
+
+	This alias will not be expanded if it is invoked with no arguments, the
+	presence of the $1 makes the alias require one argument. So typing just
+	'g' will yield an error.
+
+	There is one more $-expression in this category and that is '$n*' which
+	expands to 'all words from word n onwards'; again n is an integer
+	between 1 and 9. An example of this kind of alias is:
+
+		alias t tell $1 $2*
+
+	Now:
+
+		t wibble hello		-> tell wibble hello
+		t wibble hello there	-> tell wibble hello there
+
+	(Actually, 'alias t tell $*' would suffice, leaving the tell command to
+	 perform syntax checking, but that would ruin a perfectly good example)
+
+
+::: ALIASES WHICH PERFORM MULTIPLE COMMANDS :::
+
+	It is possible for an alias to do more than one thing and this is
+	achieved by seperating actions with a ';' character; an example:
+
+		alias smgr smile $1;grin $2
+
+	Now:
+
+		smgr			-> <Yields an error>
+		smgr wibble		-> smile wibble; <error as $2 omitted>
+		smgr wibble fubar	-> smile wibble; grin fubar
+
+	NB: Aliases are interpreted from left to right. If this alias was
+	    invoked with only one argument, it would not fail until it reached
+	    the grin command and the 'smile' action would be completed
+	    successfully.
+
+
+::: LITERAL CHARACTERS :::
+
+	As we have seen, the $ and ; characters are treated specially by the
+	parser (so are @, % and #); what if we want a literal $ character ?
+	The solution is to prefix it with a '\' character. An example:
+
+		alias iou emote owes $1 \$$2
+
+	So:
+
+		iou		-> <error>
+		iou sweep	-> <error>
+		iou sweep 40 	-> emote owes sweep $40
+
+	(I don't actually, maybe a pint or two... and a Squash rematch..)
+
+
+::: ALIASES ARE RECURSIVE :::
+
+	This means that is you create an alias like:
+
+		alias who who -w
+
+	it will not work!
+
+		who -> who -w -> who -w -w -> who -w -w -w    <etc.>
+
+	When you type 'who' it is expanded to 'who -w', this in turn is
+	expanded to 'who -w -w' and so on, the system will abort this
+	expansion with an error after looping a number of times; exactly how
+	many is set by the administrator.
+
+	This is often useful, but if (as in our above example) we do not desire
+	the recursive action, this is prevented by using a '\' character, so
+	inhibiting further expansion on a verb.
+
+	Our above example should be written:
+
+		alias who \\who -w
+
+	Now, why the two \ characters ? Well, as seen in the previous section
+	a \ character means 'take the next character literally' and so to
+	insert a literal \ character, we need to specify it twice.
+
+	NB: With the above alias:
+
+		who -> \who -w
+
+	    ie. the \\ is interpreted as a single \
+	    Prefixing a command with a backslash (\) is the way to bypass
+	    further alias expansion.
+
+	This is also the way to remove a bad 'unalias' alias.
+
+
+::: \ HAS YET ANOTHER MEANING :::
+
+	No groans please!
+	The \ character is also used in partial alias expressions. A partial
+	alias is one in which the keyword need not be followed by a space
+	character and is useful for redefining command shortcuts.
+
+	As an example, if I wanted to be able to use the ] character to do
+	a 'say' command then:
+
+		alias \] say $*
+
+	would achieve this, allowing:
+
+		] hello -> say hello
+		]hello  -> say hello
+
+
+::: BREAK EXPRESSIONS :::
+
+	Break expressions are used to abort execution of an alias at some
+	point. (equivalent to "exit" in script programs etc.)
+
+	There are two break $-expressions:
+
+		$!
+	and
+		$!!
+
+	The first causes current execution to stop.
+	The second causes _all_ execution to stop, even if we are within a
+	subroutine.
+
+	This is a nice way to avoid having to specify conditional expressions
+	more than once.
+	eg.
+
+		grin;$$#1+:$!;smile;bounce;ewop
+
+	as opposed to:
+
+		grin;$$#0:smile;$$#0:bounce;$$#0:ewop
+
+
+::: FUNCTIONS AND THE STACK :::
+
+	To complicate matters, an alias is also able to call certain functions.
+	A full list of functions is on the help page 'alias.funcs'
+
+	If you have any suggestions for others, please tell me!
+
+
+	The most basic form of function call is:
+
+		@func(arg)
+
+	This calls the function 'func' with argument 'arg' and the result
+	is inserted into the alias being expanded.
+
+	eg.
+		alias low write @lower_case($1).
+
+	Then:
+
+		low test	-> write test.
+		low TeSt	-> write test.
+		low TEST	-> write test.       [ You get the idea! ]
+
+	
+	To use functions properly, you will need to understand the function
+	stack. The stack is basically a temporary storage area for strings;
+	when you put something on to the stack, you 'push' it and when you
+	retrieve something from the stack, you 'pop' it. The stack is arranged
+	in such a way so that the last thing you pushed is the first thing
+	that will be popped.
+
+
+	Another type of function call is:
+
+		%func(arg)
+
+	This behaves in almost exactly the same way as the previous one
+	[ @func(arg) ] but the difference is important. With this function,
+	the result is 'pushed' on to the stack as well as being inserted into
+	the alias.
+
+	The most simple way to get the result value back off the stack is to
+	use the $% expression.
+
+	Here's an example:
+
+		alias lowcap write %lower_case($1).;write capitalise($%).
+
+	Then:
+
+		lowcap test	-> write test.; write Test.
+		lowcap TeSt	-> write test.; write Test.
+		lowcap TEST	-> write test.; write Test.
+
+
+	This is different to:
+
+		alias lowcap write @lower_case($1).;write capitalise($1).
+
+	Which would behave as:
+
+		lowcap test	-> write test.; write Test.
+		lowcap TeSt	-> write test.; write TeSt.
+		lowcap TEST	-> write test.; write TEST.
+
+
+	In the first example, it is the return value of the lower_case()
+	function which is being passed to capitalise() - in every case, the
+	string "test"
+
+
+	Both of the above function calls may be prefixed with a '&' character
+	which prevents the function result being expanded into the alias.
+	Here's a capfirst  alias in one stage:
+
+		alias lowcap write &%lower_case($1)@capitalise($%).
+
+	This intrinsic function call does not enhance readability and I would
+	therefore tend to write this as:
+
+		alias lowcap &%lower_case($1);write @capitalise($%).
+
+	However, the result is identical.
+
+	The '&' prefix is most useful when you want to use a function which
+	takes more than one argument. Imagine we want to write a command
+	called 'wibcheck' which tells you whether the argument contains the
+	string "wibble". You may need to read the next section, to understand
+	the $$ part!
+
+		alias wibcheck
+			&%push(wibble)
+			$$@~($*):write It contained wibble!$!
+			write It didn't contain wibble *sniff*
+
+	There is a shortcut for this in the form:
+
+		alias wibcheck
+			$$@~(wibble,$*):write It contained wibble!$!
+			write It didn't contain wibble *sniff*
+
+	The parts of the function argument separated by commas are pushed
+	on to the stack for you. You might ask what would happen if $* was
+	to contain a comma; the answer is nothing!.. As the substitution is
+	from a $-expression, the comma is ignored.
+
+	A more advanced version of out wibcheck command is:
+
+		alias wibcheck
+			&%lower_case($*)
+			$$@~(wibble,$%):write It contained wibble!$!
+			write It didn't contain wibble *sniff*
+
+	Here, we convert the typed argument into lower case first, so
+	detecting strings like WiBbLE.
+
+	Now, imagine that we wanted to know if the argument to 'wibcheck'
+	was exactly "wibble", no more, no less. Then we could do it like this:
+
+		alias wibcheck
+			$$@=(wibble,$*):write It was wibble!$!
+			write It wasn't wibble.
+
+	Then, imagine we want to lower case the argument again:
+
+		alias wibcheck
+			&%lower_case($*)
+			$$@=(wibble,$%):write It was wibble!$!
+			write It wasn't wibble.
+
+	Fair enough. However, the following alias is neater and makes use of
+	the fact that the return value of lower_case is already on the stack:
+
+		alias wibcheck
+			&%lower_case($*)
+			$$@=(wibble):write It was wibble!$!
+			write It wasn't wibble.
+
+	Now, there may not appear to be much in it, but the second one is
+	performing one less stack pop and one less stack push than the first.
+
+
+	The present and find_user functions allow for aliases such as:
+
+		alias k klobber @present($1)
+
+		k wibble -> klobber Wibble              <If wibble is present>
+		k wibble -> write Wibble is not here.   <Otherwise>
+
+	As the @ and % characters are special, to use them in a normal alias,
+	they must be escaped using a \ character; see the LITERAL CHARACTERS
+	section.
+
+	It is possible for an alias to leave something on the stack and hence
+	return something to its caller. Example:
+
+		alias capfirst &%lower_case($1);&%capitalise($%)
+		alias test capfirst $1;write $%
+
+	For debugging alias expressions which are this complicated, it is
+	useful to turn on the debugging output with the command "alias debug"
+
+
+::: CONDITIONAL EXPRESSIONS :::
+
+	The general form of these expressions is:
+
+		$$<expression>:command;
+
+	The way that these work is actually very simple. If the expression
+	evaluates to true, the command is executed.
+
+	The expression is a list of elements separated either by a
+	'&' or a '|' character, denoting 'logical and' and 'logical or'
+	respectively; a missing separator is read as a 'logical and'. Each
+	element may also be preceded by a ! character.
+
+	Expressions are parsed left to right and are short circuiting, ie.
+	they stop as soon as the result is known.
+
+	An expression element is either a # sign followed by a number,
+	(itself being optionally followed by a + or - sign) denoting a
+	certain number of supplied arguments, a letter or a function.
+
+	The available letters are:
+		$N	Your name.
+
+	An example is our 'who' alias, the best way of constructing it
+	being as follows:
+
+		alias who $$#0:\\who -w
+
+	Then:
+
+		who	-> \who -w
+		who -h	-> who -h
+
+	The conditional expression $$#0 evaluates to true only if no (0)
+	arguments are supplied to our who alias.
+
+	Note that in the second case, the who alias is not recursively called
+	as execution the first time "fell through" (ie. no actions had been
+	taken by the time the parser got to the end of the alias string)
+
+	A more complex example is another version of our klobber command.
+
+		alias k $$#0:write Klobber who ?;
+			$$#1+:emote klobbers @present($1).
+
+	So:
+
+		k		-> write Klobber who ?
+		k wibble	-> emote klobbers Wibble
+	Or:	k wibble	-> write Wibble is not here.
+
+	The expression $$#1+: means 'action this if number of arguments >= 1'
+	similarly, it is possible to construct expressions like $$#6-: for
+	actions to be executed where the number of arguments is <= 6.
+
+	Again, this would probably be better written:
+
+		alias k $$#0:write Klobber who ?$!;
+			emote klobbers @present($1).
+
+	(See Break Expressions)
+
+	Conditional expressions can reference functions. For above.
+
+
+::: COMMENTS :::
+
+	You may have realised by now that aliases are more akin to a
+	programming language than a simple alias system. For this reason, it
+	is possible to insert comments. Anything after a # character is
+	considered a comment until the next ; character unless the # character
+	is part of a conditional expression.
+
+	When writing complex aliases which require comments, you may wish to
+	use the 'edalias' command to enter each part separately as it soon
+	becomes very complicated using just the 'alias' command.
+
+
+::: SPECIAL ALIASES :::
+
+	The aliases '_login', '_logout', '_arrive' and '_depart'  have
+	special meanings; they are executed as you login, logout, enter and
+	leave a room respectively.
+
+	For example, you might want to:
+
+		alias _login write;who;write
+
+	ie. execute a who command with a blank line above and below.
+
+	or, perhaps:
+
+		alias _login write ^[[37m^[[40m^[[?7h
+
+	which would set your terminal to white text on a black background and
+	turn linewrap on.
+
+	The _logout alias is less useful, but it has been asked for, so it
+	exists.
+
+	The _arrive and _depart aliases are only meaningful as room aliases.
+
+
+::: SOME NICE REAL EXAMPLES :::
+
+Contributions please!
+
+	alias who $$#0:\\who -w
+	alias rhug at @find_user($1) hug $1
+	alias last $$#0:\\last \#friends
+	alias rey remote @find_user($1) raises an eyebrow.
+
+And, for Mr Gosnell:
+
+	edalias \.
+		$$#0:write Syntax: .<verb> [extra] $!
+		#Common to both cases.
+		write You $*.
+		&%pluralise($1)
+		$$#1:quiet emote $%. $!
+		quiet emote $% $2*.
+
+An alias which warns you at 5 minutes to the hour, that you may soon have a
+lecture.
+
+	edalias lec
+		$$#1:write Lecture in 5 minutes!
+		&%time(hour)&%time(min)
+		$$@<(55):sched -q \@$%:55 lec dummy$!
+		sched -q \@@+(1):55 lec dummy
+
+A buy beer command for a pub room, two aliases required as follows:
+
+alias _buy_syntax
+	write Buy $1 for who ? $!!
+
+alias buy
+	$$#2-:_buy_syntax what
+	$$!@=(beer,$1):write The pub only sells beer! $!
+	$$!@=(for,$2):_buy_syntax beer
+	&%present($3)
+	$$@=($N):write You can't buy a beer for yourself! $!
+	&%present($3)
+	write You buy a beer for @copy(2)
+	quiet <$% buys you a beer
+	quiet emote buys a beer for $%
+
+Another interesting alias for a pub..
+
+alias _arrive
+	$$@member_grupe(drinkers,$N):$!
+	write You are kicked out of the pub by the landlord!
+	quiet emote is kicked out of the pub by the landlord!
+	\\out
+

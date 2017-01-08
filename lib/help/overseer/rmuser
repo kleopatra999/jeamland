@@ -1,0 +1,6 @@
+NAME		rmuser
+SYNTAX		rmuser <user>
+DESCRIPTION	Deletes a user account from the disk. i.e. No more user !!
+		Also kicks them off the talker if they are on.
+		This command should also be used when a user has been 'deleted
+		in a bad way' to release the name again.

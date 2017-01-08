@@ -1,0 +1,5 @@
+NAME		ls
+SYNTAX		ls [-l] [directory]
+DESCRIPTION	Lists the files in a certain directory of the Jlib.
+		cf. UNIX
+		The -l option specifies 'long' output.

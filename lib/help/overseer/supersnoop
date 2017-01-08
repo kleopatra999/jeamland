@@ -1,0 +1,5 @@
+NAME		supersnoop
+SYNTAX		supersnoop [-r] <user>
+DESCRIPTION	Starts or stops a supersnoop on a user and adds or removes
+		their name to/from the snooped file.
+CAVEATS		Only root can use this command.

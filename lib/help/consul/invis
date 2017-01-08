@@ -1,0 +1,4 @@
+NAME		invis
+SYNTAX		invis
+DESCRIPTION	Sets you invisible to other users with levels less than your
+		own.

@@ -1,0 +1,3 @@
+NAME		creator
+SYNTAX		creator [:]<message>
+DESCRIPTION	Send a message on the creator channel (cdudp network).

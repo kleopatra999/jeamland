@@ -1,0 +1,29 @@
+All communication between the main process and erqd is of string form.
+The following is a list of communication format.. -> for outgoing data,
+<- for incoming. All messages are prefixed by a request_code and packet_id
+but this is handled by send_erq.
+
+ERQ_ERROR
+	<- error_message
+ERQ_DIE
+	->
+ERQ_RESOLVE_NAME
+	-> ipname;
+	<- ipnum ipname;
+ERQ_RESOLVE_NUMBER
+	-> ipnum;
+	<- ipnum ipname;
+ERQ_IDENT
+	-> ipnum;local_port,remote_port
+	<- ipnum;local_port,remote_port;username;
+ERQ_RUSAGE
+	->
+	<- num:num:num:num:num:num:num:num:num:num:num:num:num:num:num:num
+ERQ_FAILED_RESOLVE
+	<- ipnum;
+	<- ipname;
+ERQ_EMAIL
+	-> sender;file;delete_after_flag;
+	<- sender;success_flag;
+
+

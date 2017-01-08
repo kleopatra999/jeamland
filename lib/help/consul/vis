@@ -1,0 +1,4 @@
+NAME		vis
+SYNTAX		vis
+DESCRIPTION	Sets yourself visible to other users.
+SEE ALSO	invis.

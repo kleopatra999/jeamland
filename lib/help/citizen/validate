@@ -1,0 +1,3 @@
+NAME		validate
+SYNTAX		validate <user>
+DESCRIPTION	Grant a user a residency (promote to level 1)

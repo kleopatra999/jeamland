@@ -1,0 +1,4 @@
+NAME		headers
+SYNTAX		headers 
+DESCRIPTION	Lists notes on notice board in current room.
+SEE ALSO	examine

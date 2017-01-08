@@ -1,0 +1,3 @@
+NAME		unlink		
+SYNTAX		unlink <exit>	
+DESCRIPTION	Removes an exit from the current room.

@@ -1,0 +1,8 @@
+NAME		idea
+SYNTAX		idea
+DESCRIPTION	Logs any ideas or suggestions you may have about Jeamland.
+		You may either enter a one line idea with
+			idea <my idea>
+		or just type 'idea' and enter the editor to leave a more
+		verbose idea.
+SEE ALSO	sysbug

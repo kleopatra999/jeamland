@@ -1,0 +1,3 @@
+NAME		ihistory
+SYNTAX		ihistory <channel>
+DESCRIPTION	Sends a query for the history on <channel>

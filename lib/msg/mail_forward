@@ -1,0 +1,22 @@
+Mail Forwarding
+
+It is possible to arrange for every message sent to your JeamLand mailbox
+to be copied elsewhere. There are three different types of 'elsewhere'.
+NB: The mail is 'copied', not 'forwarded' in the true sense of the word.
+To turn /off/ forwarding, type "F-"
+
+1. Another user on the same talker.
+	Type:
+		F<username>
+
+2. A user on a different talker or mud.
+	Type:
+		F@<username>@<talker|mud name>
+
+3. A real email address.
+	Type:
+		F!<username>@<host>
+	or:
+		F!
+	To set it to your current email address.
+

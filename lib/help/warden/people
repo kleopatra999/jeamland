@@ -1,0 +1,12 @@
+NAME		people
+SYNTAX		people
+DESCRIPTION	Show the information available with the various who options
+		in a nice 'all in one' format as shown below.
+SEE ALSO	flags
+
+-- JeamLand: 1 user, 1 room. (Max: 1, 1). 0.00 cmds/s, 0.00 events/s
+* Alcides  overseer Mi _Entry --- PCBFNVS fiddaman@spodbox.linux.org.uk
+^ User is editing   ^ Gender  ^ Snooper   ^ Login username and ip address.
+  ^ Name   ^ Level   ^ Idle       ^ User flags (see 'help flags')
+                       ^ Room
+

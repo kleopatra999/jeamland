@@ -1,0 +1,3 @@
+NAME		mkroom
+SYNTAX		mkroom <filename>
+DESCRIPTION	Create a new room with filename <filename>.

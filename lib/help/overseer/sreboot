@@ -1,0 +1,7 @@
+NAME		sreboot	
+SYNTAX		sreboot	[all]
+DESCRIPTION	Sreboot, is a soft reboot and removes rooms from memory.
+		Without arguments, all system rooms are removed.
+		With the argument, all rooms are removed.
+CAVEATS		This command is largely obsoleted by the periodic cleanup
+		event (can be fun though ;)

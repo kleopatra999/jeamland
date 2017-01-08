@@ -1,0 +1,15 @@
+#!/bin/sh
+# An example module for JeamLand
+
+# No pathname expansion
+set -f
+
+while [ 1 ]; do
+	read a
+	text=`echo $a | grep 'says' | cut -d\' -f2`
+	if [ "${text}"'x' != 'x' ]; then
+		sysvbanner $text
+		#banner $text
+	fi
+done
+

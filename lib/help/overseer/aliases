@@ -1,0 +1,3 @@
+NAME		aliases
+SYNTAX		aliases <user>
+DESCRIPTION	List a user's aliases.

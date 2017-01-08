@@ -1,0 +1,3 @@
+NAME		rmroom
+SYNTAX		rmroom <filename>
+DESCRIPTION	Totally erase a room from memory and disk. (Delete room)

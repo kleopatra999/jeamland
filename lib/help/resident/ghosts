@@ -1,0 +1,8 @@
+NAME		ghosts
+SYNTAX		ghosts [startup | reload | dump]
+		ghosts [-l]
+DESCRIPTION	Lists the hosts on the cdudp network along with an
+		indication of whether that host is up.
+		The -l option provides a long listing.
+		The arguments can only be used by admin.
+SEE ALSO	hosts

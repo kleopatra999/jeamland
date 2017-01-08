@@ -1,0 +1,7 @@
+NAME		ralias
+SYNTAX		ralias [<key> [fob]]
+		ralias debug
+DESCRIPTION	Set a room alias or view current room aliases.
+		A tutorial on aliases is available by typing:
+			help alias.tutorial
+		See the help page on 'alias' for more information.

@@ -1,0 +1,6 @@
+NAME		comment
+SYNTAX		comment <user> [comment]
+DESCRIPTION	Adds a comment to a user. If comment is omitted, removes any
+		existing comment.
+		The comment can be seen on the output from 'finger' if the
+		executor is a warden or above.

@@ -1,0 +1,6 @@
+NAME		shout 
+SYNTAX		shout <message>
+DESCRIPTION	Use this command to shout a message. NOTE when you shout
+		all characters on Jeamland will see the message.  
+		Users found to be abusing the shout command will have their
+		shout privilege removed.	 

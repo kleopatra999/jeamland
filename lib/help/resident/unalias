@@ -1,0 +1,3 @@
+NAME		unalias
+SYNTAX		unalias <-a> | <key>
+DESCRIPTION	Remove an alias or all aliases (-a)

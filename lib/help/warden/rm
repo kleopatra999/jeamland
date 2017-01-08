@@ -1,0 +1,3 @@
+NAME		rm
+SYNTAX		rm <file>
+DESCRIPTION	Delete a file in the lib directory (cf. UNIX)

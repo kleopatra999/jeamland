@@ -1,0 +1,8 @@
+NAME		slylogin
+SYNTAX		slylogin
+DESCRIPTION	Toggles a user's slylogin flag. Slylogin means that nobody
+		below your level sees you log in and out. You also start in
+		the void.
+
+		If you prefix your login name with a - character at login,
+		this flag is set before you log in.

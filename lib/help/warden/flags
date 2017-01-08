@@ -1,0 +1,10 @@
+User flags are as follows:
+        P       Email address marked private.
+        V       Email address validated.
+        C       Shout cursed.
+        B       Beep cursed.
+        F       FPC flag set.
+        N       Nopurge flag set.
+        S       Nosnoop flag set.
+	I	No idle-out flag set.
+	K	No shutdown kick flag set. (See help shutdown)

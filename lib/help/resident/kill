@@ -1,0 +1,10 @@
+NAME		kill
+SYNTAX		kill [%]<job id>
+		kill #<event number>
+DESCRIPTION	Terminates an event. The first form is used to remove events
+		previously started by the 'sched' command.
+		The job id is shown by the 'jobs' command.
+		The second form, useable only by the root user, is used to
+		remove events explicitly.
+		NB: There is no way to restart system events once killed!
+SEE ALSO	jobs, sched

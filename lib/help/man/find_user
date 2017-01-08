@@ -1,0 +1,4 @@
+NAME		find_user
+SYNTAX		find_user(arg)
+DESCRIPTION	Find the user uniquely identified by 'arg'
+RETURN VALUE	find_user() returns the capitalised name of this user.

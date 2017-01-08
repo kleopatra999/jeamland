@@ -1,0 +1,17 @@
+NAME		mail
+SYNTAX		mail
+		mail -s [num]
+		mail <user>[, user]...
+		mail -k
+DESCRIPTION	Mail without arguments takes you into the interactive mail
+		reader.
+		mail -s lists all of your current jobs in the mailspool and,
+		    with a supplied message number, despools that message.
+		mail -k kicks the mailspool, forcing a resend of all spooled
+		    messages.
+		The third form sends mail messages to a list of users, a user
+		may be either:
+			A user's name.
+			An intermud address (eg. user@host)
+			A grupe id. (eg #friends)
+SEE ALSO	grupe

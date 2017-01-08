@@ -1,0 +1,36 @@
+No bugs are known at the time of release. Should you, however, find any
+bugs or strange features, please inform me by emailing
+A.Fiddaman@twikki.demon.co.uk
+
+It would help if you could include exactly what you were doing at the time
+of the crash and, if you compiled with the 'CRASH_TRACE' define, the
+contents of the lib/backtrace file. If the backtrace contains a line with a
+non-nul value in < > brackets, it would help enormously if you could look up
+which function this relates to as the numbers in your binary will not match
+those in mine.
+
+An example backtrace is:
+
+	VERSION: 0.9w
+	OS: Linux 1.2.13 #1 Wed Aug 23 01:06:43 CDT 1995.
+	MACHINE: i486.
+	Sig: 11
+	input_to(wibble) socket.c [748] <0x80163b0>
+	process_input(Alcides) socket.c [674] <(nil)>
+	process_sockets(phase 5) socket.c [821] <(nil)>
+	main() backend.c [454] <(nil)>
+	EXECUTION: Input to
+
+In this case, the crash occured during an input_to call to the function
+at address 80163b0. To find out which function this is, type:
+
+	nm bin/jeamland | grep 80163b0
+
+The output will look like:
+
+	080163b0 T crash2
+
+In this case, the crash occured in the 'crash2' function.
+
+If possible, a backtrace from a debugger would also be useful.
+

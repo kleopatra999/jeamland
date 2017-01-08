@@ -1,0 +1,4 @@
+NAME		go
+SYNTAX		go <exit name> | <room filename>
+DESCRIPTION	Follow an exit in the current room (the exit name by itself
+		will also accomplish this) or go to a specific room.

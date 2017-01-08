@@ -1,0 +1,4 @@
+NAME		boot
+SYNTAX		boot <user> <reason>
+DESCRIPTION	Kicks a user off the talker totally. A reason must be supplied.
+		The booted user will be unable to log in for 5 minutes.

@@ -1,0 +1,5 @@
+NAME		wall
+SYNTAX		wall <message>
+DESCRIPTION	Show <message> to every user and beep their screen.
+		(cf. UNIX)
+SEE ALSO	echoall

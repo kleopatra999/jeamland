@@ -1,0 +1,5 @@
+NAME		in	
+SYNTAX		in <room> <command>
+DESCRIPTION	Execute a command in a certain room.
+EXAMPLES	in _Entry exa board
+SEE ALSO	at

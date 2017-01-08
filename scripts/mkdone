@@ -1,0 +1,20 @@
+#!/bin/sh
+
+cat << FOE
+
+*****
+
+JeamLand has finished compiling!
+
+If you saw any warnings in the above output then please send email to
+	Jeamland_bugs@twikki.demon.co.uk
+
+To boot your newly compiled code you can use one of:
+	bin/jeamland -S		For single user test mode.
+	bin/jeamland -CL	Multi-user with console login.
+	bin/angel		For normal running with auto-reboot.
+
+*****
+
+FOE
+

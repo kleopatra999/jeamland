@@ -1,0 +1,10 @@
+NAME		map
+USAGE		map(command)
+DESCRIPTION	map() breaks a string into elements around a token and then
+		calls command for each element, passing the element as a
+		parameter.
+		The stack must contain two elements, firstly, the string to
+		break and, secondly, the breaking token.
+RETURN VALUE	map() returns the number of times it called command.
+
+EXAMPLE		%push(user1,user2);%push(",");&map(bop)

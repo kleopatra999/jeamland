@@ -1,0 +1,4 @@
+NAME		iquery
+SYNTAX		iquery <host> <query>
+DESCRIPTION	Sends a query request to a remote host. Available queries for
+		a particular host can be queried with 'iquery <host> list'

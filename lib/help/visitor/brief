@@ -1,0 +1,5 @@
+NAME		brief
+SYNTAX		brief
+DESCRIPTION	Toggles brief mode, in which the full room description is
+		not shown to you as you enter, only if you type "look"
+		Useful for slow connections!

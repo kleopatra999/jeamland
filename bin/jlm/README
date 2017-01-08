@@ -1,0 +1,4 @@
+These are some example jlms.. some of them are links to the jlmlib directory.
+To use these linked jlms, change into the jlmlib directory and type "make"
+to build the libs.
+

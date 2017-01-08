@@ -1,0 +1,207 @@
+
+
+Escape codes are entered into strings as plaintext using the chevron (^)
+character.
+
+For example, 	^A is ASCII 01
+		^B	    02
+		..
+		^[	    27	(escape)
+
+The following list gives the codes for VT terminals.
+
+			**********************************
+
+CURSOR MOVEMENT
+Cursor up:		^[[<n>A
+Cursor down:		^[[<n>B
+Cursor right:		^[[<n>C
+Cursor left:		^[[<n>D
+Cursor home:		^[[H	^[[?6h
+Set position:		^[[<row>;<col>H	} relative to top of screen
+			^[[<row>;<col>f	) or to scroll region
+Set scroll region:	^[[<u>;<l>r	upper and lower limits
+
+GRAPHIC RENDITION
+Attributes off		^[[0m
+Bold text		^[[1m
+Half			^[[2m
+Underline		^[[4m
+Blink			^[[5m
+Reverse			^[[7m
+Normal intensity	^[[21m or ^[[22m
+Cancel underline	^[[24m
+Cancel blink		^[[25m
+Cancel reverse		^[[27m
+
+TAB STOPS
+Set horizontal tab	^[H
+Clear horizontal tab	^[[g or ^[[0g
+
+LINE ATTRIBUTES
+2x height (top half)	^[#3
+2x height (bottom half)	^[#4
+Normal			^[#5
+2x width		^[#6
+
+			SWITCH ON		SWITCH OFF
+			---------		----------
+Keyboard lock		^[[2h			^[[2l
+Insert/Replace		^[[4h (insert)		^[[4l (replace)
+Echo			^[[12h			^[[12l
+ENTER keycode		^[[20h (CR,LF)		^[[20l (CR)
+CURSORS keycode		^[[?1h (application)	^[[?1l (normal)
+KEYPAD keycode		^[=			^[>
+ANSI mode		^[[?2h (ANSI)		^[[?2l (VT52)
+
+Set screen width	^[[?3h (132)		^[[?3l (80)
+Set scroll mode		^[[?4h (normal)		^[[?4l (smooth)
+Set video mode		^[[?5h (reverse)	^[[?5l (normal)
+Cursor positioning	^[[?6h (relative)	^[[?6l (absolute)
+Set auto wrap		^[[?7h			^[[?7l
+
+Set key repeat		^[[?8h			^[[?8l
+Print screen		^[[?19h (entire)	^[[?19l (scroll region)
+Show cursor		^[[?25h			^[[?25l
+
+CURSORS KEYCODES:
+		Normal	Application
+	Up:	^[[A	^[OA
+	Down:	^[[B	^[OB
+	Right:	^[[C	^[OC
+	Left:	^[[D	^[OC
+ 
+KEYPAD KEYCODES:
+		Numeric	Application	VT52 Application
+	0	0	^[Op		^[?p
+	1	1	^[Oq		^[?q
+	2	2	^[Or		^[?r
+	3	3	^[Os		^[?s
+	4	4	^[Ot		^[?t
+	5	5	^[Ou		^[?u
+	6	6	^[Ov		^[?v
+	7	7	^[Ow		^[?w
+	8	8	^[Ox		^[?x
+	9	9	^[Oy		^[?y
+	-	-	^[Om		^[?m
+	,	,	^[Ol		^[?l
+	.	.	^[On		^[?n
+	Enter 	CR*	^[OM		^[?M
+	PF1	^[OP	^[OP		^[?P
+	PF2	^[OQ	^[OQ		^[?Q
+	PF3	^[OR	^[OR		^[?R
+	PF4	^[OS	^[OS		^[?S
+ * or CR, LF
+
+WHEN AT MARGIN
+Index 			^[D			cursor down & scroll up
+Reverse index		^[M			cursor up & scroll down
+Next line (CR+Index)	^[E
+Save cursor		^[7			also saves attribute
+Restore			^[8
+
+SELECT CHARACTER SET:
+			As set G0	As set G1
+United Kingdom		^[(A		^[)A
+United States		^[(B		^[)B
+Special, with lines	^[(0		^[)0
+Alternate		^[(1		^[)1
+Alternate special	^[(2		^[)2
+Select G2 for one char	^[N
+Select G3 for one char	^[O
+
+ERASING
+To end of line		^[[0K
+Cursor to line start	^[[1K
+Entire line		^[[2K
+To screen end		^[[0J
+Line to screen start	^[[1J
+Entire screen		^[[2J
+
+EDITING
+Delete <n> right	^[[<n>P
+Insert <n> lines	^[[<n>L
+Delete <n> lines	^[[<n>M
+
+PRINTING
+Full screen
+(or scroll region)	^[[0i
+Printer: all chars off	^[[4i
+Printer: all chars on	^[[5i
+Print cursor line	^[[?1i
+Printer: all lines off	^[[?4i
+Printer: all lines on	^[[?5i
+
+REPORTS
+Ready, no faults	^[[0n
+Self-test error		^[[3n
+Request status report	^[[5n
+Request cursor posn	^[[6n
+Terminal identity	^[[0c		^[Z (old)
+REPORT RESPONSES
+Printer: All is OK	^[[?10
+Printer: Not ready	^[[?11
+Printer: No printer	^[[?13
+Request from printer	^[[?15
+Cursor position is...	^[[<row>;<col>R
+
+Reset all		^[c
+
+CONFIDENCE TESTS
+Power-up test		^[[2;1y
+Data loopback test	^[[2;2y
+EIA loopback test	^[[2;4y
+Continuous power-up	^[[2;9y
+Cont. data loopback	^[[2;10y
+Cont. EIA loopback	^[[2;12y
+Printer loopback test	^[[2;16y
+Cont. printer loopback	^[[2;24y
+ 
+Screen adjustments
+	(fill with E's)	^[#8
+ 
+KEYBOARD INDICATOR
+Led L1 off		^[[0q
+Led L1 on		^[[1q
+
+VT52 set ANSI mode	^[<
+VT52 cursor up		^[A
+VT52 cursor down	^[B
+VT52 cursor right	^[C
+VT52 cursor left	^[D
+VT52 cursor home	^[H
+VT52 cursor address	^[Y<line+o040><col+o040>
+VT52 reverse linefeed	^[I
+VT52 erase to EOL	^[K
+VT52 erase to EO-screen	^[J
+VT52 auto print on	^[^
+VT52 auto print off	^[<o137>
+VT52 printer: all on	^[W
+VT52 printer: all off	^[X
+VT52 print cursor line	^[V
+VT52 print screen	^[]
+VT52 request identity	^[Z
+VT52 reply to identity	^[/Z
+VT52 charset = special	^[F
+VT52 charset = normal	^[G
+ 
+CONTROL CHARACTERS
+NUL	o000	Fill character
+ETX	o003	(Can be) half-duplex turnaround char.
+EOT	o004	Either a) Turnaround (DLE-EOT = disconnect) or b) Disconnect
+ENQ	o005	Enquire (Request for an answer back)
+BEL	o007	Bell tone
+BS	o010	Backspace
+HT	o011	Tab
+LF	o012	linefeed (start new line)
+VT	o013	Processed as linefeed
+FF	o014	Processed as linefeed. Can be selected turnaround char
+CR	o015	Move cursor to left margin. Can be turnaround char
+SO	o016	Select G1 charset
+SI	o017	Select G0 charset
+DC1	o021	(XON): Causes terminal to continue transmit
+DC3	o023	(XOFF): Causes terminal to stop transmitting
+CAN	o030	Cancel escape sequence
+SUB	o032	Processed as CAN
+ESC	o033	Start-of-sequence
+

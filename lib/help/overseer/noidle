@@ -1,0 +1,4 @@
+NAME		noidle
+SYNTAX		noidle <user>
+DESCRIPTION	Sets or clears the 'noidle' flag in a user. If the flag is set,
+		the user will never be logged off for being idle too long.

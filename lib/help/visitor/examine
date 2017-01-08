@@ -1,0 +1,5 @@
+NAME		examine
+SYNTAX		examine <board> | <user>
+DESCRIPTION	Look at a board or a user in the current room.
+AKA		exa
+SEE ALSO	look

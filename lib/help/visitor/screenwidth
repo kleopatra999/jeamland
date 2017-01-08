@@ -1,0 +1,4 @@
+NAME		screenwidth
+SYNTAX		screenwidth [characters]
+DESCRIPTION	Sets your screenwidth to a certain number of characters.
+		Used by the autowrapper.

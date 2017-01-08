@@ -1,0 +1,4 @@
+NAME		nopurge
+SYNTAX		nopurge <user>
+DESCRIPTION	Toggle the nopurge flag in a user so that they will not be
+		purged.

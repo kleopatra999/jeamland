@@ -1,0 +1,4 @@
+NAME		banish
+SYNTAX		banish <user>
+DESCRIPTION	Banishes a user from the Talker, i.e. Their character cannot
+		login.	 

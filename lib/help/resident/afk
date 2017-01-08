@@ -1,0 +1,7 @@
+NAME		afk
+SYNTAX		afk [reason]
+DESCRIPTION 	Sets yourself Away From Keyboard and notifies other users that
+		you have gone afk.  When you go afk your commands are locked.
+		To return from afk you need to enter your password.
+		You can specify an optional reason for being away from your
+		keyboard.

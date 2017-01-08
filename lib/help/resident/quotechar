@@ -1,0 +1,4 @@
+NAME		quotechar
+SYNTAX		quotechar <character>
+DESCRIPTION	Sets the character used when quoting messages/notes using
+		either reply in the mailer or followup on boards.

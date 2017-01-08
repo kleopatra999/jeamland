@@ -1,0 +1,5 @@
+NAME		echoback
+SYNTAX		echoback
+DESCRIPTION	Toggles between echoback and no-echoback mode. In echoback
+		mode, you see what you say and emote. In no-echoback mode
+		you only get an 'Ok' message.

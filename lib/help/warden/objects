@@ -1,0 +1,5 @@
+NAME		objects
+SYNTAX		objects
+DESCRIPTION	Displays all objects in memory, and where they are in
+		relation to each other. An indented object is inside the
+		object above.

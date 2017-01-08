@@ -1,0 +1,15 @@
+NAME		shutdown
+SYNTAX		shutdown <now> 
+		shutdown <abort>
+		shutdown <delay> [message]
+		shutdown <nokick>
+DESCRIPTION	Shutdown the server.
+		If a delay is specified without a message, a default will
+		be used; the default is:
+			Presumably for a good reason ;-)
+		Wardens must provide a reason.
+
+		The nokick option toggles your nokick flag. If this is not set,
+		you will be kicked off the talker as soon as the final shutdown
+		sequence commences; otherwise, you will remain connected until
+		the talker process exits.

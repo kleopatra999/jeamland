@@ -1,0 +1,17 @@
+NAME		sched
+SYNTAX		sched [-q] <delay> <command>
+		sched [-q] @<time> <command>
+DESCRIPTION	Schedules a command to execute in <delay> seconds or at a
+		particular time, <time>. The <time> should be specified as
+		hour:minute and is in 24 hour clock format.
+
+		If the -q argument is not supplied, you will be shown the
+		job id and event number as follows:
+			[Job id] Event num
+
+		The job can be terminated by issuing:
+			kill <job id>
+		or
+			kill %<job id> (For unix junkies; me? never!)
+
+SEE ALSO	kill, jobs, events

@@ -1,0 +1,4 @@
+long_desc "You are standing in a plush office belonging to Alcides.\nThere is a large oak desk in the middle of the room upon\nwhich rests a leather writing mat and a golden inkwell.\nThe black in-tray resting on the corner next to the brass\nlamp, is filled to overflowing.\n"
+flags 0
+owner "alcides"
+name "alcides's room"

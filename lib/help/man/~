@@ -1,0 +1,5 @@
+NAME		~
+SYNTAX		~(string)
+DESCRIPTION	Compares the argument with the last value pushed onto the
+		stack.
+RETURN VALUE	Returns 1 if the stacked value is contained within the argument.

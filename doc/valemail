@@ -1,0 +1,9 @@
+It is possible to arrange for user's email address to be automatically
+validated.
+
+First, you need to enable AUTO_VALEMAIL in the config.h file and pick a
+password to secure service port communications.
+
+Now, all you need to do is to arrange for all incoming email to be passed
+through a filter such as the example in scripts/valemail.
+

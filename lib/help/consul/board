@@ -1,0 +1,21 @@
+NAME		board
+SYNTAX		board <add> | <remove>
+		board <read|write> <grupe>
+		board <archive> <room name>
+		board <reload>
+		board <anon>
+DESCRIPTION	Handle boards in rooms.
+		Options are as follows:
+
+		add	Add a board to the current room.
+		remove	Remove a board from the current room.
+		read	Restrict read access to a particular grupe.
+		write	Restrict write access to a particular grupe.
+		archive	Set an archive board to which any notes falling off
+			the top of this board will be added. You should
+			probably disallow write access to the archive board.
+		reload	Flush the board to disk and then reload it. One use
+			of this is to wipe all of the poster's names from a
+			board after making it anonymous.
+		anon	Marks a board as anonymous. All poster's names are
+			stored as 'someone'. This option is a toggle.

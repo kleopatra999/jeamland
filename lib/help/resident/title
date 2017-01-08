@@ -1,0 +1,4 @@
+NAME		title
+SYNTAX		title <string>
+DESCRIPTION	Set your title to <string>
+		Embedded newlines are not permitted!

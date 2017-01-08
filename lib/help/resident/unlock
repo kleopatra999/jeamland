@@ -1,0 +1,4 @@
+NAME		unlock
+SYNTAX		unlock [grupe]
+DESCRIPTION	Unlock the current room. With the 'grupe' argument, remove
+		a grupe lock.

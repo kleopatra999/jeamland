@@ -1,0 +1,4 @@
+NAME		nbeep
+SYNTAX		nbeep <user> [reason]
+DESCRIPTION	Stop a user from being able to use the 'beep' command.
+		This command toggles this banishment.

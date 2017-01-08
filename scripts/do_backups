@@ -1,0 +1,162 @@
+#!/bin/sh
+# Script to handle jeamland backups.
+# (c) Andy Fiddaman, 1996
+
+# You may need to change these..
+BACKUPS=$HOME/jeamland/backups
+LIB=$HOME/jeamland/lib
+
+# mailto <filename>
+mailto()
+{
+	if [ $mailto -eq 1 ]; then
+		base=`basename $1`
+		uuencode $base < $1 | \
+		    mail -s"JeamLand backup: $base" $mailtoaddr
+	fi
+}
+
+usage() 
+{
+	cat << EOF
+Recognised arguments are:
+	-v			Verbose
+	-mail <email address>	Send backup offsite to <email address>
+
+	-audit			Backup and erase audit directory.
+	-user			Backup user files.
+	-mbox			Backup mailboxes.
+	-room			Backup room files.
+	-board			Backup board files.
+	-all   or   -lib	Backup all files in lib.
+	-del_old <days>		Delete files over <days> days old.
+
+	These arguments can be combined.
+	Example: do_backups -user -v -room
+	         Is valid and verbose will only be active for the room backup.
+EOF
+}
+
+backup_audit()
+{
+	cd $LIB/..
+
+	tar -zc${verbose}f $BACKUPS/audit.$NOW.gz lib/secure/audit
+	mailto $BACKUPS/audit.$NOW.gz
+	rm -f lib/secure/audit/*
+}
+
+backup_user()
+{
+	cd $LIB/..
+	tar -zc${verbose}f $BACKUPS/user.$NOW.gz lib/users
+	mailto $BACKUPS/user.$NOW.gz
+}
+
+backup_mail()
+{
+	cd $LIB/..
+	tar -zc${verbose}f $BACKUPS/mail.$NOW.gz lib/mail
+	mailto $BACKUPS/mail.$NOW.gz
+}
+
+backup_board()
+{
+	cd $LIB/..
+	tar -zc${verbose}f $BACKUPS/board.$NOW.gz lib/board
+	mailto $BACKUPS/board.$NOW.gz
+}
+
+backup_room()
+{
+	cd $LIB/..
+	tar -zc${verbose}f $BACKUPS/room.$NOW.gz lib/room
+	mailto $BACKUPS/room.$NOW.gz
+}
+
+backup_lib()
+{
+	cd $LIB/..
+	tar -zc${verbose}f $BACKUPS/lib.$NOW.gz lib
+	mailto $BACKUPS/lib.$NOW.gz
+}
+
+delete_old()
+{
+	if [ "x$verbose" = "xv" ]; then
+		arg=-print
+	else
+		arg=
+	fi
+	find $BACKUPS -name \*.gz -mtime +$1 -exec rm {} \; $arg
+}
+
+if [ "x$HOME" = 'x' ]; then
+	echo 'do_backups: HOME variable not set!'
+	exit 1
+fi
+if [ ! -d $BACKUPS ]; then
+	$ECHO "do_backups: $BACKUPS is not a directory!"
+	exit
+fi
+if [ ! -d $LIB ]; then
+	$ECHO "do_backups: $LIB is not a directory!"
+	exit
+fi
+
+if [ $# -lt 1 ]; then
+	usage
+	exit 1
+fi
+
+umask 077
+
+NOW=`date +\%b\%d`
+mailto=0
+verbose=
+
+while [ $# -gt 0 ]; do
+	if [ $1 = "-mail" ]; then
+		if [ $# -lt 2 ]; then
+			echo 'Syntax: do_backups -mail <address> ...'
+			exit 1
+		fi
+		mailtoaddr=$2
+		mailto=1
+		shift
+		shift
+	elif [ $1 = "-v" ]; then
+		verbose=v
+		shift
+	elif [ $1 = "-audit" ]; then
+		backup_audit
+		shift
+	elif [ $1 = "-user" ]; then
+		backup_user
+		shift
+	elif [ $1 = "-mbox" ]; then
+		backup_mail
+		shift
+	elif [ $1 = "-room" ]; then
+		backup_room
+		shift
+	elif [ $1 = "-board" ]; then
+		backup_board
+		shift
+	elif [ $1 = "-all" -o $1 = "-lib" ]; then
+		backup_lib
+		shift
+	elif [ $1 = "-del_old" ]; then
+		if [ $# -lt 2 ]; then
+			echo 'Syntax: do_backups -del_old <days> ...'
+			exit 1
+		fi
+		delete_old $2
+		shift
+		shift
+	else
+		usage
+		exit 1
+	fi
+done
+

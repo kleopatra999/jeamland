@@ -1,0 +1,3 @@
+NAME		uncurse
+SYNTAX		uncurse <user>
+DESCRIPTION	Restores a user's right to shout.

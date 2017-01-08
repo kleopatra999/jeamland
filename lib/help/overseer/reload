@@ -1,0 +1,5 @@
+NAME		reload
+SYNTAX		reload <room filename>
+DESCRIPTION	Reloads a room in memory from the file. This is transparent
+		to the users although the room pointer will change (shown
+		by 'look' to warden+)

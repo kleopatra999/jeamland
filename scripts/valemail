@@ -1,0 +1,47 @@
+#!/bin/sh
+# Script to parse the mailspool for replies to valemail requests and identify
+# any users which need validating.
+#
+# This works for me using Gnu awk; no guarantee of portability.
+# (c) Andy Fiddaman, 1996
+#
+# This script is meant to be run from an email processor such as procmail with
+# a rule of the form:
+#
+# :0 c : valemail
+# * ^Subject:.*email validation. JL-id.*
+# * !^X-Mailer:.*jeamland.*
+# 	| $HOME/jeamland/scripts/valemail
+#
+# Again, this works for me.
+
+PASSWORD=put_password_here
+RQUERY=${HOME}/pub/rquery
+
+awk -v password=$PASSWORD '
+	BEGIN			{ init() }
+	function init()		{
+		status = 0
+		id = 0
+		yes = 0
+	}
+	function wrap_up()	{
+		if (status && id)
+			printf("valemail %s %s %s\n", password, id, \
+			    yes ? "yes" : "no")
+	}
+	NF == 7 && $1 == "From" && $2 ~ /.*@.*/ {
+		if (status)
+		{
+			wrap_up()
+			init()
+		}
+		status = 1
+	}
+	$1 == "Subject:" {
+		if (status && (i = index($0, "JL-id:")))
+			id = substr($0, i + 7, 12);
+	}
+	$1 ~ /[Yy][Ee][Ss]/ { if (status) yes = 1 }
+	END { wrap_up() }' | xargs -i $RQUERY "{}" 2>&1 /dev/null
+

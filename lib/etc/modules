@@ -1,0 +1,6 @@
+# Module config file.
+# Entries are simply the module name and the room to attach it to.
+# Each module loaded takes up two file descriptors.
+
+#banner:_Banner
+

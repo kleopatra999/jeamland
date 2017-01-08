@@ -1,0 +1,4 @@
+NAME		sneak
+SYNTAX		sneak <room filename> | <exit>
+DESCRIPTION	Moves you to a room without displaying the enter and leave
+		messages to others in the room.

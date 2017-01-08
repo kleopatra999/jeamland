@@ -1,0 +1,23 @@
+
+This is not a command, only information.
+
+The code in Jeamland is set up to class rooms as one of three types, these
+types being as follows:
+
+USER ROOMS
+	These are rooms starting with one of the letters a-z. To change one
+	of these rooms, you must either own it or be of a level greater
+	than a warden and also greater than that of the rooms owner.
+	Only root can change user rooms owned by overseers.
+	If a user is granted more than one room, the names of the 'extra'
+	rooms should be <username>#1, <username>#2 etc. to prevent
+	confusion and to enable the 'myrooms' command to work correctly.
+
+SYSTEM ROOMS
+	These are rooms starting with a _ character. To change one of these
+	rooms, you must either own it, of be of a level greater than a
+	warden. No further checking is performed.
+
+ROOT OWNED SYSTEM ROOMS
+	Only root can change these rooms.
+

@@ -1,0 +1,5 @@
+NAME		capfirst
+SYNTAX		capfirst(string)
+DESCRIPTION	All characters in the string argument are converted to lower
+		case and the first character is capitalised.
+RETURN VALUE	The capitalised form of the argument.

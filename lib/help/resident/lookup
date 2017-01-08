@@ -1,0 +1,5 @@
+NAME		lookup
+SYNTAX		lookup <word> | <awspec>
+DESCRIPTION	Lookup the definition of a word from Enulal's dictionary
+		server. Wildcards may be specified, * from any number of
+		characters, % for a single character.

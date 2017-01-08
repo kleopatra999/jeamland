@@ -1,0 +1,4 @@
+NAME		interjl
+SYNTAX		interjl [:]<message>
+DESCRIPTION	Send a message to all JeamLand talkers.
+NB		To turn off this channel, use the earmuffs command.

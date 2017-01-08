@@ -1,0 +1,4 @@
+NAME		nosnoop
+SYNTAX		nosnoop
+DESCRIPTION	Sets and unsets your nosnoop flag.
+SEE ALSO	snooped

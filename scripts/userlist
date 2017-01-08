@@ -1,0 +1,16 @@
+#!/bin/sh
+# Generates a list of all users.
+# This is an example only.. it works for me!
+
+for user in `find lib/users -type f -name \*.o -print`
+do
+	awk '
+		function mid(s) { return substr(s, 2, length(s) - 2) }
+		$1 == "capname" { capname = mid($2) }
+		$1 == "email"	{ email = mid($2) }
+		$1 == "level"	{ level = $2 }
+		END		{ printf("%-15s %2d     %s\n", capname, level,
+				      email) }
+		' $user
+done
+

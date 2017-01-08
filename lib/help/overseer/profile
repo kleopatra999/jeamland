@@ -1,0 +1,5 @@
+NAME		profile
+SYNTAX		profile
+DESCRIPTION	Debugging command, shows all commands alongside the number of
+		times it has been used.
+		Only available if compiled with the PROFILING option.

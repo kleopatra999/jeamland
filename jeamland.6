@@ -1,0 +1,293 @@
+.TH JEAMLAND 6 "January 11th 1996"
+.\" **********************************************************************
+.\" * The JeamLand talker system
+.\" * (c) Andy Fiddaman, 1994-96
+.\" *
+.\" * File:	jeamland.6
+.\" * Function:	Man page for the talker system.
+.\" **********************************************************************
+
+.SH NAME
+jeamland \- JeamLand Talker System
+
+.SH SYNOPSIS
+.IP "\fBjeamland\fR" 10
+[\fI\-b\fR\ dir] [\fI\-B\fR] [\fI\-c\fR] [\fI\-C\fR] [\fI\-d\fR] [\fI\-e\fR]
+[\fI\-h\fR] [\fI\-H\fR] [\fI\-i\fR] [\fI\-k\fR] [\fI\-l\fR\ dir] [\fI\-L\fR]
+[\fI\-p\fR\ port] [\fI\-P\fR] [\fI\-s\fR] [\fI\-S\fR] [\fI\-t\fR]
+[\fI\-u\fR] [\fI\-x\fR]
+
+.SH DESCRIPTION
+
+.B JeamLand
+is an internet talker. It is a software package designed to allow users from
+all over the world to interact and talk.
+.nf
+Some of the main features include:
+    -   Very low resource requirements.
+    -   Linked in to a network of over 500 other muds and talkers.
+    -   'Loadable module' system allowing the talker to be extended
+        easily by third parties without the need for in depth knowledge
+        of the JeamLand code.
+    -   Built in language for writing personal and room commands.
+    -   Development is on-going.
+    -   Support from the author! (for as long as I have net access ;-)
+
+.SH OPTIONS
+
+.IP "\fB-b \fIdir\fR" 8
+Specify an alternate binaries directory, overriding the default from the
+\fIconfig.h\fR file.
+
+.IP \fB-B\fR 8
+Force the talker to put itself in background (disconnect itself from the
+controlling tty). This option implies \fB-L\fR too.
+
+.IP \fB-c\fR 8
+Log to \fIsyslog\fR all room loads and destructions.
+
+.IP \fB-C\fR 8
+Provide a console login at the controlling tty. This option overrides the
+\fB-B\fR option.
+
+.IP \fB-d\fR 8
+Do not start \fIerqd\fR.
+
+.IP \fB-e\fR 8
+Boot empty, for debugging.
+
+.IP \fB-h\fR 8
+List boot options and exit.
+
+.IP \fB-H\fR 8
+Perform checks on the help files and write results to the \fIhelps\fR log.
+If this option is passed twice, ie. \fB-HH\fR then it is treated as if
+\fB-dHiesux\fR was passed - a useful shortcut for checking help files.
+
+.IP \fB-i\fR 8
+Boot without setting up ipc.
+
+.IP \fB-k\fR 8
+Shutdown any copy currently running before booting, used to replace running
+copy with a new version.
+
+.IP "\fB-l \fIdir\fR" 8
+Boot using an alternate lib directory, overriding the default from the
+\fIconfig.h\fR file.
+
+.IP \fB-L\fR 8
+Write log messages to files, not stdout.
+
+.IP "\fB-p \fIport\fR" 8
+Setup ipc on \fIport\fR, overriding the default in \fIconfig.h\fR.
+
+.IP \fB-P\fR 8
+Do not change the proctitle.
+
+.IP \fB-s\fR 8
+Do not send startup pings to other hosts on the network.
+
+.IP \fB-S\fR 8
+Boot to single user mode, same as \fI-CLisux\fR.
+
+.IP \fB-t\fR 8
+Boot without starting the service port.
+
+.IP \fB-u\fR 8
+Boot without starting UDP services.
+
+.IP \fB-x\fR 8
+Shutdown immediately after boot.
+
+.SS "Useful option combinations"
+.PP
+.IP \fB-dHiLesux\fR 8
+Boot empty, check help files, and shutdown.
+
+.IP \fB-Clis\fR 8
+Single user mode with UDP services enabled.
+
+.SH "CREATING AN ADMIN USER"
+The distribution contains an admin character called \fIroot\fR who is able to
+create new admin characters. Having compiled and booted the talker, log in as
+\fIroot\fR and then use either the \fImkuser\fR command as follows:
+.nf
+	\fBJeamLand# \fRmkuser newadmin
+	\fBEnter an email address for newadmin: \fRnewadmin@some.machine.net
+	\fBEnter a password for newadmin; press return for a system
+	generated password.
+	:
+	Re-enter password:
+	User created.
+	Email user? (y/n)\fR n
+	\fBNo email sent.
+	JeamLand# \fRchlev newadmin 5
+	\fBOk.\fR
+	\fI[ CHLEV by Root: Newadmin (resident(1) -> overseer(5)) ]\fR
+
+Or, you can log in as your chosen character and validate him / her as
+follows:
+.nf
+	\fI[ *TCP* Connect: 127.0.0.1 (127.0.0.1) ]
+	[ Newadmin (unknown@localhost) has connected. ]\fR
+	\fBNewadmin arrives from the void.\fR
+	\fBJeamLand# \fRvalidate newadmin
+	\fBOk.
+	JeamLand# \fRchlev newadmin 5
+	\fBOk.\fR
+	\fI[ CHLEV by Root: Newadmin (resident(1) -> overseer(5)) ]\fR
+
+.SH COMPILING
+Jeamland has been compiled successfully on the following platforms:
+
+.nf
+	Linux 1.2.13 i486
+	HP-UX A.09.01 A 9000/710
+	SunOS 5.4 sun4c sparc
+	AIX 3.2
+	IRIX 4.0.4 IP12
+	IRIX 5.2 IP12 mips
+	IRIX 4.0.5H IP22
+	SunOS 4.1.3C 1 sun4m
+
+.SH ROOMS
+The code in Jeamland is set up to class rooms as one of three types, these
+types being as follows:
+
+.SS "User Rooms"
+These are rooms starting with one of the letters \fIa-z\fR. To change one
+of these rooms, you must either own it or be of a level greater
+than a warden and also greater than that of the rooms owner.
+Only root can change user rooms owned by overseers.
+If a user is granted more than one room, the names of the 'extra'
+rooms should be <username>#1, <username>#2 etc. to prevent
+confusion and to enable the 'myrooms' command to work correctly.
+
+.SS "System Rooms"
+These are rooms starting with an \fI_\fR character. To change one of these
+rooms, you must either own it, of be of a level greater than a
+warden. No further checking is performed.
+
+.SS "Root Owned System Rooms"
+Only root can change these rooms.
+
+To change this set up if you really want to, you can edit the
+CAN_CHANGE_ROOM(), and SYSROOM() macros in macro.h
+
+.SH FEELINGS
+
+The JeamLand feeling system is based on a system developed by \fIPer Persson
+(ernakk)\fR for his CD mud feelings soul. The feelings are divided into
+categories as follows:
+
+.nf
+	TYPE		ARGUMENT SYNTAX
+	----		---------------
+	std             <feeling> [adverb] [user]
+	std2            <feeling> <user> [adverb]
+	no-arg          <feeling>
+	no-targ         <feeling> [adverb]
+	targ            <feeling> <user>
+	opt-targ        <feeling> [user]
+
+Feelings are all listed in a database file seperated into 'sections'.
+Each feeling is listed in three parts:
+
+	feeling name:default post text:default pre text
+
+Although these parts may be used for slightly different things in
+some sections.
+
+Some examples:
+
+	agree::with
+	boggle:at the concept
+	recoil:with fear:from
+
+If a feeling name begins with a '*' character, then the feeling name
+is not output, eg:
+
+	*hide:runs and hides
+	*ouch:goes Ouch!
+	*rofl:rolls around on the floor laughing
+
+The default post and pre texts can contain escapes, these are
+two-character sequences which are expanded during feeling execution.
+All escapes begin with a # character and the following character
+determines the expansion; recognised characters are:
+
+	# - Literal '#'
+	' - Literal ':'
+	p - actor possessive
+	P - target possessive
+	o - actor objective
+	O - target objective
+	r - actor pronoun
+	R - target pronoun.
+	I - Insert remaining text here.
+	n - Newline
+
+Examples:
+
+	bop:#oself on the nose:#i on the nose
+	shake:#p head:hands with
+	*brighten:thinks about it, then it dawns on #o...#p face brightens
+
+The database file itself is formatted as follows:
+All lines beginning with a # character are treated as comments.
+Sections take the form:
+
+	Section <section_name>
+		feeling1
+		feeling2
+	Endsection
+
+.SH THANKS
+.nf
+Are due (in no particular order) to:-
+  Karen Thorn for rigourous, vigourous testing ;-)
+  Julian Osborne for writing the initial help files.
+  Per Persson for most of the ideas behind the soul system and the
+    parse_verb function.
+  Mike Wallis for extensive testing, bug reports and ideas.
+  Dave Gosnell for finding bugs and suggesting a ridiculous number of ideas.
+  David Priestley for the account on spodbox.
+  David Pollard for the account on dplinux.
+  Mark Lewis for writing the original intermud communications protocol.
+
+.SH BUGS
+No bugs are known at the time of release. Should you, however, find any
+bugs or strange \fIfeatures\fR, please inform me by emailing
+\fIA.Fiddaman@twikki.demon.co.uk\fR 
+It would help if you could include exactly what you were doing at the time
+of the crash and, if you compiled with the \fICRASH_TRACE\fR define, the
+contents of the lib/backtrace file. If the backtrace contains a line with a
+non-nul value in < > brackets, it would help enormously if you could look up
+which function this relates to as the numbers in your binary will not match
+those in mine.
+.nf
+An example backtrace is:
+
+	VERSION: 0.9w
+	OS: Linux 1.2.13 #1 Wed Aug 23 01:06:43 CDT 1995.
+	MACHINE: i486.
+	Sig: 11
+	input_to(wibble) socket.c [748] <0x80163b0>
+	process_input(Alcides) socket.c [674] <(nil)>
+	process_sockets(phase 5) socket.c [821] <(nil)>
+	main() backend.c [454] <(nil)>
+	EXECUTION: Input to
+
+In this case, the crash occured during an input_to call to the function
+at address 80163b0. To find out which function this is, type:
+
+	nm bin/jeamland | grep 80163b0
+
+The output will look like:
+
+	080163b0 T crash2
+
+In this case, the crash occured in the 'crash2' function.
+
+If possible, a backtrace from a debugger would also be useful.
+

@@ -1,0 +1,5 @@
+
+NAME		chlim
+SYNTAX		chlim <user> <limit> <new limit>
+DESCRIPTION	Changes a user's limits. Currently the limits are 'alias'
+		and 'mail'. Setting the new limit to -1 removes any limit.

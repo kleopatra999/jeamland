@@ -1,0 +1,7 @@
+NAME		followup
+SYNTAX		followup <note number>
+DESCRIPTION	Followup a board note. The subject of your new note is
+		set to 'Re: ' plus the subject of the note you are following
+		up and the note body is copied and quoted.
+		Excessive quoting is discouraged, quote relevant parts only.
+SEE ALSO	post, epost, quotechar

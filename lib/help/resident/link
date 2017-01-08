@@ -1,0 +1,3 @@
+NAME		link
+SYNTAX		link <direction> <filename>
+DESCRIPTION	Add an exit <direction> to room <filename>

@@ -1,0 +1,11 @@
+NAME		valemail
+SYNTAX		valemail <user>
+		valemail -p
+		valemail -d <user>
+DESCRIPTION	Toggles the validation of a user's email address.
+		If a user has a validated email address, they can use the
+		M command in the mailer, will probably have further uses in
+		the future.
+		If auto-valemail is enabled, then the -p option will list
+		all pending requests and the -d option can be used to cancel
+		a request.

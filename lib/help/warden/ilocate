@@ -1,0 +1,4 @@
+NAME		ilocate
+SYNTAX		ilocate <user>
+DESCRIPTION	Sends a locate request to all hosts on the network. If <user>
+		is logged onto any of them, you will be told.

@@ -1,0 +1,4 @@
+NAME		purge
+SYNTAX		purge
+DESCRIPTION	Forces a user purge to occur.
+		Only root can do this.

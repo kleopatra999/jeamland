@@ -1,0 +1,4 @@
+
+NAME		interjladmin
+SYNTAX		interjladmin [:]<message>
+DESCRIPTION	Send a message to all admins on all JeamLand talkers.

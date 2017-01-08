@@ -1,0 +1,3 @@
+NAME		chown
+SYNTAX		chown <user>
+DESCRIPTION	Change ownership of the current room.

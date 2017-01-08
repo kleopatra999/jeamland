@@ -1,0 +1,63 @@
+NAME		alias
+SYNTAX		alias [<key> [fob]]
+		alias debug
+DESCRIPTION	Set an alias or view current aliases.
+		The following is intended only as a summary of the alias
+		system.
+
+		A full tutorial on aliases is available by typing:
+			help alias.tutorial
+
+		A list of alias functions is available by typing:
+			help alias.funcs
+
+		Please don't be daunted by the rest of this page, most aliases
+		will be very simple (eg. alias g grin $*)
+
+		Adding the 'debug' argument toggles alias debug mode.
+
+		Any occurences of the characters $, \, ;, %, @, & and #
+		within the fob string are treated specially as follows; to
+		get a literal character, a prefix of \ should be used.
+		Within the fob:
+			$1, $2, $3, .. are replaced with the corresponding
+			    words from the supplied string. 
+			$1*, $2*, .. are replaced with the corresponding word
+			    _onwards_ from the supplied string.
+			$* is replaced with the entire supplied string, the
+			    string may be omitted (cf. $1*)
+			; delimits commands.
+			$$ denotes the start of a conditional expression.
+			    (see below).
+			$N is replaced by your name. (Should this be a fn ?)
+			$! interrupts execution.
+			$!! interrupts all execution.
+
+		To override an alias and execute a command, prefix it with a
+		backslash character (\). If you want to override an alias
+		from /within/ another alias, you will need to use a double
+		backslash (as a single backslash within an alias is
+		interpreted specially).
+
+		If the key starts with a backslash (\) then the alias will
+		be a partial one, ie. no space is required between the alias
+		key and the following text. (examples: the ' and : shortcuts
+		for the say and emote commands)
+
+		The special alias, _login is executed as you login and
+		can be used for such things as setting up your terminal
+		correctly, see the help page on 'write' for an example.
+		Other special aliases are _logout, _arrive and _depart.
+
+CONDITIONAL EXPRESSIONS
+		Aliases may contain conditional expressions.
+		The syntax of an expression is as follows:
+			$$<expr>:<command>
+		An expression can be negated using a ! character.
+		An expression may include a function call.
+		Expressions can be combined using a | or & character meaning
+		'or' and 'and' respectively. The & character can be omitted.
+
+		Please see the "alias.tutorial" help page for a full
+		explanation.
+

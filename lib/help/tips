@@ -1,0 +1,111 @@
+				<< Tips >>
+
+::: INTRODUCTION :::
+
+It seems that many of the features of JeamLand are often missed, mainly because
+people don't read the help pages for a lot of commands which seem
+straightforward. The best way to get the most from the talker, therefore, is
+to read all of the help pages! However, the rest of this file lists those
+features which I am aware of which are not often found or used.
+
+If you have any suggestions for additions to the following list, please feel
+free to contact me on A.Fiddaman@twikki.demon.co.uk or alcides@orchard via
+intertalker email.
+
+
+::: TIPS FOR RESIDENTS :::
+
+ - To return to the entrance room from anywhere, type 'out'.
+
+ - All of the communication commands have abbreviations eg. instead of
+	say hello
+   you can use
+	'hello
+   or
+	"hello
+   If you do not like the default abbreviations, you can use aliases to change
+   them.
+
+   Example: To swap the abbreviations for say (') and emote (:) you would use:
+	alias \' emote $*
+	alias \: say $*
+   or even:
+	alias \' \\:$*
+	alias \: \\'$*
+   Don't worry if you don't understand the last two!
+
+ - To create a personal room, type 'home'.
+
+ - To make yourself go to your home room at login, go there and type 'start'
+
+ - To give a command a default argument, see the following example for the
+   'last' command.
+	alias last $$#0:last \#friends
+   This alias will make 'last' act as 'last #friends' and 'last #foo' act as
+   'last #foo'
+
+ - To see a history for a particular channel, use '<channel_name> !'
+
+ - On a slow link:
+	- You can use the 'brief' command to stop the talker from
+	  showing you the room description when you enter it; the 'look'
+	  command will still show you the room description.
+	- You can turn off autodump mode in the editor to save bandwidth.
+	  Just type '~o noautolist' at an editor prompt.
+	- You can turn on 'new only' mode in the mailer by typing 'o' at
+	  the mailer prompt.
+
+ - If you missed the news message during login, the 'motd' command will
+   redisplay it.
+
+ - If your terminal doesn't move down a line after you've typed a command
+   type 'nl' to turn on extra newline mode.
+
+ - If you have sent intertalker mail which timed out it will be held in the
+   mailqueue. To list your mailqueue, use 'mail -s' and to remove an entry
+   from your mailqueue use 'mail -s <entry number>'
+
+ - To execute some commands when you login, you can create a _login alias.
+   Similarly _logout. Your _login alias could look like:
+	alias _login write;who;write
+   The 'write's providing blank lines.
+
+ - You can insert embedded newlines into any input. Do to this, just end
+   a line with a single \ character and continue typing on the next line.
+   Example:
+	> say Hello\
+	everyone
+   yields
+	You say 'Hello
+		Everyone'
+
+
+::: TIPS FOR ADMINISTRATORS :::
+
+ - To log in with your sly login flag set, prefix your name with a - character
+   at the login prompt.
+
+ - To execute commands as root, you can use the 'sudo' command. The sudo
+   command access rights are contained in the file etc/sudoers. Using sudo
+   should make it unecessary to ever log in as root other than to reset an
+   administrator's password. (sudo chpasswd will fail as it is a multi-part
+   command.)
+
+ - The lock command can be used with an argument to lock a room to members of
+   a system grupe; to remove a lock of this type use 'unlock grupe'
+
+ - Root can kill any event by using 'kill #event_id'
+
+ - Root can view and remove any member of the mailqueue.
+
+ - The 'log' command by itself lists available log files or, with an argument,
+   shows the last 20 lines or so of the log.
+
+ - You can set or break snoops using 'snoop force' and 'snoop break'.
+
+ - The chlev command can be used with either numeric or text level values.
+   Example:
+	chlev test warden
+   is equivalent to:
+	chlev test 3
+

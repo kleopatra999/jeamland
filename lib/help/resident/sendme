@@ -1,0 +1,8 @@
+NAME		sendme
+SYNTAX		sendme [file]
+DESCRIPTION	Requests the talker to send a file to you via email. Without
+		arguments, shows the available files.
+		To use this command, you will have to have a validated email
+		address; to get your address validated, talk to an
+		administrator, send email to #admin on the talker or send
+		email to the talker administrators.

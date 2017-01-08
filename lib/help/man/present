@@ -1,0 +1,4 @@
+NAME		present
+SYNTAX		present(arg)
+DESCRIPTION	Find a user who is present and uniquely identified by arg.
+RETURN VALUE	present() returns the capitalised name of this user.

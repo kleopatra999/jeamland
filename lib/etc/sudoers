@@ -1,0 +1,20 @@
+# The sudo config file.
+# These users may execute the listed commands regardless of level and they
+# will be treated as the ROOT_USER.
+#
+# Entries may be split over multiple lines.
+#
+# Entries will be parsed from top to bottom, and left to right.
+
+# Examples
+
+# Alcides can sudo anything.
+#alcides:*
+
+# Aslan can sudo anything except 'people'
+#aslan:*,!people
+
+# Angellica can sudo 'iptab', 'admin', 'wall' and 'senior'
+#angellica:iptab,admin,wall
+#angellica:senior
+

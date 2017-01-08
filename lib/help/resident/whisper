@@ -1,0 +1,6 @@
+NAME		whisper
+SYNTAX		whisper <user> <message>
+DESCRIPTION	This command sends a message to another user in the same room
+		as you. Other users in the room will see:
+		"<Yourname> whispers something to <user>"
+AKA		=

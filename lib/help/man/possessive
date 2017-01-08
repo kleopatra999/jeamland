@@ -1,0 +1,4 @@
+NAME		possessive
+SYNTAX		possessive(user)
+DESCRIPTION
+RETURN VALUE	Returns a possessive string for user based on user's gender.

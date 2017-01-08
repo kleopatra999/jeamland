@@ -1,0 +1,42 @@
+#!/bin/sh
+# A script to mail all users with a message.
+
+FILE=.mailall
+
+echo "Edit message text ($FILE) ? (y/n)"
+read a
+if [ $a = 'y' ]; then
+	if [ $EDITOR'x' != 'x' ]; then
+		$EDITOR $FILE
+	else
+		vi $FILE
+	fi
+fi
+
+if [ ! -r $FILE ]; then
+	echo "File $FILE non-existant; aborted"
+	exit
+fi
+
+echo "Please enter a subject on the following line:"
+read subj
+
+if [ "x$subj" = 'x' ]; then
+	echo "No subject given, aborted."
+	exit
+else
+	echo "Subject: $subj"
+fi
+
+for user in `find lib/users -type f -name \*.o -print`
+do
+	email=`grep '^email' $user | cut -d\" -f2`
+	if [ $email'x' = 'x' ]; then
+		echo "$user has no email, skipped"
+	else
+		mail -s "$subj" $email < $FILE
+		echo "Sent to $email"
+	fi
+	sleep 5
+done
+

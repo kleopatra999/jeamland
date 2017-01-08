@@ -1,0 +1,207 @@
+#!/bin/sh
+# Quick configure script, for those who just can't wait!
+
+EMAIL=A.Fiddaman@twikki.demon.co.uk
+
+# Disable globbing
+set -f
+
+check_file()
+{
+	if [ ! -s include/config.h ]; then
+		echo 'Empty config file!!!'
+		exit -1
+	fi
+	if [ ! -r include/config.h ]; then
+		echo 'Cannot read config file.'
+		exit -1
+	fi
+	if [ ! -w include/config.h ]; then
+		echo 'Cannot write to config file.'
+		exit -1
+	fi
+	if [ ! -s include/config.h ]; then
+		echo 'Config file is empty!'
+		exit -1
+	fi
+}
+
+# readold var_name default
+readoldstring()
+{
+	old=`cat include/config.h | egrep "^#define $1" | cut -d\" -f2`
+	[ -z "$old" ] && old=$2
+}
+
+readoldint()
+{
+	old=`cat include/config.h | egrep "^#define $1" | awk '{print $3}'`
+	[ -z "$old" ] && old=$2
+}
+
+check_result_file()
+{
+	if [ ! -s include/config.h ]; then
+		echo '!CONFIGURE ERROR! Managed to wipe the file:' \
+		    'Please report this to '$EMAIL
+		mv include/.config.h include/config.h
+		echo 'Original file restored.'
+		exit 1
+	else
+		rm include/.config.h
+	fi
+}
+
+# replace_string_var var new_value
+replace_string_var()
+{
+	check_file
+	
+	mv include/config.h include/.config.h
+	cat include/.config.h | sed '/#define '"$1"'/c\
+#define '"$1"' 	"'"$2"'"
+' > include/config.h
+
+	check_result_file
+}
+
+replace_int_var()
+{
+	check_file
+
+	mv include/config.h include/.config.h
+	cat include/.config.h | sed '/#define '"$1"'/c\
+#define '"$1"'	'"$2"'
+' > include/config.h
+
+	check_result_file
+}
+
+myecho()
+{
+	if [ $echotype -eq 1 ]; then
+		echo -n "$1"
+	else
+		if [ $echotype -eq 2 ]; then
+			echo "$1\c"
+		else
+			# *Sigh*
+			echo "$1"'
+        '
+		fi
+	fi
+}
+
+input()
+{
+	myecho "$1 [$2]: "
+	read ans || exit 1
+	[ -z "$ans" ] && ans="$2"
+}
+
+atexit()
+{
+	if [ $? -ne 0 ]; then
+		mv include/.config.org include/config.h
+		echo
+		echo '#'
+		echo '# Error: Your original config.h file has been restored.'
+		echo '#'
+	else
+		#rm include/.config.org
+		echo
+		echo '#'
+		echo "# That's it!"
+		echo '# Your config.h file has been updated.'
+		echo '# Type 'make' to compile JeamLand.'
+		echo '#'
+	fi
+}
+
+# Starts here - error recovery
+check_file
+cp include/config.h include/.config.org
+
+# Some shells don't support the symbolic forms of these
+# so.. I'll use the numbers!
+trap atexit 0
+#             HUP INT QUIT KILL
+trap 'exit 1' 1   2   3    9
+
+# How does our echo command work ?
+if (echo "wibble\c"; echo fubar) | grep c > /dev/null
+then
+	# Appending \c doesn't work... does a prefix of -n ?
+	if (echo -n wibble; echo fubar) | sed 's/-n/xn/' | grep xn > /dev/null
+	then
+		# Prefixing -n doesn't work, ah well, do the best we can.
+		echotype=3
+	else
+		# Prefixing -n works.
+		echotype=1
+	fi
+else
+	# Suffix of \c works.
+	echotype=2
+fi
+
+cat << EOF
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+		Welcome to the JeamLand quick configuration
+
+    This configuration file only sets the basic options which you will
+    need to get the talker up and running, for better tuning, you should
+    edit the config.h file by hand.
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+EOF
+
+# Set local name
+cat << EOF
+
+You must first choose a unique local name for your talker. This name is
+used for identification of your talker to the rest of the interhost network
+and there may be confusion if it is not unique.
+
+EOF
+
+readoldstring LOCAL_NAME 'Unconfigured'
+
+ex=1
+while [ $ex -eq 1 ]; do
+	input 'Enter a name now' "$old"
+	ex=0
+	if echo $ans | sed 's/P/p/g' | sed 's/[ 	]/P/g' | \
+	     grep P > /dev/null
+	then
+		echo '! - Name must not contain any spaces.'
+		ex=1
+	fi
+done
+replace_string_var LOCAL_NAME "$ans"
+
+# Set the directory
+echo 'Enter the directory in which JeamLand resides (no trailing /)'
+input '' `pwd`
+replace_string_var TOP_DIR "$ans"
+
+# Set the port
+readoldint DEFAULT_PORT '4141'
+input 'Enter the port to listen on' "$old"
+replace_int_var DEFAULT_PORT "$ans"
+
+# Set the email
+readoldstring OVERSEER_EMAIL 'Jeamland@twikki.demon.co.uk'
+input "Enter the administrator's email address" "$old"
+replace_string_var OVERSEER_EMAIL "$ans"
+
+# Set an override host name.
+readoldstring OVERRIDE_HOST_NAME ''
+input "Enter an alias ip address (optional)" "$old"
+if [ ! -z "$ans" ]; then
+	replace_string_var OVERRIDE_HOST_NAME "$ans"
+fi
+

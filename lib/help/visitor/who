@@ -1,0 +1,5 @@
+NAME		who
+SYNTAX		who <-h> | <-opt> | @<host>
+DESCRIPTION	Show other users on the talker or on other talkers / muds.
+		who -h lists available options.
+EXAMPLE		who @enulal

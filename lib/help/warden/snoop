@@ -1,0 +1,6 @@
+NAME		snoop
+SYNTAX		snoop [<user> | <force> <user1> <user2> | <break> <user>]
+DESCRIPTION	Handle snooping. snoop alone stops your current snoop,
+		Snoop <user> starts a snoop on <user>.
+		Snoop force <user1> <user2> starts a snoop on user2 by user1
+		Snoop break <user> stops <user>'s snoop.

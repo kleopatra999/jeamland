@@ -1,0 +1,6 @@
+NAME		myrooms
+SYNTAX		myrooms [user]
+DESCRIPTION	This command shows all rooms which you own listing first the
+		internal filename, then the name which you gave it and finally
+		the exits in that room.
+		Administrators can append a username to this command.

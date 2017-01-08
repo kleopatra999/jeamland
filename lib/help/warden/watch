@@ -1,0 +1,27 @@
+NAME		watch
+SYNTAX		see below
+DESCRIPTION	The watch command allows you to keep track of a number of files
+		in the talker lib.
+
+		The watch options are as follows (the - is optional):
+
+		watch			List watched files with changes.
+		watch -n		 "     "      "     "    "
+		watch -c		Catchup on watched files.
+		watch -l		List files you are watching.
+		watch -s <file|dir>	Start watching a file or directory.
+		watch -S <dir>		Start watching all files in a directory.
+		watch -u <file|dir>	Stop watching a file or directory.
+		watch -U <prefix>	Stop watching all files beginning with
+					<prefix>. Wildcards are not supported,
+					but using -U with an argument of "*"
+					will remove all watched boards.
+
+NOTA BENE	If you watch a directory, then you will be informed only that
+		something has changed about it. This change could be that a
+		file within that directory has changed, or that the directory
+		permissions etc. have been altered.
+
+THANKS		To Ernakk (Per Persson) for the "watch" concept which I have
+		shamefully borrowed.
+

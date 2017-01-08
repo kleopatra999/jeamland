@@ -1,0 +1,5 @@
+NAME		unbanish		
+SYNTAX		unbanish <user>	
+DESCRIPTION	Unbanishes a user previously banished with the 'banish'
+		command.
+SEE ALSO	banish

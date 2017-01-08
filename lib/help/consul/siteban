@@ -1,0 +1,15 @@
+NAME		siteban
+SYNTAX		siteban [<host> <level>]
+DESCRIPTION	Set a lockout on a particular host or group of hosts.
+		[host] can include an asterix ie.. to ban Leeds, use
+			siteban 129.11.* 1
+		or
+			siteban leeds 1
+		Available levels may change - to get the current list, just
+		type 'siteban levels'. At the time of writing, the levels
+		are:
+			    Ban all:           1
+			    Ban all but admin: 2
+			    Ban all newbies:   3
+
+		Siteban with no arguments just lists banned sites.

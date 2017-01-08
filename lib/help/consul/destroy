@@ -1,0 +1,4 @@
+NAME		destroy
+SYNTAX		destroy <filename>
+DESCRIPTION	Removes a room from memory. The room's contents will be moved
+		to safety.

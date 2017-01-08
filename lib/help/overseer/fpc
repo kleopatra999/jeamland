@@ -1,0 +1,5 @@
+
+NAME		fpc
+SYNTAX		fpc <user>
+DESCRIPTION	Toggles a flag in the user forcing them to change their password
+		when they next log in.

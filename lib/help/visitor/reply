@@ -1,0 +1,8 @@
+NAME		reply
+SYNTAX		reply [message]
+DESCRIPTION	Reply to the person who last told you something.
+		If message is omitted, you will be prompted for the message
+		and your current reply list will be used in the reply.
+		This latter option is very useful if you a receiving a lot
+		of tells and your reply list is likely to have changed before
+		you have finished typing the command.

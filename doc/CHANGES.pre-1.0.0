@@ -1,0 +1,1006 @@
+This file documents all changes to the JeamLand code since I started keeping
+records! .. Unfortunately, I only started keeping records at version 0.9m.
+
+-----------------------------------
+0.9m
+ - Erqd packets now contain an 'id' code to keep track of them; not that it is
+   used anywhere yet...
+ - Malloc prepends a magic number byte to the start of all malloced chunks
+   mainly for debugging purposes.
+ - Vector's are now arrays of svalues instead of arrays of pointers to
+   strings.
+ - allocate_array function name changed to allocate_vector. Now takes
+   additional arguments.
+ - Removed command, 'udump'
+ - New command, 'netstat'
+ - Fixed small bug in the tms code in erqd.
+ - Fixed svalue element type bug in get_dir.
+ - Added strbuf struct and 'growing' strings. Rewrote code_string to
+   take advantage of them.
+ - Added svalue_to_string().
+ - svalue's can now hold vectors - vector_svalue() function added.
+ - Removed 'editor' earmuffs option. Now any text written to a user whilst
+   in ed is stored in a string buffer and written to the user when ed is
+   exited.
+ - '-h' boot option added, lists available options.
+ - Secure logs implemented. Some logs are now only readable by 'admin'
+   these include ident, su, sudo, illegal and a couple of others.
+ - Put the obscenity filtering code inside an #ifdef. Added new config
+   option; off in release version.
+ - Removed the CAT() macro and replaced all occurences with equivalent
+   string buffer code. Fixed a couple of memory leaks in the process
+   and tidied up some code.
+ - New function added, nctime(), changed some code to use it.
+ - Profiling code added, not a great deal of use at the moment,
+   will be improved at some point.
+
+0.9n
+ - Added a general variable stack to each user. Will hopefully make it
+   easier to avoid temp variable clashes without having an entire knowledge
+   of the code!
+ - Fixed the 'messages occured while in ed' when the ed callback function
+   set an input_to.
+ - Changed all code which used the temporary variables tmp(1-4) in the user
+   struct; replaced it with the new stack system.
+ - Changed the name of tmp4 (used for flagging whether to return to the
+   interactive mailer after sending a message) to a user flag
+   IN_MAILER
+ - Removed a lot of the magic number checking.
+ - Changed the validation system again.. back to the way it used to be.
+ - Finally made 'epost' robust.
+ - Passwords are now checked to make sure they are secure.
+ - New command 'fpc'
+ - Fixed tinsy winsy crash bug in the inetd code (oops).
+ 
+0.9o
+ - Added the 'last' log - not quite the same as unix as it records in
+   logout order... still, useful.
+ - New command, people.
+ - Changed order of 'noecho' code transmission to stop the problems people
+   had been having with parts of their passwords echoing.
+ - New command, which.
+ - fpc now TOGGLES the fpc flag in the player.
+ - Removed the 'destroy_afer' code which is obsoleted by clean_up.
+ - The global level_names array has been removed. level_name() function
+   added.
+ - New command, in
+
+0.9p
+ - Rehashed the socket code to support clients which refuse to come out
+   of character mode and to support different newline sequences.
+ - Echo on codes are now sent at connect for those clients that start with
+   noecho (yes, there are some out there - Novell TNVT220 for example)
+ - New command, capname - sets the capitalisation of your username.
+ - New command, 'nopurge' to set the nopurge flag in a user.
+ - Fixed hang bug in the mailer.
+ - Fixed fatal error in the converse command.
+ - Added more levels and renamed existing ones.
+ - Fixed void pointer vs. function pointer conflicts; added new option in
+   an svalue of a function pointer.
+ - New internal functions, deltrail(), delete_room().
+ - Changed the way the capitalize / lower_case functions work.
+ - Added with_user() function which greatly speeds up searches for present
+   users.
+ - Changed the look command to scan the contains list for a room rather than
+   looking for all users with super == room - should save CPU time.
+ - Added parse_chevron() and parse_cookie() functions; added calls from
+   print_prompt() and f_write().
+ - Added support for a 'startup' alias - to be executed upon logging in.
+ - Added cadd_strbuf() to add one character to a string buffer.
+ - Added 'nl' command for terminal compatibility.
+ - Converse mode is now a 'real' mode instead of a command which just loops
+   input back into itself, support added for %p cookie.
+
+0.9q
+ - New source file, alias.c contains all alias specific functions.
+ - Added support for 'partial' aliases, mainly so I can alias all of the
+   commands back to my liking after Mike has been at the code ;-).
+ - Changed the DECODE() macro to be more CPU friendly.
+ - Fixed the people command to take level into account when showing snoopers!
+ - The angel now checks for already running angel's or talkers. If run with
+   the -c option, it just does this check and exits if there is something
+   else running, otherwise it starts - useful to run from crontab every hour
+   or so.
+ - Two new command line options added to angel, -h lists available options
+   (as does Jeamland), -k kills the angel already running, -K kills the
+   angel and talker already running - both shutdowns are clean.
+ - Rewrote decode_string() to use the generic str2val() function.
+ - Renamed the remote shortcut from ; to <
+ - Added 'nemote' command aka. ;
+ - Altered the stack system to be more generic.
+ - Events now have an internal stack vs. temp variables.
+ - Added a missing store_room() call in f_chown()
+ - Changed the way aliases are stored in a user file (now that str2val() works)
+ - Aliases which have no argument expansions are now treated as if they ended
+   with $* if ALIAS_AUTO_ADD_ARGS is defined.
+
+0.9r
+ - New command, rm.
+ - Vector buffers added, code changed to use them.
+ - Multi-tell 'fixed' using vector buffers.
+ - duser now has an access_check().
+ - purge_user now uses 'real' level! Also performs a user count.
+   (sorry sweep :( )
+ - users can now use the 'go' command to go to rooms which they own.
+ - users can now link rooms together if they own both, and if neither is
+   a system room - sim. unlink.
+ - New macros, SYSROOM(), CAN_CHANGE_ROOM(), ISROOT(), CAN_SEE(),
+   ROOM_POINTER().
+ - New command, myrooms.
+ - Rooms short name now shown in the [] at the top of a warden+'s look
+   command. Residents now see the file name of any room which they own.
+ - Handling of system rooms altered due to experienced problems with admin
+   being unable to alter a room created by another admin.
+ - Added some changes to handle FinalFrontier's overzealous packet encoding.
+ - History host changed to "Enulal" due to the demise of TimeWarp.
+   At least Enulal is gauranteed to be around for a while..
+ - Editor changed so that ~l command takes optional arguments, editor is now
+   called with flags dictating its behaviour, only current flag is
+   ED_NO_AUTOLIST, which stops the auto-dumping of lines after certain ops -
+   currently used for edits raised from the 'ed' command.
+ - Changed write_room_level[_abu]() to use the inventory contents list
+   rather than the entire users list.
+ - Upped the PURGE_X defines.
+ - Ping request and reply packets sent on the intermud system now contain
+   an is_jeamland field, set to a magic number. This is to allow automatic
+   updating of the interjl host list.
+ - Desc command now changes the description of the room you were in to
+   start with, if it still exists.. similarly, post and epost - small crash
+   bug in epost fixed.
+ - earmuffs command output changed, new option - chime.
+ - New guarantees.. a user will always be in an environment now, every room
+   will have a non-NULL filename.
+ - extra check added to secure_password() function - new password must contain
+   no more than 4 characters from the old password.
+
+0.9s
+ - ISCOMMENT() macro
+ - New directory, secure, only readable by root.
+ - snoops directory moved to lib/secure/snoops
+ - Command table altered to have a flags field, removed existing partial
+   field, added an AUDIT flag, audit files are stored in secure.
+   The idea of audit files is to provide a record of who changed what when;
+   probably not looked at too often! :)
+ - renamed news file to motd. Added motd command.
+ - Added 'email' service to erqd. It works on linux, no idea about other
+   platforms but should be ok as it uses 'sendmail'
+ - Fixed bug in the 'other_copy' code.
+ - init_user() now sets last_login   !
+ - Users can now email their mailbox to themselves - hence the 'email' command
+   invalidates their email address and only consul+ can validate it.
+ - 'snoop force' now works if you want to let a resident snoop a warden etc.
+   as long as you have snoop access to both parties!
+ - Plugged memory leak in the new alias system.
+ - Small error in tell code fixed.
+ - snoop is now a warden command, but the snoopee is notified in this case.
+ - purge code changed to take note of the 'mkuser' commands results..
+   ie. players who have not logged in at all had last_login set to 0.. so they
+   were purged... not an ideal situation.
+ - New command, whisper (= shortcut)
+ - Validate lowered to citizen level.
+ - Cleanup event interval changed to 10 minutes.
+
+0.9t
+ - Created a 'msg' directory and moved the online help for mail and the editor
+   to there. Started to make files in there be used for some runtime messages.
+ - Fixed a couple of bugs in 'su'. Made su preserve the uname field.
+ - Assist command is now dual purpose, old behaviour for residents, for
+   level > resident, now offers assistance.
+ - Fixed chpasswd, was putting random passwords into users..!
+ - Added a console.. boot with -C to use, login as 'quit' to detach from it.
+ - Logging in as quit now disconnects you.
+ - Finally fixed inetd to understand FinalFrontier!
+ - history modifiers now implemented. These are modifiers applied to specific
+   lines in your history, or the form !id^search^replace
+   (anyone who understands the code gets a prize ;)
+ - history lines like '!!text' now work.
+ - People created with mkuser, who have never logged in, are now purged
+   as if they had logged in at the file_time() of their user file give or take
+   timezone adjustments.. (only a few hours in any case).
+ - Fixed small memory leak in the who command (only occured when who used with
+   an unrecognised option)
+ - New boot options: -S, -i, -u.
+ - Aliases are now centrally handled. Aliases are now listed in alphabetic
+   order rather than the previous, interesting, behaviour of the order
+   reversing with each login!
+ - Board and keepersave file format changed. Keepersave renamed to mastersave.
+ - mailspool and siteban file format changed.
+ - vector buffers are now used in more places, eg. mail cc list and the
+   level_users() function.
+ - The M option in the mailer can now take a range as its argument.
+ - New mailer command, f - to forward a message.
+ - A lot of notify lines added to various commands.
+
+0.9u
+ - Board messages over a year old now display the year of posting rather than
+   the time.
+ - Added G_SELF queries to query_gender(). Added G_INDICES, G_MAX defines to
+   prevent use of numerical constants all over the place. Moved gender table
+   to a define in user.h, made gendertab variable static local to 
+   query_gender. New functions: gender_number(), gender_list().
+ - First argument to query_gender() is now an integer.
+ - Users created with 'mkuser' must now set their gender at first login.
+ - duser and droom commands renamed to rmuser, rmroom.
+ - Is it February already ?!
+ - Major rewrite of the parse_command() function.
+ - Self referential feelings added.
+ - New boot option, -x
+ - Fixed bug when aborting from reply / forward in the mailer.
+ - restore_board() takes an extra argument, mail files moved to lib/mail.
+ - Mbs added.
+ - All internal linked lists, with the exception of users and rooms, are now
+   null headed.
+ - Changed the 'backup' rule in Makefile - (just for Mike ;-)
+ - Fixed a serious problem with mastersave - all admin users were being
+   demoted!
+ - Editor rewritten to use double linked lists, should be kinder on CPU.
+   \~ at the start of a line allows you to have a ~ at the start.
+   New commands, ~m, ~s.
+ - which command extended and rewritten.
+ - new command, jlhosts.
+ - sudoers file can now take lines of the form.
+   alcides:*:!people
+   ie. sudo all commands but people - Order is important!
+ - parse_range changed. now you can do things like '~d 1-' in the editor to
+   delete all lines.
+ - Fixed the CAN_SEE macro call in the who command, visitor's could see
+   invis users!
+ - _startup alias is now _login, added _logout.
+ - Added the mstats() stuff in xalloc.c, doesn't seem to work on spodbox
+   so it is selectable with the HAVE_MSTATS define in config.h
+ - New boot option, -HH.
+ - Wrote a man page.
+ - Split up the command.c file into parts.
+ - Added more notify messages for people losing connection or being kicked out
+   to current room.
+ - Added LOG_STATISTICS define and associated code.
+ - New command, cost.
+ - Added 'uptime' service to inetd.c
+ - Added hibernate, comment and bad_logins field to user.
+ - Booted users are now banned from logging in for 5 minutes.
+ - New support functions, doa_start(), doa_end() - greatly condense a lot of
+   the existing commands.
+ - Exits are now listed in alphabetic order.
+ - New command, comment.
+ - New command, brief.
+ - Various notify messages added for incorrect logins.
+ - Wordwrap code changed to make use of hyphens which are already there :)
+ - Fixed (hopefully) the purge event.
+ - Added provisional dependencies to src/Makefile.
+ - Platform tested on Linux 1.2.13 i486
+ - Platform tested on HP-UX A.09.01 A 9000/710
+   Problems galore.
+   Changed way lex file is compiled (again ;)
+   Remove nonblock() call on console fd.
+ - Platform tested on SunOS 5.4 sun4c sparc
+   BUS error on boot.
+   Identified problem with users list & fixed.
+ - Platform tested on AIX 3.2
+   Perfect compile and boot *faint*
+ - Platform tested on IRIX 4.0.4 IP12
+   Extra ; in gender table removed.
+ - Platform tested on IRIX 5.2 IP12 mips
+   No problems.
+ - Platform tested on IRIX 4.0.5H IP22
+   No problems.
+ - I think it works ok on IRIX systems ;-)
+ - Platform tested on SunOS 4.1.3C 1 sun4m
+   Messy compile with -Wall but works fine.
+ - Platform tested on SunOS 4.1.3_U1 2 sun4m
+   Messy compile, but ok.
+ - Newbies (ie. resident's with less than 1 days login time) have shorter
+   purge times, currently only 20 days.
+ - Deleting a user now deletes all of their rooms.
+ - dump_malloc now shows the first ten characters of the memory segment.
+ - Rewrote telnet code handler, it no longer relies on an entire telnet code
+   sequence being in a single TCP packet; also added support for tf, TUsh
+   prompting, new command, tush.
+ - Cleaned up the POSIX style socket nonblocking.
+ - Removed the ttype code.. wasn't used anyway ;-)
+ - New command, nosnoop
+ - Users are now told when they are being snooped, if snooper is not
+   overseer.
+
+0.9v
+ - Changed the lex file again, preprocessor directives are now inserted in
+   cmd.table.h
+ - Added the lookup command.
+ - People with full mailboxes are warned at login.
+ - Can now remove your plan with 'plan -r'
+ - Comment command used with just a user, removes user's comment.
+ - Write command used with no arguments now just does a newline.
+ - Fixed the siteban command, it was seriously broken.
+ - Rewrite of inetd.c to use string buffers, fixes a crash bug or two!
+ - Small cosmetic changes to mbs and boards.
+ - Fixed some small bugs in the snoop command.
+ - Fixed memory leak in the mailer.
+ - Fixed crash bug in f_dolog()
+ - Boards have seperate read and write levels now.
+ - Fixed brief mode.
+ - Rewrote start_purge_event.
+ - Rewrote global alias implementation.
+ - sudo su is no longer possible.
+ - Fixed bad_logins saving.
+ - Fixed crash bug in chgender on non-present user.
+ - Warden+ can no longer commit suicide.
+ - Modified the reply command to allow missing text string, to lock
+   your reply list for the next entered line (see help page!)
+ - Removed restrictions on aliasing 'alias' or 'unalias' as the aliases
+   can be overidden with a \ prefix anyway.
+ - New alias features, conditional's and user dependant's.
+ - Fixed unsiteban, wasn't working!
+ - Fixed editor redisplay bug.
+ - Changed logout alias to execute BEFORE the [ xx has logged out. ]
+   messages.
+ - Changed the mastersave list to null-headed.. must have missed it last
+   time.
+ - level_users() changed, both arguments and execution.
+ - Fixed notify in f_dolog.
+ - Added grupe's
+ - Added archiving boards.
+ - Fixed mbs -r on no-read-access boards
+ - Boards now have a settable message limit.
+ - Finger command changed, can now show the contents of a grupe.
+ - Moved several global variables to more appropriate files.
+ - tell and mail commands now use a global function, expand_user_list()
+   and support grupes.
+ - Users are now told of incorrect logins on their username while logged in.
+ - Feelings which identify users now take an argument of 'all' for all users
+   in the current room.
+ - The memmove() call on a user's input buffer was moving one too many bytes
+   actually accessing memory outside the buffer; this caused crashes which were
+   both unpredictable and difficult to trace. This call was also being executed
+   for all commands retrieved from the buffer when in fact it was only needed
+   on the (rare) occasions when more than one command appeared at once. Both
+   of these things have been fixed, the latter actually lowering CPU usage
+   measureably.
+ - Crash backtrace support added; enabled me to locate the above mentioned
+   problem but shouldn't be necessary on most platforms as the debugger should
+   be able to cope!
+   (expletives concerning the linux 1.2.13 elf support deleted)
+ - Enhanced the converse mode to support the one-character command shortcuts
+   without the need for a . prefix.
+ - Added a couple of interesting bits of information to rusage.
+ - Went through and rewrote every help file, also made a lot of minor changes
+   to the command code in the process.
+   At least the help pages should match what each command does now ;-)
+ - Fixed archive boards.. they weren't being saved!
+ - Board CC support added, can reply to all original recipients and see who
+   else message was sent to (I'd been putting it off for long enough!).
+
+0.9w
+ - sched, jobs and kill command - scheduled jobs.
+ - Shell escapes from prompts, can execute most commands.
+ - Fixed crash bug in the mailer, added in 0.9v
+ - Output on rusage shows more history.
+ - Rewrote userlist script, added mailall script.
+ - Small info addition to the 'version' command.
+ - Enhanced crash and backtrace output.
+ - Added support for loadable modules.
+ - Converted erqd to a loadable module.
+ - Invis is no longer a true invis, you are only unfindable but do appear
+   to people in the same room as you; also, your name is no longer set to
+   'Someone'
+ - System information is now stored globally.
+ - Added service port support.
+ - Added the 'rquery' utility which communicates with the service port.
+   Something Mike has been after for ages... ;-)
+ - Fixed hanging socket bug by adding shutdown() call.
+   (This may be a linux specific problem, but the call will do no harm
+    elsewhere...)
+ - Added 'objects' command, shows where objects are in relation to each
+   other.
+ - Channel history is now obtained by transmitting a ! character.
+ - Removing the last note on a board using mbs, as opposed to the remove
+   command, was not correctly updating the mbs table.
+ - Repaired the 'ifangel' and 'do_backups' scripts.
+   Ifangel had stopped working when the files in bin/ became links
+   do_backups had always had a typo in it.
+ - Renamed CHANGES to CHANGES.all and put only recent changes in CHANGES
+   Links to lib/help/warden renewed.
+ - New boot option (t) to disable service port.
+ - Fixed a crash bug which occured if a non-existant module was added and
+   the dead child signal was processed before the object has been
+   initialised.
+ - It is now possible to broadcast possessive emotes on channels, using a
+   prefix of ';'
+ - Root may now kill events by number.
+ - Shutdown command rewritten.. reason is logged, 'shutdown now' can now be
+   followed by a reason.
+ - Console detach now works correctly.
+ - A sudo command is no longer stored in the history buffer, allowing people
+   to type 'sudo !!' when a command fails due to insufficient privs.
+   Interestingly enough, "sudo !!" crashed previous versions of JeamLand.
+
+0.9x
+ - send_erq can store the requestor and return the result to them. I knew I
+   would find a use for that id field one day....
+ - Added sentence support. Modules (indeed, any object) can now claim commands.
+ - Wrote the Configure script.
+ - A stack now contains an 'el' field, set to the number of elements currently
+   on the stack.
+ - New stack support functions. clean_stack(), init_stack()
+ - Implemented a communication protocol between modules and the talker.
+   This allows for real interaction between the two.
+ - Started commenting any code I touched	(*grin sweep*)
+ - Jlm function library written, it's in the jlmlib directory but is not
+   built by default. This allows modules written in C to communicate
+   nicely with the main talker process.
+ - Changed the scheduling output slightly, the mixing of job and event numbers
+   was a little confusing.
+ - Compressed output from the 'commands' command to fit on one screen.
+ - Combined the chalim, chmlim commands into a new one - chlim; they actually
+   had a reasonable amount of common code.
+ - Grupes are now recursive up to a point; ie if you have two grupes:
+	f: alcides #g
+	g: root
+   Then #f expands to 'alcides root'
+ - The grupe command shows recursive grupes as #<grupe name> whereas the finger
+   command now shows what the grupe expands to.
+ - New mailer command, '$' resynchronises the folder.
+ - Duplicate values are now removed from list expansions - this includes
+   grupe and comma-delimited list expansions. ie:
+	tell alc,alc,alc,alc,...
+   will now only tell Alcides once!		(*poke Aslan*)
+
+0.9y
+ - Fixed lookup_host_by_name() - it was having trouble with partial matches
+   on the first entry in the table, it was also slightly less than optimal.
+ - Incoming tells for visitors are now rejected (Visitors cannot use
+   interhost tells)
+ - Fixed small bug in host checking (case differences were not noted which
+   could cause problems)
+ - Numerous small fixes and changes in inetd.c
+ - Removed some specific pathnames from the scripts.
+ - The angel process now returns status 24 if it is started with an argument of
+   -c and the process is running ok; the ifangel script uses this information
+   and mails the account if it had to restart the process.
+ - Generic hash table support added; real-time expansion et al.
+ - New command, hash.
+ - Feelings are now hashed if HASH_FEELINGS is defined in config.h, this
+   greatly (depending on the number of collisions) increases the feeling
+   lookup time and so saves CPU, especially in the case of unknown commands
+   (previously, they would be tested against all known feelings before failing)
+ - Fixed the way mail messages are spooled, previously a message / subject
+   which contained a % character could cause problems as it would be expanded
+   in a later sprintf() call (when the packet_id was set) without the sprintf
+   call having the correct number of arguments. Apart from the unsightly
+   output this caused, it was a possible crash bug.
+ - Replying to a mail message which already has 'Re: ' in the subject no longer
+   adds another; eliminating subject lines like 'Re: Re: Re: Re: Re: topic'
+   which occur in long mail conversations.
+ - The command table is now in two parts, partial_commands and the rest. This
+   is to allow the 'rest' to be hashed - there is no easy way to hash partial
+   commands; this doesn't really matter as there are only 6 and no
+   significant speed gain could be achieved by hashing them.
+ - Normal commands are now hashed if HASH_COMMANDS is defined.
+ - Iping [%]<host> <port> now works (finally!)
+ - The Configure script should work on more machines now.
+ - Added slylogin command. Sly login doesn't tell anyone that you have
+   logged on and also places you in the void.
+ - Added echoback command.
+ - New users must now confirm their name of choice.
+ - New users must now explicitly accept a set of conditions at login if
+   REQUIRE_CONDITIONS is set in config.h
+ - Fixed 'Grupe -r' command - wasn't saving the grupe list to disk.
+ - The 'lock' and 'board <write|read>' commands now use grupes to control
+   access. Example, previously to restrict a room to wardens: lock 3
+   Now: lock #warden+
+   Of course, you can use any system grupe.
+   Example 2: Grupe admin #warden+ alcides
+              board write #admin
+ - Prefixing your username with a - character at the login prompt now sets
+   the slylogin flag.
+ - A user's level is now shown in the 'xxx has connected' lines.
+ - Fixed several 'void' movements in login_user
+ - Mail message with no subject now has subject line reading: (no subject)
+ - Lots of other small changes.
+ - New option to the 'mail' command, -k; kicks the mailspool
+ - Fixed crash bug in destroy_room - talker would crash if a room containing a
+   module was destroyed with the 'destroy' command.
+ - The jlm service packet parser was having trouble with newlines in packets;
+   this is now fixed.
+ - Wrote a shell version of the jlm library and converted the shell calculator
+   into a module which uses it.
+ - Wrote a new INSTALL file.
+ - The people and who commands no longer use custom format strings.
+ - The who command issued with a legal option but by someone who does not
+   have access, now returns as if it was an illegal option rather than listing
+   all users on the same line! (Pointed out by Winddle)
+ - Several macros rewritten to stop the 'Empty statement' warnings.
+
+0.9z
+ - Removed the 'You emote' message (why did I ever add it ?)
+ - Changed 'enulal' to 'Enulal' in inetd.c - case _does_ matter now.
+ - In keeping with the new behaviour of 'invis', changed several obsolete
+   checks on the invis setting. Also removed all occurrences of the
+   NOTIFY_ROOM macro.
+ - Added a settable message 'quoting' character.
+ - New command, quotechar.
+ - New command, followup - to follow up a board message.
+ - New mbs option, -f to followup a message.
+ - Line limit for board and mail messages increased to 500 (was 100)
+ - New editor command ~a - toggles autodump mode. When turned off, the editor
+   will not relist the editor buffer after a delete, insert etc.
+ - Users can now set a URL address for their home page. If they are fingered
+   via the service port (eg. from the WWW finger gateway) this will appear
+   as a selectable link, otherwise, as plain text.
+ - New command, 'url'
+ - New board commands, 'anon' and 'reload'.
+ - Boards can now be anonymous.
+ - Changed the TCP error messages to better identify the source.
+ - TUsh prompt support improved; should now work fine with all prompts.
+ - A couple of small fixes to jlm.sh
+ - Intermud mail can now be sent to a level or system grupe.
+   ie. mail #admin@Orchard will now work from other JeamLand talkers.
+ - Added a missing store_board() call in the 'epost' and 'mbs -e' commands.
+ - Fixed the 'new mbs board has invisible unread messages' bug.
+ - Changed the C jlm library to cause immediate exit if parent process
+   vanishes.
+ - JLMs using the shell library will loop 20 times before exiting.. It is
+   possible to simulate a crash from inside the talker, but very unlikely!
+ - Wrote mkcmdprot.sed - a sed version of the mkcmdprot program; no particular
+   reason, just wanted to see if I could - added appropriate dependency in
+   Makefile for those who want to use this; it's faster than the awk version
+   but slower than the lex version.
+ - Replaced the two calls to sleep() with calls to my_sleep(); a new function
+   which implements sleep() using select(). Most systems implement sleep()
+   internally as a call to alarm() and as JeamLand uses alarm() for events,
+   this can cause problems - including looping JLMs! my_sleep() also retries
+   if it is interrupted by a signal - hopefully, this will fix the looping
+   JLM problem.
+ - Some changes to the kill_jlm() function.
+ - The talker will now attempt to shutdown JLMs when (if!) it crashes.
+ - New command 'edalias'
+ - Fixed memory leak in the 'alias' command; wonder how that got there...
+ - Fixed memory leak in the editor; see above ;-)
+ - It is now possible to change a note's subject using 'epost' or 'mbs e'
+ - New mailer command, o - toggles whether all or just unread messages are
+   listed at startup.
+ - New mailer command, H - shows all messages, read and unread.
+   The h command now just shows unread messages.
+ - The chlev command can now be used with a string argument.
+   eg. "chlev twiddle warden"
+ - Major helpfile update *yawn*.
+ - Finally made the 'reload' command work.
+
+0.9.1a
+ - The secure password check now checks against more patterns on the keyboard.
+ - Changed the sign program to be less dependant on the JeamLand directory
+   structure.
+ - Massive alias rewrite. Conditional expressions can now be constructed using
+   basic logical operators and can also include queries on user's flags.
+   New $-expression: $!
+ - Fixed small bug in scheduling - eval_depth wasn't reset before execution.
+ - Fixed small bug in ifangel; I thought I'd already done this :(
+ - Fixed bug in cc list construction (mailer) - also removed trailing , from
+   the cc list.
+ - Added grupe exclusions. It is possible to add elements to grupes which
+   exclude previously selected members. eg:
+	#consul+,!root
+   means, everyone who is a consul or above, excluding root.
+ - Fixed a bug in single user mode where hosts files would be wiped.
+ - Fingering a grupe now lists last login times for the members.
+ - Added dead_ed support. If you lose link while editing, your editor buffer
+   will be saved.
+ - The assist command now also sends a beep to Admin.
+ - Fixed svalue's to use long variables as type number rather than integer
+   (needed a guaranteed 32 bits)
+ - New command, beeplogin.
+ - Removed cache_ops field from the hash table struct. Cache_ops is always
+   equal to the number of misses.
+ - New command, 'jlm reload' allows consul+ to reload all jlms listed in the
+   etc/modules file.
+ - Fixed the 'your mailbox is full' message at login, it didn't take account of
+   the variable mailbox sizes now in place; added a warning message at 75% full.
+ - Usernames may no longer contain any digits at all.
+ - The mkroom command warns about room names which violate naming convention.
+   New help page, 'roomnames'
+ - Added a missing break statement to erq packet parsing. The erqd identifier
+   string was ending up in the ipname table!
+ - New editor command, ~s - search and replace.
+ - Minor fixes to the 'url' command including addition of 'url -r'
+ - Added a reset_eval_depth call to the login alias. Rare but possible to
+   eval out on login (*grin Dreamer*)
+ - do_backups script altered to be able to send backups offsite as well as
+   retaining a local copy.
+ - The last log now records the number of comands typed by each user in a
+   login session.
+ - Finger command restored to old behaviour.
+ - New command, last - shows last login times of a user or users. Takes
+   a comma-delimited list of users and grupes.
+
+0.9.1b
+ - New command, 'cproom'
+ - Fixed the subject bug in the mailall script.
+ - Modified the IN_GAME() macro to check the last_command field.
+   Replaced all references to last_command with IN_GAME().
+   (This fixes a small bug in valemail too)
+ - Implemented a no-escape flag which stops shell escapes at prompts, needed
+   for afk. (it seems I had started this sometime previously as some code was
+   already in place!)
+ - Fixed the automatic detection of other JeamLand talkers.
+ - Fixed the way in which users were kicked off in handle_idlers().
+ - All users who lose link or are kicked off are now saved to disk first.
+ - Two new user variables. 'Number of logins' and 'Number of messages posted'
+ - finger_text() function moved to user.c - why wasn't it already there ?!
+ - Rewrote finger_text(), new look finger output.
+ - Changed the last command to check if the user is currently logged on!
+ - find_room() no longer matches case insensitively.
+ - A loop in an archive board setup would previously cause the talker to
+   loop until it ran out of memory. (With quite impressive results!)
+ - When the editor exits with status 'No text' it now tells the user.
+ - Board commands give feedback now instead of just going to the next
+   command prompt.
+ - The rusage command now shows total system/user times in seconds and not
+   milliseconds (most people find seconds easier to visualise ;-).. besides,
+   previously the output incorrectly said _micro_ seconds.
+ - All messages logged to the "error" log are now also sent to logged in
+   administrators (Consuls+)
+ - Rewrote the sed scripts in Configure and mkdist.
+ - Changed the look of the wall command.
+ - New command, strbufs.
+ - Finally replaced all of the add_strbuf(.., "c") with cadd_strbuf(.., 'c')
+   calls; the latter being more efficient.
+ - New function, pop_strbuf() which exists when STRBUF_STATS is defined.
+
+0.9.1c
+ - Sometimes a user logging onto the host machine could trigger a false
+   console login; fixed.
+ - AIX 4.xx compatibility added.
+ - 'suncb' compile option added (I can't believe this bug still exists under
+   solaris, but apparently it does!)
+ - Added missing \n in f_finger.
+ - Some header files, required for systems other than linux, were not included.
+ - New function, exist_cookie().
+ - Cookie %r is now %R. %r is now room name.
+ - New commands, leavemsg & entermsg. Both support cookies.
+ - Configure script changed again.. Better checks for the -n echo option.
+ - Added facility for certain functions to be executed when a user exits.
+   (implemented via atexit stack).
+ - Removed all non-socket.c references to close_socket().. This should not
+   be called from outside process_sockets().
+ - If a user was editing a board message while a cleanup event occured, it was
+   possible for the room containing the board to be removed from memory. When
+   the edit was complete, the board would be reloaded into memory, not
+   usually at the same location; this caused a 'Note has been removed' error.
+   Fixed this problem by adding an inhibit_cleanup reference field and an
+   atexit function to decrement this if the user loses link.
+ - COPYRIGHT file changed.
+ - Added 'misc' and 'tips' help page. Changed the __INDEX__ help page.
+ - New overseer command, noidle - sets the no idle-out flag in a user.
+ - What on earth happened to the summer ?
+ - Changed all define names to more logical ones. eg. all user defines now
+   start with U_. See include/PREFIX for a full list.
+ - As the above required editing all files, a lot of minor changes and
+   additions sort of happened along the way..
+ - New command, cpnote.
+ - Distribution library now comes with a board in the entrance room and mbs
+   set up to include it.
+ - The chpasswd command now includes the option to mail the user, telling them
+   that their password has been changed.
+ - The addition of a last_command check to save_user() in 0.9.1b had resulted
+   in none of the doa (dead_or_alive) actions working when the user was a dead
+   copy; so changing anything about a user who is not logged on was not working
+ - New command, quiet. (Added mainly so Mr Gosnell can add his . command; see
+   the end of alias.tutorial.
+
+0.9.1d
+ - New command, supersnoop.
+ - Replaced direct references to the word "root" with ROOT_USER
+ - Partial aliases didn't set the number of arguments correctly and so
+   conditional alias expressions didn't work as expected. (Spotted by Dreamer)
+ - Aliases can now contain function calls and aliases can pass arguments back
+   and forth. See alias.tutorial for more details!
+ - The old user identifying $-expressions have been removed and replaced with
+   functions.
+ - Alias functions are now more general, users are no longer passed as
+   arguments.
+ - Room alias support added.
+   New commands, ralias, runalias, redalias.
+ - New $-expression, $!! terminates entire execution, even if currently in
+   a subroutine. ($! just terminates current execution)
+
+0.9.1e
+ - The 'email' command now shows whether your address is marked private or
+   public. (Suggested by Dreamer)
+ - Previously, room aliases were not overidden by using a \ prefix and a
+   \\ prefix was required. This has been fixed!
+ - New function, my_strncpy(). Calls to strncpy() changed to my_strncpy()
+   [ Yes, all 3 of them ].
+ - I managed to break the mkuser command when I changed the IN_GAME macro.
+   save_user() now takes an additional argument, the 'force' argument which
+   forces a save whether the user is logged in or not (Save still fails if
+   the password or email address is unset.)
+ - 'aliases' command changed to use new alias format.
+ - Trapped SIGPIPE in erqd.c
+ - New command, sendme.
+ - New help file, reference.
+ - It is no longer possible to write room aliases which override system
+   commands unless you are root, in which case you should change the room's
+   owner to root as well to avoid other administrators editing the alias.
+ - It is no longer possible to change a room's owner to one which would deny
+   you subsequent write access.
+ - Erqd now correctly detects problems with sendmail (including when it is
+   missing!)
+ - The 'to' command's output is now more natural. (Suggested by Dreamer)
+ - The 'finger' command's output now includes time on this session.
+ - The talker was crashing during shutdown on several unices, with the result
+   that all logged on users would have their user files wiped. The cause was
+   that on these platforms, resetting a signal handler attached to SIGCHLD
+   caused a call to the old/new signal handler if there were any processes
+   left to wait for; I regard this as an undesirable feature. 
+
+0.9.1f
+ - Fixed the finger output; 'on for' was in the wrong place.
+ - The automatic clean up routine will no longer remove a room which has been
+   in memory for less than 300 seconds.
+ - All objects now have a 'time of creation' to facilitate the above.
+ - The 'sched' command can now be invoked with an argument of '-q' to supress
+   the event messages.
+ - Restructered some of the include files.
+ - New data structure type, string list (strlist).
+ - New command, watch, allows a consul or above to check if files have changed
+   since they last logged in. Uses the strlist datatype.
+ - Changed all of the functions which added a list element in alphabetic
+   order; now far neater code.
+ - Runalias now works! previously it wasn't storing the room to disk.
+ - Fixed reset of unbuffered text flag wrt ! escapes. If you were in the editor
+   for example, and used a ! escape, you would lose your 'earmuffed' status.
+ - Rooms may contain a _arrive and a _depart alias which are executed by any
+   user arriving or departing! These aliases can not directly or indirectly
+   cause a user to quit. If you are invisible or leaving the talker, these
+   aliases will not be executed; this stops people having aliases such as:
+	ralias _arrive emote arrives.
+   to detect invisible intruders ;)
+ - Feelings can now be used on channels. Prefix the channel message with a
+   '.' character.
+ - Fixed the behaviour of the 'all' user with feelings when there are no
+   users to reference.
+
+0.9.1g
+ - Rewrote the malloc wrapper. New config option - DEBUG_MALLOC_FUDGE - checks
+   for memory block overruns.
+ - Cpnote command did not store the board after message had been copied to it!
+ - Channel messages were not being logged to the correct place. They were
+   being logged to random places, including user files!
+ - The 'Unknown command' message now suggests trying "help" if the user is
+   a visitor.
+ - 'write' is now a visitor command.
+ - Alias functions are now separated out and may be hashed if required.
+   New function: query_level.
+ - It is no longer possible to force a quit in an _arrive alias using
+   something like: alias _arrive sched 1 quit
+ - When the entrance room _arrive alias is executed during login, the user
+   is no longer still considered to be logging in.
+ - It is no longer possible to quit during execution of a login or logout
+   alias.
+ - Added support for automatically validating email addresses. When a user
+   sets or changes their email address, the talker sends an email message
+   asking for confirmation. By some mechanism, the reply to the message is
+   parsed, resulting in a connection to the service port which validates
+   that email address.
+ - New command option for above: valemail -p
+ - New example script in the distribution, valemail - for parsing the
+   mailspool and passing the results to the service port.
+ - Fixed the assist message.
+ - Moved the comma in the to command.
+ - New lecture event, tells people that a lecture is imminent.
+
+0.9.1h
+ - Mkspod formula changed - less emphasis on number of logins. Parts of the
+   script have been rewritten.
+ - Email sent from inside JeamLand now sets an X-Mailer field.
+   (This can be used by procmail to filter out some messages... )
+ - Valemail service now takes both a 'yes' and 'no' argument and removes the
+   pending request in both cases.
+ - Valemail script is now designed to be run as a pipe from procmail.
+ - Removed the lecture warning message!
+ - Fixed a small problem with failed soul commands; if there was an error
+   such as a missing required argument, you would be told that and then also
+   told 'bad command'.
+ - It is now possible to specify absolute times in a sched command by
+   prefixing the times (in twenty-four hour clock) with a @ character.
+   eg:
+	sched @13:05 write It's five past one.
+ - Various script changes including some to do_backups.
+ - If an email address is validated using 'valemail', any pending auto
+   valemail requests are cancelled.
+ - New option to valemail, -d for deleting pending requests.
+ - The mailer used to unset the 'current message' pointer after a message had
+   been replied to. I have changed this behaviour as it is very common to do:
+	& 5	(Read message 5)
+	& r	(Reply to message 5)
+	& d	(Delete message 5)
+ - Fixed backtrace logging bug in process_input().
+ - *Grumble* As of libc 5.4.7, Linux has a mallinfo() call. This broke the
+   dump_meminfo() function. Fixed, although I'm still using my own mallinfo()
+   as the new one, although in the library, is still largely unimplemented.
+ - Fixed purge; it wasn't ever checking any users whose names began with z !
+ - New command, usercount.
+
+0.9.1i
+ - Fixed the valemail command for Consul+ - broken in 0.9.1h :(
+ - The event sub system has been totally re-written. The old implementation
+   was trying to do too much inside a signal handler. Now, any events which
+   occur are deferred until a convenient point within the main loop.
+   This also prevents events occuring within events!
+ - New alias functions: +(), <(), >(), time()
+   The old lecture flag behaviour can now be simulated with an alias.
+   (See the end of the alias.tutorial help page)
+ - A user's login_count flag will no longer be incremented in if a user is
+   logging in less than thirty minutes from their last login.
+
+0.9.1j
+ - 0.9.1i would not compile if AUTO_VALEMAIL was undefined.
+ - Small change to do_backups. rm now uses -f flag to prevent cron error
+   messages.
+ - It was possible to room alias system commands by doing something like:
+	ralias \qui write You may not quit.
+   (Trust Dreamer to find that one...)
+ - It was possible to room alias system commands if you created them using
+   redalias! (He missed that one *;0)
+ - Fixed a crash bug in the sched command, mainly when used with the -q flag.
+   (Yep, Dreamer found that one too)
+ - The things on boards are now called notes throughout the talker; previously
+   they were referred to as a mixture of note / message & post.
+ - Configure script rewritten - hopefully it will work on platforms other than
+   Linux now!
+
+0.9.1k
+ - Fixed a security hole in check_sudo()
+ - The sudoers file format has been extended slightly. The different commands
+   can now be separated by any of the ':', ',' or ' ' characters.
+ - Afk can now take an optional string argument describing why you are absent.
+   This message is shown when a user looks at the room you are in, with the
+   'who -a' command and when a user fingers you.
+ - Added missing FUN_END calls in parse_command() and handle_exit().
+   Should stop the strange looking backtrace logs!
+ - Channel messages which start with two . characters are not expanded as
+   feelings (Suggested by Ernakk)
+ - Things on boards are now called notes in all help pages.
+
+0.9.1l
+ - An interhost tell to an afk user now returns this fact to the remote user.
+ - Fixed a bug in hash tables. An offset element which required a search past
+   the end of the table caused a crash instead of looping back to the start.
+ - The hash command can now take arguments. The schema is no longer listed
+   by default.
+
+0.9.1m
+ - New option in makefile; hpuxb for hpux machines with a bad select()
+   prototype (all before recent releases).
+ - Added stdlib.h include to xalloc.c to fix malloc() warnings under AIX 4
+   Added same to a few other files. Added time.h to several files.
+ - Moved the rtext buffering to before the wordwrap routine in comm.c.
+   Previously, the rtext was being wrapped twice!
+ - Fixed a crash bug in the editor... some commands would fail if the buffer
+   was empty.
+ - New editor command, ~j to join two lines together.
+ - New editor command & options.. ~o lists options, ~o[[no]option] sets or
+   unsets an option.
+   Options are: autolist, ruler & info
+ - Personal room naming scheme changed to <user>#<number>.
+ - a-z character username restriction lifted.
+ - Users can no longer read the help pages for higher levels!
+ - Fixed memory corruption problem in spooled interhost mail. (*oops*)
+
+0.9.1n
+ - New option to the watch command, watch -check does a re-check.
+ - Users are now individually kicked off when a shutdown commences unless they
+   are admin and have the shutdown nokick flag set. The flag is toggled by
+   using the command "shutdown nokick".
+ - Fixed the editor ruler. The ruler wasn't showing initially with an empty
+   editor buffer. Also added a new rulerleft flag for users who use certain
+   types of mud client.
+
+0.9.1o
+ - COPYRIGHT file extended.
+ - Even users with the nokick flag set are now saved at shutdown.
+ - New log file, new_user.
+ - New alias function, member_grupe().
+   Updated alias.funcs help page.
+ - Updated alias.tutorial; hopefully more understandable now.
+ - Fixed security bug in the su command. (Thanks Santa..)
+ - 'watch' is now a warden command (previously consul)
+ - It's /cold/!
+ - MBS: You may no longer subscribe to a board which you do not have read
+   access to. Automatic unsubscription occurs in more places now, not just
+   "read". mbs -S is more verbose.
+ - Watch rewritten to be more like mbs. Existing users will probably want to
+   add a "watch" to their _login alias to simulate the old behaviour.
+ - query_password() changed to use doa_xxx() functions.
+ - Service socket logging fixed and extended to log valemail requests.
+ - Fixed a couple of compile warnings on AIX_4 (Thanks Santa & Sweep)
+ - Continued making non-global functions static.
+ - Wrote 'patch' script.
+ 
+0.9.1p
+ - The "watch -s" command now warns if the file does not exist.
+ - "who -" behaves properly now.
+ - "watch -s" on a file you'd already subscribed to was giving the wrong
+   message.
+
+0.9.1q
+ - Patching is done with "make patch" now.
+ - Auto-valemail now stores when the initial email request was made, to enable
+   the admin to follow up any long standing requests.
+ - Shutdown messages now go to Wardens and above (previously it was consul+)
+ - The jlm interface has suffered a total rewrite.
+ - The jlm service interface has changed. This won't affect anyone who has
+   written jlms which use the standard jlm library to interface with the
+   talker. (*grin at a worried dreamer*)
+ - "jlm" log file removed - jlm errors now go into "errors"
+ - jlm.sh shell library removed.
+ - The jlm library can now be compiled as a shared library under ELF linux.
+   (Feel free to try this on other unix systems and let me know if it works!
+    cd into jlmlib and type "make" for details.)
+   Shared libraries are a "good thing" (tm).
+ - New functions in the jlm library: write_level(), notify_level(), force()
+   It is now very easy to add new functions (ideas ?)
+ - Alias functions can now be tagged with a minimum level. Also changed the
+   execution code slightly.
+ - If the file "etc/logout" exists, it will be shown to a user as they quit.
+ - Every user can now arrange for all mail sent to their character to be
+   forwarded somewhere. Either to another character, to another mud/talker
+   or to their real email address. See the 'F' command in the mailer.
+ - Intermud mail now has a "recursion" field to handle forward mail loops
+   which could be set up.
+ - Fixed intermud mail; apparently it hasn't worked for some time..
+   (Since 0.9z in fact)
+ - "watch -s" alone was crashing the talker.
+ - Rewrote the backup shell script. Command line options system improved.
+   New flag, -mbox to backup mailboxes.
+   NB: If you have a crontab set, you may need to change it - see the new
+       example crontab for more info.
+
+0.9.1r
+ - Fixed access to alias functions.
+ - Changed the way "cost" detects events.
+ - Lots of small code cleanups. Added comments, restructured bits & pieces.
+ - New commands to mail a board note to yourself: mailnote and mbs -m
+ - Shutdown is now a warden command.
+ - Previously, the bottom element of a stack object was never used. This has
+   been changed. New function, stack_svalue() for picking a specific element
+   from a stack (used in hashed jlm functions). No existing code needed
+   changing as I've always used a pointer into the stack for access. I'd
+   been meaning to change this for some time!
+ - There was a problem on compiling on some older compilers with CRASH_TRACE
+   defined .. fixed.
+
+0.9.1s
+ - Fixed jlm stack problem.
+ - Jlm stuff rewritten again. Claim and Ident are now jlm functions.
+ - Turned on Jlm function hashing.
+ - Newlines in jlm text are now handled properly.
+
+0.9.1t
+ - Fixed a few problems with the hashing code.
+ - Added a new hash table size, 37.
+ - Decreased maximum deviation limit to 15.
+ - Decreased vecbuf chunk size to 5.
+ - Fixed empty stack check in alias.c
+ - Removed function trace code from stack functions.
+ - Alias language changes:
+   - New functions:	map, pop
+   - Push now leaves one less element on the stack than it did; calling it with
+     an @ prefix should really have caused a pop before, it now pretends that it
+     has.
+   - %func(arg) behaviour has changed **THIS WILL BREAK SOME ALIASES**
+   - New function modifier, & causes the return value to be binned.
+   - Functions now support multiple arguments.
+ - Converse mode wasn't working if the command typed was less than two
+   characters in length.
+ - History wasn't being stored when in converse mode.
+ - Updated the help index file and 'tips' help page.
+ - New earmuffs flags - it is now possible to block individual UDP channels
+   (d-chat, intermud, intercode, creator etc. etc.)
+ - Sudo now logs the command after expansion instead of before.
+
+1.0.0
+ - Minor library clean ups.
+ - Fixed bug in Configure.
+
+-- Version 1.0.0 released : See CHANGES.all and CHANGES for more recent
+   changes --
+

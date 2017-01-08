@@ -1,0 +1,12 @@
+NAME            consul
+SYNTAX          consul [:|;|.]<message>
+                consul !
+DESCRIPTION     Chat on the consul channel.
+                Prefix the message with: 
+                        : to emote.
+                        ; to memote.
+                        . to use a feeling command.
+                "consul !" shows a history for the channel.
+EXAMPLES        consul :grins
+                consul .bop all
+                consul ;feet hurt!

@@ -1,0 +1,4 @@
+NAME		home
+SYNTAX		home
+DESCRIPTION	Go to your own personal room. If you don't have one, 
+		a new room will be created for you.

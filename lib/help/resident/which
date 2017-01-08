@@ -1,0 +1,5 @@
+NAME		which
+SYNTAX		which <command>
+DESCRIPTION	Tells you a little about one of your commands.
+		With profiling turned on, this information includes the number
+		of times the command has been used since startup.

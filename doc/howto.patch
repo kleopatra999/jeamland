@@ -1,0 +1,5 @@
+
+Patching your copy of the JeamLand code is easy! Simply type
+	"make patch"
+while in the jeamland directory.
+

@@ -1,0 +1,7 @@
+NAME		harassment
+SYNTAX		harassment <user>
+DESCRIPTION	Starts a harassment log on <user>. Use to gather evidence
+		that a user is harassing you.
+
+		<< DO NOT USE THIS COMMAND LIGHTLY! >>
+

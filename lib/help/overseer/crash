@@ -1,0 +1,4 @@
+NAME		crash
+SYNTAX		crash
+DESCRIPTION	Crashes the talker, usually with a SEGV or BUS error..
+		for debugging!!

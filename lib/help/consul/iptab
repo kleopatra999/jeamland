@@ -1,0 +1,3 @@
+NAME		iptab
+SYNTAX		iptab
+DESCRIPTION	Displays the ip table, ie. the internal ip number/name cache.

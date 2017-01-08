@@ -1,0 +1,6 @@
+NAME		rusage
+SYNTAX		rusage
+DESCRIPTION	Show system CPU usage and various other statistics.
+		The most interesting figures are at the bottom, namely
+		averages of system and user time use in seconds / hour with
+		the most recent value at the left.

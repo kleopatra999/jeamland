@@ -1,0 +1,221 @@
+# The feelings database.
+# Valid escapes are:
+#        # - Literal '#'
+#        ' - Literal ':'
+#        p - actor possessive
+#        P - target possessive
+#        o - actor objective
+#        O - target objective
+#        r - actor pronoun
+#        R - target pronoun.
+#        i - Insert remaining text here.
+#	 n - Newline
+
+# Format: <feeling> [adverb] [user]
+Section std
+	agree::with
+	ah
+	apologise::to
+	beg
+	bibble
+	boggle:at the concept
+	blink
+	bop:#oself on the nose:#i on the nose
+	bounce:around:around
+	bow:gracefully:to
+	cackle:with glee
+	cakel:with glee
+	cheer::for
+	chuckle
+	cough:noisily
+	cower:in terror
+	cringe:in fear
+	curtsey:gracefully:to
+	dance:around:with
+	disagree::with
+	drool::over
+	fart
+	fawn
+	flinch::from
+	flirt::with
+	flutter:#p eyelashes:#p eyelashes at
+	frown
+	fume
+	gasp
+	giggle
+	glare
+	grimace
+	grin
+	groan
+	growl
+	grumble
+	grump
+	hmm
+	howl
+	hum
+	kneel::before
+	laff
+	laugh
+	leer
+	listen::to
+	melt::at the sight of
+	mumble::about
+	mutter::about
+	nod
+	nog:noggingly:noggingly at
+	peer
+	point
+	pout
+	purr
+	recoil:with fear:from
+	scratch:#p head
+	shake:#p head:hands with
+	shrug
+	sigh
+	smile
+	smirk
+	snarl
+	sneeze
+	sniff
+	snicker
+	snigger
+	spit
+	stare
+	swear
+	tut
+	wave::to
+	whistle
+	wince
+	wink
+	wonder::about
+Endsection
+
+# Format: <feeling> <user> [adverb]
+Section std2
+	amuse
+	bite
+	caress
+	comfort
+	confuse
+	congratulate
+	cuddle
+	greet
+	hug
+	ignore
+	kick
+	kiss
+	knee
+	lick
+	like
+	love
+	nudge
+	pat
+	pinch
+	poke:in the ribs
+	slap
+	stroke
+	squeeze
+	tackle
+	thank
+	tickle
+	whip
+	worship
+Endsection
+
+# Format: <feeling>
+Section no_arg
+	ack
+	bawl:#p eyes out
+	*bbl:suddenly notices the time and says#' Be back later!
+	*brb:holds up #p finger and exclaims#' I'll be right back!
+	*brighten:thinks about it, then it dawns on #o...#p face brightens
+	*cool:lifts an eyebrow behind #p shades and says#' COOL!
+	duck
+	flip:head over heels
+	hiccup
+	*hide:runs and hides
+	*ouch:goes Ouch!
+	raise:#p hand
+	*riff:plays a most excellent riff on #p air guitar
+	*rofl:rolls around on the floor laughing
+	sit:down
+	strut:proudly
+	tremble
+	twiddle:#p thumbs
+	twinkle:#p eyes
+	*woo:goes 'Woo Woo'
+	*work:should really be doing some work!!
+Endsection
+
+# Format: <feeling> [adverb]
+Section no_targ
+	blush
+	burp
+	choke
+	clap
+	complain:loudly
+	cry
+	despair
+	duh
+	eek
+	ewop:softly
+	faint
+	gulp
+	jump
+	lag:terribly
+	moan
+	mourn
+	panic
+	ponder:the situation
+	puzzle:over something
+	scream
+	shiver
+	shudder
+	shuffle:#p feet
+	sing
+	snap:#p fingers
+	sniffle
+	snore
+	sob
+	stretch:#p whole body
+	sulk
+	swoon
+	*think:thinks:. o O ( #i )
+	weep
+	whine
+	wibble
+	wiggle:#p bottom
+	yawn
+	yodel
+Endsection
+
+# Format: <feeling> <user>
+Section targ
+	*bearhug::gives #i a great, big, bonecrushing bearhug
+	*blowkiss::blows a kiss to
+	*boing::bounces around the room and lands on #i's shoulders
+	*five::gives #i a high five
+	*french::gives #i a deep and passionate kiss.#nIt seems to take forever
+	*marry::drops to #p knees and asks #i to marry #o
+	nibble::on #i's ear
+	*pancake::gives #i a single, perfectly round, tasty pancake
+	ruffle::#i's hair playfully
+	run::up to #i and gives #O a big hug
+	snuggle::up to
+	*yy::points a finger at #i's chest and says#' Yes, YOU!
+Endsection
+
+# Format: <feeling> [user]
+Section opt_targ
+	*eyebrow:raises an eyebrow:raises an eyebrow at
+	*fruit:pulls out some fresh fruit and grins evilly!:attacks #i with a banana!
+	*hammer:pulls something out from under #p shirt and looks around the room for a victim:runs over to #i and bops #O on the head with an inflatable hammer
+	*lol:laughs out loud:laughs out loud at
+	incline:#p head:#p head at
+	*kipper:pulls out a very wet looking kipper and eyes the assembled crowd:slaps #i around the face with a wet kipper
+	*moose:grabs a stuffed moose, looks around and mumbles something about revenge:yells 'MOOSE!' and whacks #i over the head with a stuffed animal
+	*pogo:thrashes about like a buzzcock:bounces around #i wildly
+	*rolleyes:rolls #p eyes:rolls #p eyes at
+	stick:#p tongue out:#p tongue out at
+Endsection
+

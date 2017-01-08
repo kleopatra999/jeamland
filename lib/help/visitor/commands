@@ -1,0 +1,4 @@
+NAME		commands
+SYNTAX		commands [level]
+DESCRIPTION	List the commands you have, or with arguments, for a certain
+		level.

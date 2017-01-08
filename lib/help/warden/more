@@ -1,0 +1,3 @@
+NAME		more
+SYNTAX		more <file>
+DESCRIPTION	More a file in the lib directory. cf. UNIX

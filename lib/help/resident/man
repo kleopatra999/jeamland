@@ -1,0 +1,7 @@
+NAME		man
+SYNTAX		man [function]
+DESCRIPTION	Shows manual pages for built in alias functions. If you don't
+		know what they are, read the alias.tutorial help page.
+		Without an argument, shows a list of functions.
+SEE ALSO	alias.funcs
+		alias.tutorial

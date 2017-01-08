@@ -1,0 +1,3 @@
+NAME		su
+SYNTAX		su <user>
+DESCRIPTION	Become another user. (cf. UNIX)

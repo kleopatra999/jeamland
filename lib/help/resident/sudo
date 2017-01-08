@@ -1,0 +1,7 @@
+NAME		sudo
+SYNTAX		sudo <cmd>
+DESCRIPTION	Execute a command as root.
+		Commands which set up a prompt will probably not work as you
+		expect. You will remain root only during the immediate
+		execution; commands such as 'chpasswd' therefore are not
+		useable with sudo.

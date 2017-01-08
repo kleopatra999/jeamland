@@ -1,0 +1,15 @@
+
+			Frequently Asked Questions
+			--------------------------
+
+Q.	Why doesn't my alias work ?
+A.	There could be two reasons. One common mistake is to omit the $*
+	expression at the end of the alias as in:
+		alias t tell $*
+	The other possibility is that your alias contains some reserved
+	characters. The reserved characters are: $, @, &, #, % and ; which
+	must be escaped by prefixing them with a \ character.
+
+Q.	Why is this FAQ so short ?
+A.	Because nobody has asked anything ;-)
+

@@ -1,0 +1,42 @@
+
+			CURRENT ALIAS FUNCTIONS
+			-----------------------
+
+	push		Pushes the argument onto the stack.
+	pop		Pops the stack.
+	copy		Replicates the stacked argument as many times as the
+			argument says.
+	map		Executes a command with several arguments in turn.
+
+	lower_case	Changes a string to all lower case.
+	capitalise	Capitalises the first letter of a string.
+	capfirst	Capitalises the first letter of a string and
+			changes the rest to lower case.
+	pluralise	Pluralises the argument.
+
+	=		Returns true if the value on the stack equals the
+			argument.
+	~		Check if the value on the stack is contained
+			within the argument.
+	+		Returns the sum of the argument and the value on the
+			stack.
+	<		Returns true if the value on the stack is less than
+			the argument.
+	>		Returns true if the value on the stack is greater than
+			the argument.
+
+	time		Returns the current hour or minute, depending on the
+			supplied argument.
+
+	present		Finds a user in the current room.
+	find_user	Finds a logged in user.
+
+	possessive	These three functions return strings which are
+	objective	contructed with regard for the gender of the
+	pronoun		user supplied as an argument.
+
+	query_level	Returns the level of the user passed as an argument.
+	member_grupe	Checks if a user is a member of a system grupe.
+
+For more information on each function, type 'man <function>'
+

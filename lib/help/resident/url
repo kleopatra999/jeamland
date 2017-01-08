@@ -1,0 +1,7 @@
+NAME		url
+SYNTAX		url <address>
+		url -r
+DESCRIPTION	Allows a user to set the url of their homepage. This shown
+		on the output from 'finger' and when fingering via the service
+		port (eg. on a web page interface)
+		'url -r' removes any current set url.

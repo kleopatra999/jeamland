@@ -1,0 +1,7 @@
+NAME		member_grupe
+SYNTAX		member_grupe(user)
+DESCRIPTION	Checks to see whether a user is a member of a grupe. The grupe
+		name must be pushed on to the stack before this function is
+		called.
+		This function checks system grupes only at present.
+RETURN VALUE	Returns 1 if the user belongs to the grupe, 0 otherwise.

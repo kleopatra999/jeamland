@@ -1,0 +1,5 @@
+NAME		reident
+SYNTAX		reident <user>
+DESCRIPTION	Attempt to convert a users ip number into a name and to
+		obtain their real username - if auto-ident failed for some
+		reason (usually netlag).

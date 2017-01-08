@@ -1,0 +1,3 @@
+NAME		capname
+SYNTAX		capname <new capitalisation>
+DESCRIPTION	Changes the capitalisation of your name on the talker.

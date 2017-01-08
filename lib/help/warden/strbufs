@@ -1,0 +1,3 @@
+NAME		strbufs
+SYNTAX		strbufs
+DESCRIPTION	Shows statistics on internal string buffers.

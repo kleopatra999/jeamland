@@ -1,0 +1,7 @@
+NAME		emote
+SYNTAX		emote <message>
+DESCRIPTION	Display a message to the current room. The message is an
+		'emotion' message.
+EXAMPLES	emote grins.
+		emote bops Sweep on the head.
+AKA		:

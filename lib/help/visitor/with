@@ -1,0 +1,5 @@
+NAME		with
+SYNTAX		with [user]
+DESCRIPTION	Shows which users are with which or, with the optional
+		argument, which users are with a particular user.
+

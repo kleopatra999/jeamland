@@ -1,0 +1,5 @@
+NAME		pop
+USAGE		pop(number)
+DESCRIPTION	Pops <number> elements from the stack and returns its argument.
+RETURN VALUE	Pop returns its argument.
+

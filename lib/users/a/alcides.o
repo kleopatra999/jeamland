@@ -1,0 +1,41 @@
+password "D6bzM.g32h33A"
+email "A.Fiddaman@twikki.demon.co.uk"
+capname "Alcides"
+url "http://www.twikki.demon.co.uk/"
+title "is evil and he must be destroyed!"
+prompt "[%t] %n\\% (%!) "
+plan "To finish writing this thing before I'm 50 ;-)\n"
+startloc "_Entry"
+last_login 852161298
+last_ip "console"
+time_on 2220106
+level 1
+saveflags 131624
+medopts 3
+terminal 1
+screenwidth 80
+morelen 22
+gender 0
+earmuffs 16
+hibernate 0
+bad_logins 0
+alias_lim -1
+quote_char ;
+postings 3
+num_logins 31
+alias ({"_login","write;people;write;mbs;write",})
+alias ({"e","emote $*",})
+alias ({"ey","eyebrow $*",})
+alias ({"idle","who -i",})
+alias ({"innoc","whistle innocently $*",})
+alias ({"ip","who -p",})
+alias ({"lg","log syslog",})
+alias ({"note","post $*",})
+alias ({"os","overseer $*",})
+alias ({"ps","who -c",})
+alias ({"rey","remote $1 raises an eyebrow.",})
+alias ({"rlog","sudo rm log/$*",})
+alias ({"tw",":takes a step to the left.....;:takes a jump to the right.....;:puts his hands on his hips.....;:brings his knees in tiiiiiiight.;:does the pelvis thrust.....;:is really driven insaaaaaaaaaaaaane...;sing Let's do the timewarp again!",})
+alias ({"w","who",})
+alias ({"where","who -w",})
+last_watch 0

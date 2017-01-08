@@ -1,0 +1,4 @@
+NAME		lock
+SYNTAX		lock [#grupe]
+DESCRIPTION	Lock current room to everyone or, with argument, to people
+		not in [grupe]

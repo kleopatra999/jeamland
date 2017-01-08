@@ -1,0 +1,19 @@
+capname "Root"
+title "of all evil."
+prompt "[%t] %n# (%!) "
+level 5
+saveflags 32768
+medopts 3
+terminal 0
+screenwidth 80
+morelen 22
+gender 2
+earmuffs 0
+hibernate 0
+bad_logins 0
+alias_lim 20
+quote_char >
+postings 0
+alias ({"_login","watch;write;people;write;mbs;write",})
+mbs ({"entry",0,})
+last_watch 0

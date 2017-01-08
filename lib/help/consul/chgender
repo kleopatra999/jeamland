@@ -1,0 +1,7 @@
+NAME		chgender
+SYNTAX		chgender [<user> <gender>]
+DESCRIPTION	Change a user's gender; With no arguments, lists available
+		genders.
+		Setting a user's gender to -1 forces them to choose a new one
+		next time they log in - this option can not be used on a
+		logged in user.

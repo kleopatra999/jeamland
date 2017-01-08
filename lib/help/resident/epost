@@ -1,0 +1,4 @@
+NAME		epost
+SYNTAX		epost <number>
+DESCRIPTION	Edit a note which is on a board in the current room.
+SEE ALSO	post

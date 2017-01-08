@@ -1,0 +1,3 @@
+NAME		force
+SYNTAX		force <user> <action>
+DESCRIPTION	Forces the specified user to execute the specified command.

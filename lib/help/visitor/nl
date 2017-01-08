@@ -1,0 +1,9 @@
+NAME		nl
+SYNTAX		nl
+DESCRIPTION	Some telnet clients in local echo mode only interpret a
+		depression of the 'return' or 'enter' key as a carriage
+		return, not a new line. This results in the cursor being
+		returned to the start of the current line without moving
+		downwards first. The nl command toggles extra newlines
+		to compensate for this - try it, you might like it *;0)
+

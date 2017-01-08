@@ -1,0 +1,3 @@
+NAME		intertest
+SYNTAX		intertest [:]<message>
+DESCRIPTION	Send a test intermud message.. Do not use unless debugging.

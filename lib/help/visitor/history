@@ -1,0 +1,33 @@
+NAME		history
+SYNTAX		history
+DESCRIPTION	List your previous commands.
+		You can execute previous commands in a number of ways.
+		!<number> executes command <number>
+		!<string> executes previous command starting with <string>
+		! or !! executes previous command.
+		You can add things to previous commands; eg.
+			> tell alcides
+			Syntax: tell <user> <message>
+			> !! hello
+			You tell Alcides: hello
+		or
+			> tell alcide
+			Syntax: tell <user> <message>
+			> !!s hello
+			You tell Alcides: hello
+
+		Modifiers are also supported; for example:
+			> tell aldides hello
+			Nobody found to tell.
+			> ^ald^alc
+			You tell Alcides: hello
+		It is possible to specify a blank replacement part.
+
+		History modifiers combine both of the above ideas; for example:
+			> tell aldides hello
+			Nobody found to tell.
+			> who
+			...
+			> !tell^ald^alc
+			You tell Alcides: hello
+

@@ -1,0 +1,4 @@
+NAME		paste
+SYNTAX		paste
+DESCRIPTION	Enter text to be dumped to the current room all in one go. 
+		text is entered using the editor.

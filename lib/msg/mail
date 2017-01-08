@@ -1,0 +1,21 @@
+Mail commands
+-------------
+<number>	Read message <number>
+<RETURN>	Read next message.
+d[range]	Delete messages.
+f [msg] <user>	Forward a message to <user>.
+h		Show message headers (current message shown by >,
+				      New messages shown by *)
+M[range]	Send your mailbox or selected messages to yourself via email.
+		Your email address must have been validated.
+n[range]	Mark messages as unread (Keep as new.)
+o		Toggle whether all or only new messages are shown at startup.
+q		Quit.
+r[message]	Reply to a message.
+u[range]	Undelete messages.
+x		Quit.
+
+Arguments shown in [] are optional, those shown in <> are mandatory.
+No arguments usually implies 'current' message.
+A range is a comma delimited list of ranges of numbers (eg. 1-4,7)
+

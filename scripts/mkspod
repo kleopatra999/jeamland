@@ -1,0 +1,53 @@
+#!/bin/sh
+# Automagically create the 'spod' league table.
+# Distributed as part of the JeamLand talker system.
+# This is an example only.. it works for me!
+#
+# (c) Andy Fiddaman, 1996.
+#
+
+LIB=${HOME}/jeamland/lib
+
+# Need to get the maximums *sigh*
+max_logins=0
+max_time_on=0
+for user in `find $LIB/users -type f -name \*.o -print`
+do
+	result=`awk '
+		$1 == "time_on"		{ time_on = $2 / 86400 }
+		$1 == "num_logins"	{ logins = $2 }
+		END 			{
+			printf("%d %d\n", time_on, logins) }' $user`
+	time_on=`echo $result |awk '{print $1}'`
+	logins=`echo $result | awk '{print $2}'`
+	if [ "$logins" -gt "$max_logins" ]; then
+		max_logins=$logins
+	fi
+	if [ "$time_on" -gt "$max_time_on" ]; then
+		max_time_on=$time_on
+	fi
+done
+
+for user in `find $LIB/users -type f -name \*.o -print`
+do
+	awk -v max_time_on=$max_time_on -v max_logins=$max_logins '
+		BEGIN			{ time_on = num_logins = name = 0 }
+		function mid(s) 	{ return substr(s, 2, length(s) - 2) }
+					# Convert to hours
+		$1 == "time_on"		{ time_on = $2 / 86400 }
+		$1 == "num_logins"	{ num_logins = $2 }
+		$1 == "capname"		{ name = mid($2) }
+		END	{ if (name != 0 && num_logins != 0 && time_on != 0)
+				printf("%s %d %d %d\n", name, num_logins, \
+				    time_on, \
+				    (num_logins / max_logins) * 30 + \
+				    (time_on / max_time_on) * 70)
+			}' $user
+# Sort by spod quotient and snip off anything after the first twenty lines.
+done | sort -nr +3 | sed 20q | awk '
+BEGIN	{ printf("%4s   %-20s %-10s %-10s %-10s\n", "Rank", "Name", "Logins", \
+		"Time On", "Spod Rating") }
+	{ if ($4 > 100) $4 = 100
+	  printf("%4d   %-20s %-10d %-10d %3d %%\n", NR, $1, $2, $3, $4) }' \
+> ${LIB}/help/spod
+

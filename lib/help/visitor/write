@@ -1,0 +1,14 @@
+NAME		write
+SYNTAX		write [text]
+DESCRIPTION	Show a line of text to yourself. Useful for aliasing commands
+		which don't exist and which you keep typing!
+		<text> can contain escape codes and cookies, see the help
+		pages on 'cookies' and 'escapes'
+		Without arguments, outputs a blank line.
+		(cf. UNIX echo)
+EXAMPLES	alias cd write You can't do that here.
+		alias time write The time is %t.
+		alias _login write ^[[37m^[[40m^[[?7h;who
+			to set terminal to white on black and turn on
+			autowrap at login; before executing 'who'
+		alias _login write;people;write;mbs;write

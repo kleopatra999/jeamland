@@ -1,0 +1,3 @@
+NAME		usercount
+SYNTAX		usercount
+DESCRIPTION	Show a summary of the talker's users listed by level.

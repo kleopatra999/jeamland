@@ -1,0 +1,24 @@
+#!/bin/sh
+# A dead easy script to only run angel -c if the binary exists!
+
+if [ "x$LOGNAME" = "x" ]; then
+	LOGNAME=jeamland
+fi
+
+JL=$HOME/jeamland
+
+if [ -x "$JL/bin/angel" ] || [ -L "$JL/bin/angel" -a -x "$JL/util/angel" ]
+then
+	$JL/bin/angel -c
+	if [ $? -ne 24 ]; then
+		# The angel has just started the talker
+		mail -s'JeamLand Angel Started' $LOGNAME << EOM
+
+----------------------------------------------------------------------
+JeamLand process started by ifangel.
+----------------------------------------------------------------------
+
+EOM
+	fi
+fi
+

@@ -1,0 +1,3 @@
+NAME		eject
+SYNTAX		eject <user>
+DESCRIPTION	Kick a user out of the current room.

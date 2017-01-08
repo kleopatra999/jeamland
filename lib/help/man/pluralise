@@ -1,0 +1,4 @@
+NAME		pluralise
+SYNTAX		pluralise(string)
+DESCRIPTION
+RETURN VALUE	Returns the plural form of the supplied argument.

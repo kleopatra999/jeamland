@@ -1,0 +1,4 @@
+NAME		desc
+SYNTAX		desc
+DESCRIPTION	Set a new description for the current room.
+SEE ALSO	edesc

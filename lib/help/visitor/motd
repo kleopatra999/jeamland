@@ -1,0 +1,4 @@
+NAME		motd
+SYNTAX		motd
+DESCRIPTION	Displays the 'message of the day' which is the message shown
+		as you log in.

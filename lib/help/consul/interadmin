@@ -1,0 +1,4 @@
+
+NAME		interadmin
+SYNTAX		interadmin [:]<message>
+DESCRIPTION	Send a message on the interadmin channel.

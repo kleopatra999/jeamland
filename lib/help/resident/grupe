@@ -1,0 +1,40 @@
+NAME		grupe
+SYNTAX		grupe
+		grupe <grupe id> <name> [name]...
+		grupe -r <grupe id>
+OPTIONS		List all personal / global grupes.
+		Add or remove users from a grupe.
+		Remove a grupe.
+DESCRIPTION	Grupe is the grupe administration command.
+		A Grupe is basically a list of people who can be referred to
+		by just one name; there are three types of grupe:
+		 1. User grupes.
+			User grupes are grupes which contain all users of a
+			specific level or level set, examples of these are
+			warden, warden+, warden-, consul.
+			The warden+ grupe contains all users who are level
+			'warden' or above. Similarly, warden- contans all users
+			who are level 'warden' or below.
+			NB: Due to the internal storage of levels, it is not
+			    possible to identify users who are below 'citizen'
+			    level and therefore the 'resident' grupe does not
+			    exist.
+		 2. System grupes.
+			Grupes which are global, listed and amended by using
+			the grupe command with a capital G.
+		 3. Personal grupes.
+			Grupes which are personal to each user. Each user can
+			have up to 10 groups of 15 members each. (Your local
+			administrator may have changed these limits)
+
+		A grupe may contain an exclusion element which is a name
+		prefixed by a ! character.
+		eg:
+			#consul+,!root
+		is the grupe containing all users of level consul or above
+		but excluding root.
+
+		The finger command may be used to list the contents of a grupe.
+		Grupes are currently useable in 'tell' and 'mail' commands.
+		(Open to suggestions ;-)
+SEE ALSO	finger, mail, tell

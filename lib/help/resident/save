@@ -1,0 +1,4 @@
+NAME		save
+SYNTAX		save
+DESCRIPTION	Store your user variables to disk (done automatically every
+		so often and when you quit)

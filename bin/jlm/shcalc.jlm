@@ -1,0 +1,26 @@
+#!/bin/sh
+# Example of how to write a calculator in shell using the jlm.sh library.
+# For more examples, look in jlmlib/shtest.jlm
+
+# We are executed with cwd == lib
+source ../jlmlib/jlm.sh
+
+register_ident "Calculator in sh (c) A.Fiddaman 1996"
+claim_command "calc"
+
+while [ 1 -eq 1 ]
+do
+	read_line
+	if [ $status -eq 5 ]; then
+		chattr $user "bold"
+		if [ 'x'"$arg" = 'x' ]; then
+			write_user $user \
+			    "Shell calculator tells you: Syntax: calc <sum>"
+		else
+			write_user $user \
+			    "Shell calculator tells you: "`echo $arg | bc`
+		fi
+		chattr $user "reset"
+	fi
+done
+

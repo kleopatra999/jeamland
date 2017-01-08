@@ -1,0 +1,7 @@
+NAME		email
+SYNTAX		email [address] | [-p]
+DESCRIPTION	Sets your email address or, without arguments, displays the
+		current setting.
+		If invoked with the -p flag, toggles the 'private' flag.
+		NB: If you have a validated email address, this will
+		    invalidate it.

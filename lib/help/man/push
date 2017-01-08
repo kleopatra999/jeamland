@@ -1,0 +1,9 @@
+NAME		push
+USAGE		push(arg)
+DESCRIPTION	Simply copies the supplied argument. 
+			@push(arg)
+		is identical to
+			arg
+		and so the main use is in inserting something onto the
+		stack using %push(arg).
+RETURN VALUE	push() returns its argument.

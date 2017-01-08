@@ -1,0 +1,4 @@
+NAME		lower_case
+SYNTAX		lower_case(string)
+DESCRIPTION	Convert all characters in the string argument to lower case.
+RETURN VALUE	The lower cased argument.

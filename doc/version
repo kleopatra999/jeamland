@@ -1,0 +1,13 @@
+
+The JeamLand version number consists of a string of the form:
+
+	MM.mm.pp
+
+Where MM is the major number, mm the minor number and pp is the patchlevel.
+
+The first release of JeamLand will be version 1.0.0 and any bug fixing patches
+will be numbered 1.0.1 and upwards.
+
+After verson 1.0.0 is released, all development work will go into version
+1.1.0 and the next release will be version 1.2.0
+

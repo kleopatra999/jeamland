@@ -1,0 +1,3 @@
+NAME		netstat
+SYNTAX		netstat
+DESCRIPTION	Show statistics on network traffic.

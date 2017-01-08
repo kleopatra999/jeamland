@@ -1,0 +1,4 @@
+NAME		edesc
+SYNTAX		edesc
+DESCRIPTION	Edit the description of the current room. cf. desc
+SEE ALSO	desc

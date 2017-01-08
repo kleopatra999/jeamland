@@ -1,0 +1,3 @@
+NAME		cpnote
+SYNTAX		cpnote <note number> <source room> <destination room>
+DESCRIPTION	Copies a note from a board in one room to a board in another.

@@ -1,0 +1,3 @@
+NAME		name
+SYNTAX		name <name>
+DESCRIPTION	Changes the name of the current room to <name>
