@@ -746,6 +746,13 @@ ed_search_replace(struct user *p, char *c)
 	/* Terminate search string, increment replace string pointer. */
 	*r++ = '\0';
 
+	if (!strlen(c))
+	{
+		fwrite_socket(p, "-- Null search string.\n");
+		ed_prompt(p);
+		return;
+	}
+
 	/* Find our search string */
 	if ((s = strstr(lp->text, c)) == (char *)NULL)
 	{

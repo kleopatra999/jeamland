@@ -6,3 +6,7 @@
  - Fixed bug in the epost command. exiting with an empty buffer or with the
    ~q command caused a crash.
 
+1.0.2
+ - Fixed bug in the editor.. Executing a search and replace with a null
+   search string caused a crash.
+
