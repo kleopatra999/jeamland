@@ -8,3 +8,7 @@
  - Previously, if ^C was pressed at the password prompt of a console mode
    talker, echo would remain off in the running shell - [Neil.R]
 
+1.2.2
+ - If a user with no password set went auto-afk, the talker would crash when
+   that user next typed anything.
+

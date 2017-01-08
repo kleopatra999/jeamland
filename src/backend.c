@@ -262,7 +262,9 @@ handle_autoafk(struct event *ev)
 	{
 		int idle, n;
 
-		if (!IN_GAME(p) || p->input_to != NULL_INPUT_TO)
+		if (!IN_GAME(p) || p->input_to != NULL_INPUT_TO ||
+		    p->level < L_RESIDENT || p->passwd == (char *)NULL ||
+		    (p->flags & U_SOCK_CLOSING))
 			continue;
 
 		idle = (int)(current_time - p->last_command);
